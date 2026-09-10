@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "SPORE",
+    "slug": "spore-seeker-zero",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": ["android"],
+    "scheme": "spore",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.spore.seekerzero"
+    }
+  }
+}

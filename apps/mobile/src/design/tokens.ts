@@ -1,0 +1,72 @@
+export const tokens = {
+  colors: {
+    background: "#040605",
+    surface: "#080c0a",
+    surfaceSubtle: "#0d1411",
+    textPrimary: "#f4f7f4",
+    textSecondary: "#b2bcb6",
+    textMuted: "#66716b",
+    border: "rgba(244, 247, 244, 0.1)",
+    accent: "#b8e6d2",
+    accentSoft: "rgba(184, 230, 210, 0.14)"
+  },
+  typography: {
+    display: {
+      fontSize: 42,
+      lineHeight: 48,
+      fontWeight: "700"
+    },
+    title: {
+      fontSize: 22,
+      lineHeight: 28,
+      fontWeight: "700"
+    },
+    body: {
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: "400"
+    },
+    metadata: {
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: "600"
+    },
+    label: {
+      fontSize: 14,
+      lineHeight: 18,
+      fontWeight: "700"
+    },
+    identifier: {
+      fontFamily: "monospace",
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: "600"
+    }
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    xxl: 32,
+    xxxl: 48
+  },
+  radii: {
+    sm: 4,
+    md: 8,
+    full: 999
+  },
+  border: {
+    width: 1
+  },
+  opacity: {
+    disabled: 0.42,
+    faint: 0.28,
+    muted: 0.62
+  },
+  motion: {
+    quick: 140,
+    breathe: 4200
+  }
+} as const;

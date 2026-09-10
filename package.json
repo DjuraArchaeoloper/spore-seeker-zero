@@ -1,0 +1,11 @@
+{
+  "name": "spore",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SPORE: Seeker Zero monorepo.",
+  "workspaces": [
+    "apps/mobile",
+    "apps/api",
+    "packages/shared"
+  ]
+}

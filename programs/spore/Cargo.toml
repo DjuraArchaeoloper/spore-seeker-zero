@@ -1,0 +1,23 @@
+[package]
+name = "spore"
+version = "0.1.0"
+description = "SPORE Anchor program shell."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "spore"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+
+[dependencies]
+anchor-lang = "0.31.1"
+anchor-spl = { version = "0.31.1", default-features = false, features = ["token_2022", "token_2022_extensions"] }
+mpl-core = { version = "0.12.1", default-features = false, features = ["anchor"] }
+spl-token-group-interface = "0.5"

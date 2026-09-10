@@ -1,0 +1,3 @@
+[workspace]
+members = ["programs/spore"]
+resolver = "2"
