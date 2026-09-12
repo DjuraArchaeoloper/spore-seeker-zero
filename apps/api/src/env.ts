@@ -13,7 +13,12 @@ type RequiredEnvName =
   | "SIWS_DOMAIN"
   | "SIWS_URI"
   | "SPORE_PROGRAM_ID"
-  | "HELIUS_WEBHOOK_AUTH";
+  | "HELIUS_WEBHOOK_AUTH"
+  | "SPORE_DEVNET_TEST_SGT_MINT_AUTHORITY"
+  | "SPORE_DEVNET_TEST_SGT_METADATA_ADDRESS"
+  | "SPORE_DEVNET_TEST_SGT_GROUP_ADDRESS";
+
+export type SolanaCluster = "mainnet" | "devnet";
 
 export function getRequiredEnv(name: RequiredEnvName) {
   const value = process.env[name]?.trim();
@@ -29,12 +34,14 @@ export function getSiwsConfig() {
   return {
     domain: getRequiredEnv("SIWS_DOMAIN"),
     uri: getRequiredEnv("SIWS_URI"),
-    statement: authConfig.statement
+    statement: authConfig.statement,
+    chainId: getSolanaCluster() === "devnet" ? "solana:devnet" : "solana:mainnet"
   };
 }
 
 export function getHeliusRpcUrl() {
-  return `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(getRequiredEnv("HELIUS_API_KEY"))}`;
+  const cluster = getSolanaCluster() === "devnet" ? "devnet" : "mainnet";
+  return `https://${cluster}.helius-rpc.com/?api-key=${encodeURIComponent(getRequiredEnv("HELIUS_API_KEY"))}`;
 }
 
 export function getSporeProgramId() {
@@ -43,4 +50,30 @@ export function getSporeProgramId() {
 
 export function getHeliusWebhookAuth() {
   return getRequiredEnv("HELIUS_WEBHOOK_AUTH");
+}
+
+export function getSolanaCluster(): SolanaCluster {
+  const value = process.env.SPORE_SOLANA_CLUSTER?.trim() ?? "mainnet";
+
+  if (value !== "mainnet" && value !== "devnet") {
+    throw new Error("SPORE_SOLANA_CLUSTER must be mainnet or devnet.");
+  }
+
+  return value;
+}
+
+export function getSgtVerificationConfig() {
+  if (getSolanaCluster() === "devnet") {
+    return {
+      mintAuthority: getRequiredEnv("SPORE_DEVNET_TEST_SGT_MINT_AUTHORITY"),
+      metadataAddress: getRequiredEnv("SPORE_DEVNET_TEST_SGT_METADATA_ADDRESS"),
+      groupAddress: getRequiredEnv("SPORE_DEVNET_TEST_SGT_GROUP_ADDRESS")
+    };
+  }
+
+  return {
+    mintAuthority: "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+    metadataAddress: "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te",
+    groupAddress: "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te"
+  };
 }

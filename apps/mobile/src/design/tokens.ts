@@ -1,4 +1,12 @@
 export const tokens = {
+  specimen: {
+    background: "#03080d",
+    primary: "#f3f5f6",
+    secondary: "#a3abb2",
+    mint: "#b5eee2",
+    outline: "rgba(181, 238, 226, 0.72)",
+    overlay: "rgba(0, 4, 8, 0.16)"
+  },
   colors: {
     background: "#040605",
     surface: "#080c0a",

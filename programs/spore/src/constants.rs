@@ -27,6 +27,12 @@ pub const EMPTY_SPORE_COMMITMENT: [u8; SPORE_COMMITMENT_BYTE_LENGTH] =
 
 // Official Solana Mobile Seeker Genesis Token addresses.
 // Source: https://docs.solanamobile.com/marketing/engaging-seeker-users
+#[cfg(not(feature = "devnet-test-sgt"))]
 pub const SGT_MINT_AUTHORITY: Pubkey = pubkey!("GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4");
+#[cfg(not(feature = "devnet-test-sgt"))]
 pub const SGT_METADATA_ADDRESS: Pubkey = pubkey!("GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te");
+#[cfg(not(feature = "devnet-test-sgt"))]
 pub const SGT_GROUP_ADDRESS: Pubkey = pubkey!("GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te");
+
+#[cfg(feature = "devnet-test-sgt")]
+include!(concat!(env!("OUT_DIR"), "/devnet_test_sgt_constants.rs"));

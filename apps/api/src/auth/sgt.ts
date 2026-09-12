@@ -6,11 +6,7 @@ import {
   unpackMint
 } from "@solana/spl-token";
 
-import { getHeliusRpcUrl } from "../env";
-
-const SGT_MINT_AUTHORITY = "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4";
-const SGT_METADATA_ADDRESS = "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te";
-const SGT_GROUP_MINT_ADDRESS = "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te";
+import { getHeliusRpcUrl, getSgtVerificationConfig } from "../env";
 const TOKEN_ACCOUNT_PAGE_LIMIT = 1000;
 const MINT_ACCOUNT_BATCH_SIZE = 100;
 const MAX_TOKEN_ACCOUNT_PAGES = 50;
@@ -186,15 +182,16 @@ async function getToken2022MintsForWallet(heliusRpcUrl: string, walletAddress: s
 
 function isVerifiedSgtMint(mintAddress: PublicKey, accountInfo: Parameters<typeof unpackMint>[1]) {
   try {
+    const config = getSgtVerificationConfig();
     const mint = unpackMint(mintAddress, accountInfo, TOKEN_2022_PROGRAM_ID);
     const metadataPointer = getMetadataPointerState(mint);
     const tokenGroupMemberState = getTokenGroupMemberState(mint);
 
     return (
-      mint.mintAuthority?.toBase58() === SGT_MINT_AUTHORITY &&
-      metadataPointer?.authority?.toBase58() === SGT_MINT_AUTHORITY &&
-      metadataPointer?.metadataAddress?.toBase58() === SGT_METADATA_ADDRESS &&
-      tokenGroupMemberState?.group?.toBase58() === SGT_GROUP_MINT_ADDRESS
+      mint.mintAuthority?.toBase58() === config.mintAuthority &&
+      metadataPointer?.authority?.toBase58() === config.mintAuthority &&
+      metadataPointer?.metadataAddress?.toBase58() === config.metadataAddress &&
+      tokenGroupMemberState?.group?.toBase58() === config.groupAddress
     );
   } catch {
     return false;

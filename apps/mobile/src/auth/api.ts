@@ -3,7 +3,7 @@ export type SiwsPayload = {
   statement: string;
   uri: string;
   version: "1";
-  chainId: "solana:mainnet";
+  chainId: "solana:mainnet" | "solana:devnet";
   nonce: string;
   issuedAt: string;
   expirationTime: string;
@@ -28,6 +28,31 @@ type VerifyResponse = {
 };
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_SPORE_API_URL;
+
+export type PublicOrganism = {
+  organismPda: string;
+  organismNumber: string;
+  sgtMint: string;
+  generation: number;
+  genome: string;
+  parent: { organismPda: string; organismNumber: string } | null;
+  parentOrganismPda: string | null;
+  bornAt: string;
+  coreAsset: string;
+};
+
+export type BloodlineResponse = {
+  organism: PublicOrganism;
+  ancestors: PublicOrganism[];
+  directChildren: PublicOrganism[];
+  totalDescendants: number;
+};
+
+export type SpeciesResponse = {
+  population: number;
+  deepestGeneration: number;
+  seekerZero: PublicOrganism | null;
+};
 
 export async function requestSiwsPayload() {
   const response = await sporeFetch("/api/auth/nonce", {
@@ -76,6 +101,18 @@ export async function logoutSession(token: string) {
   });
 }
 
+export async function getBloodline(organismNumber: string) {
+  const response = await sporeFetch(`/api/organisms/${encodeURIComponent(organismNumber)}`, undefined, "Bloodline is unavailable.");
+
+  return (await response.json()) as BloodlineResponse;
+}
+
+export async function getSpecies() {
+  const response = await sporeFetch("/api/species", undefined, "Species is unavailable.");
+
+  return (await response.json()) as SpeciesResponse;
+}
+
 function getApiBaseUrl() {
   if (!API_BASE_URL) {
     throw new Error("SPORE is not configured.");
@@ -84,11 +121,11 @@ function getApiBaseUrl() {
   return API_BASE_URL.replace(/\/$/, "");
 }
 
-async function sporeFetch(path: string, init?: RequestInit) {
+async function sporeFetch(path: string, init?: RequestInit, message = "Authentication failed.") {
   const response = await fetch(`${getApiBaseUrl()}${path}`, init);
 
   if (!response.ok) {
-    throw new Error("Authentication failed.");
+    throw new Error(message);
   }
 
   return response;

@@ -1,0 +1,49 @@
+/**
+ * SPORE Creature Asset Registry — reference implementation.
+ *
+ * IMPORTANT:
+ * Metro requires static image paths. Do not replace these with dynamic
+ * require(`./${family}/body.png`) expressions.
+ *
+ * Codex should adapt/import this into the existing renderer rather than
+ * introducing a second competing asset system.
+ */
+
+export const SPORE_CREATURE_ASSETS = {
+  "void-drifter": {
+    body: require("./void-drifter/body.png"),
+    fins: require("./void-drifter/fins.png"),
+    core: require("./void-drifter/core.png"),
+    tendrils: require("./void-drifter/tendrils.png"),
+    surface: require("./void-drifter/surface.png"),
+    glow: require("./void-drifter/glow.png"),
+  },
+  "crystal-bloom": {
+    body: require("./crystal-bloom/body.png"),
+    fins: require("./crystal-bloom/fins.png"),
+    core: require("./crystal-bloom/core.png"),
+    tendrils: require("./crystal-bloom/tendrils.png"),
+    surface: require("./crystal-bloom/surface.png"),
+    glow: require("./crystal-bloom/glow.png"),
+  },
+  "nebula-spine": {
+    body: require("./nebula-spine/body.png"),
+    fins: require("./nebula-spine/fins.png"),
+    core: require("./nebula-spine/core.png"),
+    tendrils: require("./nebula-spine/tendrils.png"),
+    surface: require("./nebula-spine/surface.png"),
+    glow: require("./nebula-spine/glow.png"),
+  },
+  "silk-ray": {
+    body: require("./silk-ray/body.png"),
+    fins: require("./silk-ray/fins.png"),
+    core: require("./silk-ray/core.png"),
+    tendrils: require("./silk-ray/tendrils.png"),
+    surface: require("./silk-ray/surface.png"),
+    glow: require("./silk-ray/glow.png"),
+  },
+} as const;
+
+export const SPORE_MOUSTACHE_ASSET = require("./shared/moustache_01.png");
+
+export type SporeCreatureFamily = keyof typeof SPORE_CREATURE_ASSETS;

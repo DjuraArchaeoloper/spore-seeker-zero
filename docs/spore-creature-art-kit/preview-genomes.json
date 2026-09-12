@@ -1,0 +1,135 @@
+{
+  "canonicalSeekerZeroHex": "53 50 4F 52 45 00 00 00 53 45 45 4B 45 52 00 00",
+  "canonicalSeekerZeroBytes": [
+    83,
+    80,
+    79,
+    82,
+    69,
+    0,
+    0,
+    0,
+    83,
+    69,
+    69,
+    75,
+    69,
+    82,
+    0,
+    0
+  ],
+  "oneGeneMutationCases": [
+    {
+      "geneIndex": 0,
+      "gene": "BODY FORM",
+      "parentValue": 83,
+      "childValue": 196,
+      "childHex": "C4 50 4F 52 45 00 00 00 53 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 1,
+      "gene": "BODY PROPORTION",
+      "parentValue": 80,
+      "childValue": 193,
+      "childHex": "53 C1 4F 52 45 00 00 00 53 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 2,
+      "gene": "MEMBRANE SHAPE",
+      "parentValue": 79,
+      "childValue": 192,
+      "childHex": "53 50 C0 52 45 00 00 00 53 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 3,
+      "gene": "MEMBRANE DENSITY",
+      "parentValue": 82,
+      "childValue": 195,
+      "childHex": "53 50 4F C3 45 00 00 00 53 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 4,
+      "gene": "PIGMENT",
+      "parentValue": 69,
+      "childValue": 182,
+      "childHex": "53 50 4F 52 B6 00 00 00 53 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 5,
+      "gene": "BIOLUMINESCENCE",
+      "parentValue": 0,
+      "childValue": 113,
+      "childHex": "53 50 4F 52 45 71 00 00 53 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 6,
+      "gene": "NUCLEUS",
+      "parentValue": 0,
+      "childValue": 113,
+      "childHex": "53 50 4F 52 45 00 71 00 53 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 7,
+      "gene": "SENSORY NODES",
+      "parentValue": 0,
+      "childValue": 113,
+      "childHex": "53 50 4F 52 45 00 00 71 53 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 8,
+      "gene": "APPENDAGE FAMILY",
+      "parentValue": 83,
+      "childValue": 196,
+      "childHex": "53 50 4F 52 45 00 00 00 C4 45 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 9,
+      "gene": "APPENDAGE EXPRESSION",
+      "parentValue": 69,
+      "childValue": 182,
+      "childHex": "53 50 4F 52 45 00 00 00 53 B6 45 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 10,
+      "gene": "SURFACE PATTERN",
+      "parentValue": 69,
+      "childValue": 182,
+      "childHex": "53 50 4F 52 45 00 00 00 53 45 B6 4B 45 52 00 00"
+    },
+    {
+      "geneIndex": 11,
+      "gene": "SURFACE DENSITY",
+      "parentValue": 75,
+      "childValue": 188,
+      "childHex": "53 50 4F 52 45 00 00 00 53 45 45 BC 45 52 00 00"
+    },
+    {
+      "geneIndex": 12,
+      "gene": "INTERNAL FILAMENTS",
+      "parentValue": 69,
+      "childValue": 182,
+      "childHex": "53 50 4F 52 45 00 00 00 53 45 45 4B B6 52 00 00"
+    },
+    {
+      "geneIndex": 13,
+      "gene": "EXTERNAL HALO",
+      "parentValue": 82,
+      "childValue": 195,
+      "childHex": "53 50 4F 52 45 00 00 00 53 45 45 4B 45 C3 00 00"
+    },
+    {
+      "geneIndex": 14,
+      "gene": "MOTION / PULSE",
+      "parentValue": 0,
+      "childValue": 113,
+      "childHex": "53 50 4F 52 45 00 00 00 53 45 45 4B 45 52 71 00"
+    },
+    {
+      "geneIndex": 15,
+      "gene": "ASYMMETRY",
+      "parentValue": 0,
+      "childValue": 113,
+      "childHex": "53 50 4F 52 45 00 00 00 53 45 45 4B 45 52 00 71"
+    }
+  ]
+}

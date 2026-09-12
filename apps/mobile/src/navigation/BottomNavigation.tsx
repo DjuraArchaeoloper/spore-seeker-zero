@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "../components/AppText";
 import { tokens } from "../design/tokens";
@@ -17,8 +18,13 @@ type BottomNavigationProps = {
 };
 
 export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavigationProps) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.navigation}>
+    <View style={[styles.navigation, {
+      paddingBottom: Math.max(insets.bottom, tokens.spacing.lg),
+      paddingLeft: Math.max(insets.left, tokens.spacing.lg),
+      paddingRight: Math.max(insets.right, tokens.spacing.lg)
+    }]}>
       {surfaces.map((surface) => {
         const active = surface.key === activeSurface;
 
@@ -31,7 +37,7 @@ export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavig
             style={({ pressed }) => [styles.item, pressed && styles.pressed]}
           >
             <View style={[styles.indicator, active && styles.indicatorActive]} />
-            <AppText tone={active ? "primary" : "muted"} variant="metadata">
+            <AppText variant="metadata" style={[styles.label, active && styles.labelActive]}>
               {surface.label}
             </AppText>
           </Pressable>
@@ -43,12 +49,11 @@ export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavig
 
 const styles = StyleSheet.create({
   navigation: {
-    backgroundColor: tokens.colors.background,
     flexDirection: "row",
-    minHeight: 66,
+    minHeight: 72,
     paddingBottom: tokens.spacing.md,
     paddingHorizontal: tokens.spacing.xl,
-    paddingTop: tokens.spacing.xs
+    paddingTop: tokens.spacing.sm
   },
   item: {
     alignItems: "center",
@@ -64,7 +69,19 @@ const styles = StyleSheet.create({
     width: 4
   },
   indicatorActive: {
-    backgroundColor: tokens.colors.accent
+    backgroundColor: tokens.specimen.mint
+  },
+  label: {
+    color: tokens.specimen.secondary,
+    fontSize: 10,
+    fontWeight: "400",
+    letterSpacing: 2,
+    lineHeight: 16,
+    textTransform: "uppercase"
+  },
+  labelActive: {
+    color: tokens.specimen.primary,
+    fontWeight: "600"
   },
   pressed: {
     opacity: tokens.opacity.muted

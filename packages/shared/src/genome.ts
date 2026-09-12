@@ -28,6 +28,16 @@ export type GenomeBytes = readonly [
 
 export type GenomeInput = string | ArrayLike<number>;
 
+export type CreatureFamily =
+  | "void-drifter"
+  | "crystal-bloom"
+  | "nebula-spine"
+  | "silk-ray";
+
+export type CoreMode = "compact" | "tall" | "wide" | "full";
+export type AppendageMode = "wing" | "veil" | "filament" | "spine";
+export type SurfaceMode = "native" | "mirror-x" | "ghost-double" | "radial-echo";
+
 export type GenomeGene = {
   index: number;
   key:
@@ -51,86 +61,6 @@ export type GenomeGene = {
   mutationLabel: string;
 };
 
-export type OrganismPhenotype = {
-  genome: GenomeBytes;
-  seed: number;
-  body: {
-    family: "ovoid" | "bell" | "spindle" | "manta" | "medusa" | "amoeboid";
-    widthScale: number;
-    heightScale: number;
-    massBias: number;
-  };
-  membrane: {
-    lobing: number;
-    undulation: number;
-    irregularity: number;
-    opacity: number;
-    thickness: number;
-    edgeOpacity: number;
-  };
-  pigment: {
-    family: string;
-    base: string;
-    deep: string;
-    light: string;
-  };
-  luminescence: {
-    strength: number;
-    spread: number;
-    secondary: string;
-  };
-  nucleus: {
-    form: "core" | "split" | "ring" | "cluster";
-    count: number;
-    arrangement: number;
-    scale: number;
-  };
-  sensoryNodes: {
-    count: number;
-    radius: number;
-    placement: number;
-    glow: number;
-  };
-  appendages: {
-    family: "cilia" | "tendrils" | "spines" | "fins" | "filamentBundles";
-    count: number;
-    length: number;
-    curvature: number;
-    spread: number;
-    thickness: number;
-  };
-  surface: {
-    pattern: "cells" | "speckles" | "striations" | "mottling" | "fineVeins";
-    density: number;
-    scale: number;
-    opacity: number;
-  };
-  filaments: {
-    count: number;
-    complexity: number;
-    opacity: number;
-    curve: number;
-  };
-  halo: {
-    particles: number;
-    spread: number;
-    opacity: number;
-  };
-  motion: {
-    breatheDurationMs: number;
-    breatheAmplitude: number;
-    pulseDurationMs: number;
-    pulseStrength: number;
-    driftAmplitude: number;
-  };
-  asymmetry: {
-    centerOffsetX: number;
-    centerOffsetY: number;
-    rotationDeg: number;
-    lobeBias: number;
-  };
-};
-
 export type MutationDescription =
   | {
       geneIndex: number;
@@ -144,27 +74,17 @@ export type MutationDescription =
     };
 
 const HEX_GENOME_PATTERN = /^[0-9a-fA-F]{32}$/;
-const BODY_FAMILIES = ["ovoid", "bell", "spindle", "manta", "medusa", "amoeboid"] as const;
-const NUCLEUS_FORMS = ["core", "split", "ring", "cluster"] as const;
-const APPENDAGE_FAMILIES = [
-  "cilia",
-  "tendrils",
-  "spines",
-  "fins",
-  "filamentBundles"
-] as const;
-const SURFACE_PATTERNS = ["cells", "speckles", "striations", "mottling", "fineVeins"] as const;
 
-const PIGMENTS = [
-  { family: "pale violet", base: "#9389b6", deep: "#20192f", light: "#ded8ff" },
-  { family: "cold blue", base: "#789dc7", deep: "#0a1726", light: "#d4eaff" },
-  { family: "smoked teal", base: "#6fa89d", deep: "#102722", light: "#c9eee5" },
-  { family: "muted cyan", base: "#7eb9bd", deep: "#10272c", light: "#d3f6f3" },
-  { family: "pearl tissue", base: "#bcb7aa", deep: "#2a2823", light: "#f4ead9" },
-  { family: "abyss blue", base: "#7893c4", deep: "#081521", light: "#d7e8ff" },
-  { family: "ghost rose", base: "#ae8998", deep: "#302129", light: "#efd1dc" },
-  { family: "mineral green", base: "#8eb296", deep: "#18281d", light: "#d5ead7" }
+export const BODY_FAMILY_BUCKETS: readonly CreatureFamily[] = [
+  "void-drifter",
+  "crystal-bloom",
+  "nebula-spine",
+  "silk-ray"
 ] as const;
+
+const CORE_MODES: readonly CoreMode[] = ["compact", "tall", "wide", "full"] as const;
+const APPENDAGE_MODES: readonly AppendageMode[] = ["wing", "veil", "filament", "spine"] as const;
+const SURFACE_MODES: readonly SurfaceMode[] = ["native", "mirror-x", "ghost-double", "radial-echo"] as const;
 
 export const GENOME_GENES: readonly GenomeGene[] = [
   { index: 0, key: "bodyForm", name: "BODY FORM", mutationLabel: "Body form changed" },
@@ -268,85 +188,138 @@ export function genomeToHex(genome: ArrayLike<number>): string {
 
 export function phenotypeFromGenome(input: GenomeInput): OrganismPhenotype {
   const genome = typeof input === "string" ? parseGenomeHex(input) : validateGenomeBytes(input);
-  const pigment = PIGMENTS[genome[4] % PIGMENTS.length];
-  const seed = seedFromGenome(genome);
-  const densityUnit = unit(genome[11]);
+
+  return deriveSporePhenotype(Uint8Array.from(genome));
+}
+
+export function deriveSporePhenotype(genome: Uint8Array) {
+  if (genome.length !== 16) {
+    throw new Error(`SPORE genome must be exactly 16 bytes; received ${genome.length}`);
+  }
+
+  const g = [...genome];
+
+  const familyBucket = mix8(g[0]) >> 6;
+  const family = BODY_FAMILY_BUCKETS[familyBucket];
+  const formLocal = local64(g[0]);
+
+  const bodyProportionU = unit(g[1]);
+  const membraneU = unit(g[2]);
+  const densityU = unit(g[3]);
+  const pigmentU = unit(g[4]);
+  const bioU = unit(g[5]);
+  const coreMixed = mix8(g[6]);
+  const coreMode = CORE_MODES[coreMixed >> 6];
+  const coreFine = local64(g[6]);
+  const corePreset = {
+    compact: [0.84, 0.84],
+    tall: [0.78, 1.12],
+    wide: [1.12, 0.8],
+    full: [1.03, 1.03]
+  }[coreMode];
+  const sensoryMixed = mix8(g[7]);
+  const appendageMixed = mix8(g[8]);
+  const appendageMode = APPENDAGE_MODES[appendageMixed >> 6];
+  const appendagePreset = {
+    wing: { finOpacityMul: 1.0, tendrilOpacityMul: 0.45, finScaleXMul: 1.08, finScaleYMul: 1.0 },
+    veil: { finOpacityMul: 0.9, tendrilOpacityMul: 0.75, finScaleXMul: 1.0, finScaleYMul: 1.08 },
+    filament: { finOpacityMul: 0.58, tendrilOpacityMul: 1.0, finScaleXMul: 0.96, finScaleYMul: 1.03 },
+    spine: { finOpacityMul: 0.76, tendrilOpacityMul: 0.72, finScaleXMul: 0.92, finScaleYMul: 1.06 }
+  }[appendageMode];
+  const appendageExpressionU = unit(g[9]);
+  const surfaceMode = SURFACE_MODES[mix8(g[10]) >> 6];
+  const surfaceDensityU = unit(g[11]);
+  const filamentU = unit(g[12]);
+  const haloU = unit(g[13]);
+  const motionU = unit(g[14]);
+  const asymS = signed(g[15]);
 
   return {
-    genome,
-    seed,
+    family,
+
     body: {
-      family: BODY_FAMILIES[genome[0] % BODY_FAMILIES.length],
-      widthScale: range(genome[1], 0.82, 1.24),
-      heightScale: range(255 - genome[1], 0.9, 1.28),
-      massBias: range(genome[1], -0.14, 0.16)
+      formScaleX: 0.94 + 0.12 * formLocal,
+      formScaleY: 1.03 - 0.06 * formLocal,
+      proportionScaleX: 0.86 + 0.3 * bodyProportionU,
+      proportionScaleY: 1.14 - 0.24 * bodyProportionU,
+      opacity: 0.7 + 0.26 * densityU
     },
+
     membrane: {
-      lobing: range(genome[2], 0.02, 0.18),
-      undulation: range((genome[2] * 7) % 256, 0.015, 0.12),
-      irregularity: range((genome[2] * 13) % 256, 0.01, 0.085),
-      opacity: range(genome[3], 0.28, 0.52),
-      thickness: range(255 - genome[3], 1.2, 3.8),
-      edgeOpacity: range(genome[3], 0.24, 0.58)
+      scaleX: 0.88 + 0.28 * membraneU,
+      scaleY: 1.08 - 0.16 * membraneU,
+      opposingRotationDeg: 7.0 * signed(g[2]),
+      opacity: 0.56 + 0.38 * densityU
     },
-    pigment: { ...pigment },
-    luminescence: {
-      strength: range(genome[5], 0.16, 0.58),
-      spread: range(255 - genome[5], 0.22, 0.48),
-      secondary: PIGMENTS[(genome[4] + 2 + (genome[5] % 3)) % PIGMENTS.length].light
+
+    pigment: {
+      hueShiftDeg: -24 + 48 * pigmentU,
+      saturation: 0.9 + 0.2 * pigmentU
     },
-    nucleus: {
-      form: NUCLEUS_FORMS[genome[6] % NUCLEUS_FORMS.length],
-      count: 1 + (genome[6] % 3),
-      arrangement: unit((genome[6] * 29) % 256),
-      scale: range(genome[6], 0.72, 1.18)
+
+    bioluminescence: {
+      glowOpacity: 0.2 + 0.72 * bioU,
+      glowScale: 1.0 + 0.07 * bioU,
+      coreBrightness: 0.85 + 0.35 * bioU
     },
+
+    core: {
+      mode: coreMode,
+      scaleX: corePreset[0] * (0.94 + 0.12 * coreFine),
+      scaleY: corePreset[1] * (0.94 + 0.12 * coreFine),
+      rotationDeg: 8.0 * signed(g[6]),
+      opacity: 0.76 + 0.24 * altUnit(g[6], 0x91)
+    },
+
     sensoryNodes: {
-      count: genome[7] < 36 ? 0 : 3 + (genome[7] % 7),
-      radius: range(genome[7], 2.2, 4.6),
-      placement: unit((genome[7] * 17) % 256),
-      glow: range(255 - genome[7], 0.2, 0.62)
+      count: 2 + (sensoryMixed % 7),
+      radiusPxAt1024: 1.4 + 2.6 * altUnit(g[7], 0xa7),
+      opacity: 0.35 + 0.55 * altUnit(g[7], 0x5d),
+      seed: ((g[7] << 8) | mix8(g[7] ^ 0xc3)) >>> 0
     },
+
     appendages: {
-      family: APPENDAGE_FAMILIES[genome[8] % APPENDAGE_FAMILIES.length],
-      count: 6 + (genome[9] % 13),
-      length: range(genome[9], 0.12, 0.34),
-      curvature: range((genome[9] * 11) % 256, -0.48, 0.48),
-      spread: range(255 - genome[9], 0.36, 0.86),
-      thickness: range(genome[9], 0.8, 2.4)
+      mode: appendageMode,
+      ...appendagePreset,
+      expressionScale: 0.84 + 0.34 * appendageExpressionU,
+      expressionTendrilOpacityMul: 0.55 + 0.55 * appendageExpressionU,
+      expressionMotionMul: 0.7 + 0.6 * appendageExpressionU
     },
+
     surface: {
-      pattern: SURFACE_PATTERNS[genome[10] % SURFACE_PATTERNS.length],
-      density: range(genome[11], 0.18, 0.76),
-      scale: range(255 - genome[10], 0.7, 1.45),
-      opacity: range(genome[11], 0.09, 0.28)
+      mode: surfaceMode,
+      opacity: 0.18 + 0.7 * surfaceDensityU,
+      contrast: 0.86 + 0.42 * surfaceDensityU
     },
-    filaments: {
-      count: 4 + Math.round(densityUnit * 10),
-      complexity: range(genome[12], 0.18, 0.72),
-      opacity: range(255 - genome[12], 0.14, 0.34),
-      curve: range((genome[12] * 19) % 256, -0.32, 0.32)
+
+    internalFilaments: {
+      opacity: 0.12 + 0.48 * filamentU,
+      scale: 0.96 + 0.06 * filamentU,
+      hueOffsetDeg: 10.0 * signed(g[12])
     },
+
     halo: {
-      particles: 5 + (genome[13] % 16),
-      spread: range(genome[13], 0.52, 0.92),
-      opacity: range(255 - genome[13], 0.08, 0.22)
+      opacity: 0.08 + 0.62 * haloU,
+      scale: 1.0 + 0.11 * haloU,
+      blurPxAt1024: 6 + 16 * haloU
     },
+
     motion: {
-      breatheDurationMs: Math.round(range(genome[14], 3600, 6800)),
-      breatheAmplitude: range(255 - genome[14], 0.012, 0.038),
-      pulseDurationMs: Math.round(range((genome[14] * 5) % 256, 1800, 3600)),
-      pulseStrength: range(genome[14], 0.025, 0.085),
-      driftAmplitude: range(255 - genome[14], 0.6, 2.4)
+      periodMs: Math.round(5400 - 3300 * motionU),
+      pulseScaleAmplitude: 0.006 + 0.024 * motionU,
+      finWaveDeg: 0.6 + 3.0 * motionU,
+      tendrilDriftPxAt1024: 2 + 8 * motionU
     },
+
     asymmetry: {
-      centerOffsetX: range(genome[15], -0.045, 0.045),
-      centerOffsetY: range((genome[15] * 23) % 256, -0.03, 0.035),
-      rotationDeg: range(genome[15], -7, 7),
-      lobeBias: range((genome[15] * 31) % 256, -0.11, 0.11)
+      sideScaleDelta: 0.055 * asymS,
+      sideRotationDeg: 3.5 * asymS,
+      coreOffsetPxAt1024: 8.0 * asymS
     }
-  };
+  } as const;
 }
+
+export type OrganismPhenotype = ReturnType<typeof deriveSporePhenotype>;
 
 export function describeMutation(
   parentGenome: GenomeInput,
@@ -378,33 +351,9 @@ export function describeMutation(
   };
 }
 
-export function visualUnit(seed: number, salt: number): number {
-  let value = (seed ^ Math.imul(salt + 1, 0x9e3779b1)) >>> 0;
+export const mix8 = (x: number): number => ((x & 0xff) * 73 + 41) & 0xff;
 
-  value ^= value >>> 16;
-  value = Math.imul(value, 0x7feb352d) >>> 0;
-  value ^= value >>> 15;
-  value = Math.imul(value, 0x846ca68b) >>> 0;
-  value ^= value >>> 16;
-
-  return value / 0xffffffff;
-}
-
-function seedFromGenome(genome: GenomeBytes) {
-  let hash = 0x811c9dc5;
-
-  for (const byte of genome) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-
-  return hash >>> 0;
-}
-
-function range(byte: number, min: number, max: number) {
-  return min + unit(byte) * (max - min);
-}
-
-function unit(byte: number) {
-  return byte / 255;
-}
+const unit = (x: number): number => mix8(x) / 255;
+const signed = (x: number): number => unit(x) * 2 - 1;
+const local64 = (x: number): number => (mix8(x) & 63) / 63;
+const altUnit = (x: number, salt: number): number => mix8((x ^ salt) & 0xff) / 255;

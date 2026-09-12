@@ -26,7 +26,7 @@ export function Screen({ children, eyebrow, style, title, ...props }: ScreenProp
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: tokens.colors.background,
+    // backgroundColor: tokens.colors.background,
     flex: 1,
     paddingBottom: tokens.spacing.xl,
     paddingHorizontal: tokens.spacing.xl,

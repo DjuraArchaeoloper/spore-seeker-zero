@@ -22,7 +22,7 @@ use mpl_core::{
 use sgt::verify_seeker_genesis_token;
 use state::{Organism, Species};
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me");
 
 #[program]
 pub mod spore {

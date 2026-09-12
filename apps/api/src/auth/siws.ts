@@ -1,3 +1,4 @@
+import { SolanaSignIn, type SolanaSignInOutput } from "@solana/wallet-standard-features";
 import { verifySignIn } from "@solana/wallet-standard-util";
 import { PublicKey } from "@solana/web3.js";
 
@@ -9,7 +10,7 @@ export type SiwsPayload = {
   statement: string;
   uri: string;
   version: "1";
-  chainId: "solana:mainnet";
+  chainId: "solana:mainnet" | "solana:devnet";
   nonce: string;
   issuedAt: string;
   expirationTime: string;
@@ -37,7 +38,7 @@ export function createSiwsPayload(input: { nonce: string; createdAt: Date; expir
     statement: config.statement,
     uri: config.uri,
     version: "1",
-    chainId: "solana:mainnet",
+    chainId: getSiwsChainId(config.chainId),
     nonce: input.nonce,
     issuedAt: input.createdAt.toISOString(),
     expirationTime: input.expiresAt.toISOString()
@@ -83,10 +84,12 @@ export function verifySiwsPayload(payload: SiwsPayload, result: MobileSignInResu
   }
 
   const walletAddress = new PublicKey(publicKey).toBase58();
-  const output = {
+  const output: SolanaSignInOutput = {
     account: {
       address: walletAddress,
-      publicKey
+      publicKey,
+      chains: [payload.chainId],
+      features: [SolanaSignIn]
     },
     signedMessage,
     signature
@@ -96,7 +99,7 @@ export function verifySiwsPayload(payload: SiwsPayload, result: MobileSignInResu
 
   if (
     payload.version !== "1" ||
-    payload.chainId !== "solana:mainnet" ||
+    payload.chainId !== expected.chainId ||
     payload.domain !== expected.domain ||
     payload.uri !== expected.uri ||
     payload.statement !== expected.statement
@@ -146,4 +149,12 @@ function isBase64String(value: unknown, maxLength: number): value is string {
 
 function decodeBase64(value: string) {
   return new Uint8Array(Buffer.from(value, "base64"));
+}
+
+function getSiwsChainId(value: string): SiwsPayload["chainId"] {
+  if (value === "solana:mainnet" || value === "solana:devnet") {
+    return value;
+  }
+
+  throw new Error("Invalid SIWS chain ID.");
 }

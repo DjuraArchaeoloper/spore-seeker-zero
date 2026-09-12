@@ -1,6 +1,8 @@
-import { StatusBar, StyleSheet, View } from "react-native";
+import { Image, StatusBar, StyleSheet, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ComponentType } from "react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { AppText } from "./src/components/AppText";
 
 import { AuthEntryScreen } from "./src/screens/AuthEntryScreen";
 import { BloodlineScreen } from "./src/screens/BloodlineScreen";
@@ -14,6 +16,8 @@ import {
 
 // Visual preview exists only to render SPORE UI in environments such as Expo Go that do not contain Solana Mobile native modules.
 const VISUAL_PREVIEW = process.env.EXPO_PUBLIC_SPORE_VISUAL_PREVIEW === "true";
+// Camera and wallet flow modules are never evaluated by visual preview.
+const Reproduction = lazy(() => import("./src/spore/Reproduction"));
 
 const screens: Record<SurfaceKey, ComponentType> = {
   specimen: SpecimenScreen,
@@ -37,6 +41,14 @@ type AuthState =
     };
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <SporeApp />
+    </SafeAreaProvider>
+  );
+}
+
+function SporeApp() {
   const [authState, setAuthState] = useState<AuthState>({
     status: "restoring",
   });
@@ -119,17 +131,39 @@ export default function App() {
 
   return (
     <View style={styles.app}>
+      {/* {activeSurface === "specimen" ? ( */}
+        <View pointerEvents="none" style={styles.specimenBackground}>
+          <Image
+            accessible={false}
+            source={require("./assets/backgrounds/specimen-bg.png")}
+            resizeMode="stretch"
+            style={styles.specimenBackgroundImage}
+          />
+
+          <View style={styles.specimenOverlay} />
+        </View>
+      {/* ) : null} */}
       <StatusBar
         barStyle="light-content"
-        backgroundColor={tokens.colors.background}
+        backgroundColor={
+          activeSurface === "specimen"
+            ? "transparent"
+            : tokens.colors.background
+        }
+        translucent={activeSurface === "specimen"}
       />
-      <View style={styles.surface}>
+      {!VISUAL_PREVIEW && authState.status === "authenticated" ? (
+        <Suspense fallback={<AppText>Reading your Seeker…</AppText>}>
+          <Reproduction identity={authState.identity} surface={activeSurface} setSurface={setActiveSurface} />
+        </Suspense>
+      ) : <><View style={styles.surface}>
         <ActiveScreen />
       </View>
       <BottomNavigation
         activeSurface={activeSurface}
         onSurfaceChange={setActiveSurface}
       />
+      </>}
     </View>
   );
 }
@@ -139,7 +173,37 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.background,
     flex: 1,
   },
+
   surface: {
     flex: 1,
+    backgroundColor: "transparent",
+  },
+
+  specimenBackground: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    opacity: 0.4
+  },
+
+  specimenBackgroundImage: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+  },
+
+  specimenOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: tokens.specimen.overlay,
   },
 });

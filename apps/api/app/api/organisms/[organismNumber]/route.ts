@@ -1,6 +1,6 @@
 import { connectToDatabase } from "../../../../src/db/mongoose";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
-import { OrganismIndexModel, type OrganismIndex } from "../../../../src/models/OrganismIndex";
+import { OrganismIndexModel } from "../../../../src/models/OrganismIndex";
 import { toPublicOrganism } from "../../../../src/organisms/responses";
 
 export const runtime = "nodejs";
@@ -73,7 +73,11 @@ async function loadAncestors(ancestorNumbers: string[]) {
 
   return ancestorNumbers
     .map((organismNumber) => byNumber.get(organismNumber))
-    .filter((ancestor): ancestor is OrganismIndex => Boolean(ancestor));
+    .filter(isDefined);
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
 }
 
 function normalizeOrganismNumber(value: string) {

@@ -5,8 +5,14 @@ package_manager = "npm"
 resolution = true
 skip-lint = false
 
+[programs.devnet]
+spore = "GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me"
+
 [programs.localnet]
-spore = "11111111111111111111111111111111"
+spore = "GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me"
+
+[registry]
+url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"
