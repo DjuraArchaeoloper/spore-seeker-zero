@@ -19,8 +19,9 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
       <View style={styles.copy}>
         <AppText variant="display">SPORE</AppText>
         <AppText tone="secondary" variant="body">
-          It started with Seeker Zero.
+          SEEKER ZERO
         </AppText>
+        <AppText style={styles.supporting}>THE FIRST SEEKERBORNE CASE.</AppText>
       </View>
 
       <View style={styles.action}>
@@ -36,6 +37,12 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
 }
 
 const styles = StyleSheet.create({
+  supporting: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
+    opacity: 0.64,
+  },
   screen: {
     backgroundColor: tokens.colors.background,
     flex: 1,

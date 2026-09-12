@@ -20,7 +20,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "android": {
-      "package": "com.spore.seekerzero"
+      "package": "com.spore.seekerzero",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ce594a7e-13e3-4e60-b78e-f8ea0138e79d"
+      }
     }
   }
 }

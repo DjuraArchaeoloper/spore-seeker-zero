@@ -8,14 +8,14 @@ import { OrganismRenderer } from "../components/organism/OrganismRenderer";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { tokens } from "../design/tokens";
 
-type SpecimenOrganism = {
+export type SpecimenOrganism = {
   // API u64 values are decimal strings. Never convert identity to Number.
   organismNumber: string;
   generation: number;
   genome: GenomeInput;
 };
 
-const canonicalOrigin: SpecimenOrganism = {
+export const canonicalOrigin: SpecimenOrganism = {
   organismNumber: "0",
   generation: 0,
   genome: SEEKER_ZERO_GENOME_HEX
@@ -28,16 +28,68 @@ export function getSpecimenDesignation(organismNumber: string) {
     : { title: "SEEKERBORNE", subtitle: "Descendant of Seeker Zero." };
 }
 
+export type SpecimenSporeState = "ready" | "active" | "cooldown";
+
+export type SpecimenScreenProps = {
+  organism?: SpecimenOrganism | null;
+  previewOrigin?: boolean;
+  onRelease?: () => void;
+  onViewSpore?: () => void;
+  busy?: boolean;
+  canRelease?: boolean;
+  canViewSpore?: boolean;
+  sporeState?: SpecimenSporeState;
+  sporeStatus?: string;
+  error?: string | null;
+};
+
 // The static origin is only used by visual preview; production supplies a canonical account.
-export function SpecimenScreen({ organism = canonicalOrigin, onRelease, busy = false, canRelease = false, sporeStatus = "SPORE READY", error }: {
-  organism?: SpecimenOrganism; onRelease?: () => void; busy?: boolean; canRelease?: boolean; sporeStatus?: string; error?: string | null;
-}) {
+export function SpecimenScreen({
+  organism,
+  previewOrigin = false,
+  onRelease,
+  onViewSpore,
+  busy = false,
+  canRelease = false,
+  canViewSpore = false,
+  sporeState = "ready",
+  sporeStatus = "SPORE READY",
+  error
+}: SpecimenScreenProps) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const compact = height < 740;
   const organismSize = Math.min(stageSize.width, stageSize.height, 560);
-  const designation = getSpecimenDesignation(organism.organismNumber);
+  const specimen = organism ?? (previewOrigin ? canonicalOrigin : null);
+  const ready = sporeState === "ready";
+  const showViewSpore = sporeState === "active" && canViewSpore;
+  const actionLabel = busy ? (showViewSpore ? "OPENING…" : "RELEASING…") : showViewSpore ? "VIEW SPORE" : "RELEASE SPORE";
+  const actionDisabled = busy || (showViewSpore ? !canViewSpore : !canRelease);
+  const actionPress = showViewSpore ? onViewSpore : onRelease;
+
+  if (!specimen) {
+    return (
+      <View style={[
+        styles.screen,
+        {
+          paddingTop: insets.top + (compact ? 20 : 32),
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+          paddingBottom: compact ? 24 : Math.min(height * 0.065, 64)
+        }
+      ]}>
+        <View style={styles.emptyState}>
+          <AppText style={styles.identifier} variant="metadata">
+            SPECIMEN UNAVAILABLE
+          </AppText>
+          {error ? <AppText style={styles.error}>{error}</AppText> : null}
+        </View>
+      </View>
+    );
+  }
+
+  const designation = getSpecimenDesignation(specimen.organismNumber);
 
   return (
     <View style={[
@@ -51,7 +103,7 @@ export function SpecimenScreen({ organism = canonicalOrigin, onRelease, busy = f
     ]}>
       <View style={styles.metadata}>
         <AppText style={styles.identifier} variant="metadata">
-          GEN {organism.generation} · #{organism.organismNumber.padStart(6, "0")}
+          GEN {specimen.generation} · #{specimen.organismNumber.padStart(6, "0")}
         </AppText>
       </View>
 
@@ -64,7 +116,7 @@ export function SpecimenScreen({ organism = canonicalOrigin, onRelease, busy = f
         }}
       >
         {organismSize > 0 ? (
-          <OrganismRenderer genome={organism.genome} size={organismSize} />
+          <OrganismRenderer genome={specimen.genome} size={organismSize} />
         ) : null}
       </View>
 
@@ -79,15 +131,15 @@ export function SpecimenScreen({ organism = canonicalOrigin, onRelease, busy = f
         </View>
 
         <View style={styles.readyRow}>
-          <View style={styles.readyDot} />
-          <AppText style={styles.status} variant="metadata">
+          <View style={[styles.readyDot, !ready && styles.readyDotInactive]} />
+          <AppText style={[styles.status, !ready && styles.statusInactive]} variant="metadata">
             {sporeStatus}
           </AppText>
         </View>
 
         <View style={styles.action}>
-          <PrimaryButton appearance="specimen" disabled={!canRelease || busy} label={busy ? "RELEASING…" : "RELEASE SPORE"} onPress={onRelease} />
-          {error ? <AppText style={styles.subtitle}>{error}</AppText> : null}
+          <PrimaryButton appearance="specimen" disabled={actionDisabled} label={actionLabel} onPress={actionPress} />
+          {error ? <AppText style={styles.error}>{error}</AppText> : null}
         </View>
       </View>
     </View>
@@ -97,6 +149,13 @@ export function SpecimenScreen({ organism = canonicalOrigin, onRelease, busy = f
 const styles = StyleSheet.create({
   screen: {
     flex: 1
+  },
+  emptyState: {
+    alignItems: "center",
+    flex: 1,
+    gap: tokens.spacing.md,
+    justifyContent: "center",
+    paddingHorizontal: tokens.spacing.xl
   },
   metadata: {
     alignItems: "center",
@@ -156,14 +215,28 @@ const styles = StyleSheet.create({
     letterSpacing: 2.7,
     lineHeight: 16
   },
+  statusInactive: {
+    color: tokens.specimen.secondary
+  },
   readyDot: {
     backgroundColor: tokens.specimen.mint,
     borderRadius: tokens.radii.full,
     height: 5,
     width: 5
   },
+  readyDotInactive: {
+    backgroundColor: tokens.specimen.secondary
+  },
   action: {
     width: "88%",
-    maxWidth: 360
+    maxWidth: 360,
+    gap: tokens.spacing.md
+  },
+  error: {
+    color: tokens.specimen.secondary,
+    fontSize: 12,
+    fontWeight: "400",
+    lineHeight: 18,
+    textAlign: "center"
   }
 });

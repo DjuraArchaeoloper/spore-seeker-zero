@@ -1,0 +1,44 @@
+{
+  "cli": {
+    "version": ">= 24.3.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SPORE_API_URL": "https://spore-seeker-zero-api.vercel.app/",
+        "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
+        "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "devnet",
+        "EXPO_PUBLIC_SPORE_RPC_URL": "https://api.devnet.solana.com",
+        "EXPO_PUBLIC_SPORE_PROGRAM_ID": "GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SPORE_API_URL": "https://spore-seeker-zero-api.vercel.app/",
+        "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
+        "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "devnet",
+        "EXPO_PUBLIC_SPORE_RPC_URL": "https://api.devnet.solana.com",
+        "EXPO_PUBLIC_SPORE_PROGRAM_ID": "GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me"
+      }
+    },
+    "dapp-store": {
+      "android": {
+        "buildType": "apk"
+      },
+      "autoIncrement": true
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

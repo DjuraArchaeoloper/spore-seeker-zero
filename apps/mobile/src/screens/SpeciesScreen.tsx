@@ -1,10 +1,14 @@
 import { StyleSheet, View } from "react-native";
 
-import type { SpeciesResponse } from "../auth/api";
 import { AppText } from "../components/AppText";
 import { Screen } from "../components/Screen";
-import { StatRow } from "../components/StatRow";
 import { tokens } from "../design/tokens";
+
+type SpeciesResponse = {
+  population?: number | null;
+  deepestGeneration?: number | null;
+  seekerZero?: unknown | null;
+};
 
 type SpeciesScreenProps = {
   species?: SpeciesResponse | null;
@@ -12,54 +16,168 @@ type SpeciesScreenProps = {
   loading?: boolean;
 };
 
-const previewSpecies: SpeciesResponse = {
-  population: 1,
-  deepestGeneration: 0,
-  seekerZero: {
-    organismPda: "",
-    organismNumber: "0",
-    sgtMint: "",
-    generation: 0,
-    genome: "",
-    parent: null,
-    parentOrganismPda: null,
-    bornAt: "",
-    coreAsset: ""
-  }
+type OrganismRecord = Record<string, unknown>;
+
+const theme = tokens as {
+  colors?: Record<string, string>;
+  spacing?: Record<string, number>;
 };
 
-export function SpeciesScreen({ species = previewSpecies, error, loading = false }: SpeciesScreenProps) {
-  const stats = [
-    {
-      label: "POPULATION",
-      value: !loading && species ? String(species.population) : "-",
-      detail: loading ? "Reading index" : "Indexed organisms"
-    },
-    {
-      label: "DEEPEST GENERATION",
-      value: !loading && species ? String(species.deepestGeneration) : "-",
-      detail: loading ? "Reading index" : species?.deepestGeneration === 0 ? "Seeker Zero only" : "Deepest indexed descendant"
-    },
-    {
-      label: "SEEKER ZERO",
-      value: !loading && species?.seekerZero ? `#${species.seekerZero.organismNumber.padStart(6, "0")}` : "-",
-      detail: loading ? "Reading index" : species?.seekerZero ? `GEN ${species.seekerZero.generation}` : "Not indexed yet"
+const color = {
+  text: theme.colors?.text ?? "#F7F2E8",
+  muted: theme.colors?.muted ?? theme.colors?.textMuted ?? "#8F897D",
+  faint: theme.colors?.faint ?? "rgba(247, 242, 232, 0.52)",
+};
+
+const space = {
+  xs: theme.spacing?.xs ?? 4,
+  sm: theme.spacing?.sm ?? 8,
+  md: theme.spacing?.md ?? 12,
+  lg: theme.spacing?.lg ?? 16,
+  xl: theme.spacing?.xl ?? 24,
+  xxl: theme.spacing?.xxl ?? 32,
+};
+
+function formatPopulation(population: number) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(population);
+}
+
+function readField(organism: unknown, fields: string[]) {
+  if (!organism || typeof organism !== "object") {
+    return null;
+  }
+
+  const record = organism as OrganismRecord;
+
+  for (const field of fields) {
+    const value = record[field];
+
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
     }
-  ];
+  }
+
+  return null;
+}
+
+function toNumericValue(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const numeric = value.match(/\d+/)?.[0];
+
+    if (numeric) {
+      return Number.parseInt(numeric, 10);
+    }
+  }
+
+  return null;
+}
+
+function getOrganismNumber(organism: unknown) {
+  return toNumericValue(
+    readField(organism, ["organismNumber", "organism_number", "number", "index", "tokenId", "id"]),
+  );
+}
+
+function getGeneration(organism: unknown) {
+  return toNumericValue(readField(organism, ["generation", "gen"]));
+}
+
+function formatOrganismNumber(organism: unknown) {
+  const organismNumber = getOrganismNumber(organism);
+
+  if (organismNumber === null) {
+    return "#------";
+  }
+
+  return `#${organismNumber.toString().padStart(6, "0")}`;
+}
+
+function formatGeneration(generation: unknown) {
+  const numericGeneration = toNumericValue(generation);
+
+  return numericGeneration === null ? "GEN -" : `GEN ${numericGeneration}`;
+}
+
+function formatOrganismGeneration(organism: unknown) {
+  return formatGeneration(getGeneration(organism));
+}
+
+export function SpeciesScreen({ species, error, loading = false }: SpeciesScreenProps) {
+  if (loading) {
+    return (
+      <Screen eyebrow="GLOBAL STATE" title="Species">
+        <View style={styles.content}>
+          <View style={styles.state}>
+            <AppText style={styles.stateLabel}>SPECIES STATE</AppText>
+            <AppText style={styles.stateText}>LOADING SPECIES.</AppText>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (error) {
+    return (
+      <Screen eyebrow="GLOBAL STATE" title="Species">
+        <View style={styles.content}>
+          <View style={styles.state}>
+            <AppText style={styles.stateLabel}>SPECIES UNAVAILABLE</AppText>
+            <AppText style={styles.stateText}>{error}</AppText>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!species) {
+    return (
+      <Screen eyebrow="GLOBAL STATE" title="Species">
+        <View style={styles.content}>
+          <View style={styles.state}>
+            <AppText style={styles.stateLabel}>NO SPECIES DATA</AppText>
+            <AppText style={styles.stateText}>SPECIES RECORD UNAVAILABLE.</AppText>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  const population = typeof species.population === "number" ? species.population : null;
+  const deepestGeneration = typeof species.deepestGeneration === "number" ? species.deepestGeneration : null;
+  const seekerZero = species.seekerZero;
 
   return (
     <Screen eyebrow="GLOBAL STATE" title="Species">
       <View style={styles.content}>
-        <View style={styles.stats}>
-          {stats.map((stat) => (
-            <StatRow detail={stat.detail} key={stat.label} label={stat.label} value={stat.value} />
-          ))}
+        <View style={styles.population}>
+          <AppText style={styles.populationNumber}>
+            {population === null ? "-" : formatPopulation(population)}
+          </AppText>
+          <AppText style={styles.populationLabel}>POPULATION</AppText>
         </View>
 
-        <View style={styles.footer}>
-          <AppText tone="muted" variant="metadata">
-            {error ?? "SOLANA CANONICAL · INDEXED FOR READING"}
-          </AppText>
+        <View style={styles.generation}>
+          <AppText style={styles.sectionLabel}>DEEPEST GENERATION</AppText>
+          <AppText style={styles.generationValue}>{formatGeneration(deepestGeneration)}</AppText>
+        </View>
+
+        <View style={styles.origin}>
+          <AppText style={styles.sectionLabel}>ORIGIN</AppText>
+          {seekerZero ? (
+            <View style={styles.originRecord}>
+              <AppText style={styles.originName}>SEEKER ZERO</AppText>
+              <AppText style={styles.originMeta}>
+                {formatOrganismNumber(seekerZero)} · {formatOrganismGeneration(seekerZero)}
+              </AppText>
+              <AppText style={styles.originLine}>THE FIRST SEEKERBORNE CASE.</AppText>
+            </View>
+          ) : (
+            <AppText style={styles.originUnavailable}>ORIGIN RECORD UNAVAILABLE.</AppText>
+          )}
         </View>
       </View>
     </Screen>
@@ -68,16 +186,87 @@ export function SpeciesScreen({ species = previewSpecies, error, loading = false
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
-    justifyContent: "space-between"
+    gap: space.xxl,
+    paddingBottom: space.xxl,
+    paddingTop: space.xl,
   },
-  stats: {
-    gap: tokens.spacing.md
+  state: {
+    gap: space.sm,
+    paddingTop: space.xl,
   },
-  footer: {
-    borderColor: tokens.colors.border,
-    borderTopWidth: tokens.border.width,
-    gap: tokens.spacing.sm,
-    paddingTop: tokens.spacing.lg
-  }
+  stateLabel: {
+    color: color.muted,
+    fontSize: 11,
+    letterSpacing: 0,
+    textTransform: "uppercase",
+  },
+  stateText: {
+    color: color.text,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  population: {
+    gap: space.xs,
+    paddingTop: space.xl,
+  },
+  populationNumber: {
+    color: color.text,
+    fontSize: 72,
+    lineHeight: 78,
+  },
+  populationLabel: {
+    color: color.muted,
+    fontSize: 13,
+    letterSpacing: 0,
+    lineHeight: 18,
+    textTransform: "uppercase",
+  },
+  generation: {
+    gap: space.sm,
+    paddingTop: space.md,
+  },
+  sectionLabel: {
+    color: color.muted,
+    fontSize: 11,
+    letterSpacing: 0,
+    lineHeight: 16,
+    textTransform: "uppercase",
+  },
+  generationValue: {
+    color: color.text,
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  origin: {
+    gap: space.lg,
+    paddingTop: space.xl,
+  },
+  originRecord: {
+    gap: space.xs,
+  },
+  originName: {
+    color: color.text,
+    fontSize: 20,
+    lineHeight: 26,
+  },
+  originMeta: {
+    color: color.faint,
+    fontSize: 13,
+    letterSpacing: 0,
+    lineHeight: 18,
+    textTransform: "uppercase",
+  },
+  originLine: {
+    color: color.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: space.sm,
+    textTransform: "uppercase",
+  },
+  originUnavailable: {
+    color: color.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    textTransform: "uppercase",
+  },
 });
