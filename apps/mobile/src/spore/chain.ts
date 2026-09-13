@@ -26,6 +26,9 @@ export type Organism = {
   activeSporeExpiresAt: number;
 };
 
+type PreflightDebugMetadata = Record<string, string | number | boolean | null>;
+type PreflightDebug = (phase: string, metadata?: PreflightDebugMetadata) => void;
+
 const TOKEN_2022 = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 const CORE = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
@@ -165,19 +168,49 @@ export const hasOffer = (parent: Organism) =>
   parent.activeSporeCommitment.some(Boolean) &&
   parent.activeSporeExpiresAt >= nowSeconds();
 
-export async function preflightOffer(payload: ClaimPayload) {
+export async function preflightOffer(
+  payload: ClaimPayload,
+  debug?: PreflightDebug,
+) {
   const parent = await fetchOrganism(payload.parent);
+  debug?.("parent_fetch_complete", {
+    found: Boolean(parent),
+    parent: payload.parent.toBase58(),
+    organismNumber: parent?.organismNumber ?? null,
+  });
   if (!parent || !parent.activeSporeCommitment.some(Boolean))
     throw new SporeFailure("This offer was already claimed or replaced.");
-  if (parent.activeSporeExpiresAt <= nowSeconds())
+  const expiryNow = nowSeconds();
+  const expiryOk = parent.activeSporeExpiresAt > expiryNow;
+  debug?.("offer_expiry_check", {
+    ok: expiryOk,
+    parent: parent.address.toBase58(),
+    organismNumber: parent.organismNumber,
+    expiresAt: parent.activeSporeExpiresAt,
+    now: expiryNow,
+  });
+  if (!expiryOk)
     throw new SporeFailure("This spore offer has expired.");
-  if (
-    !Buffer.from(commitment(payload.secret)).equals(
-      Buffer.from(parent.activeSporeCommitment),
-    )
-  )
+  const commitmentOk = Buffer.from(commitment(payload.secret)).equals(
+    Buffer.from(parent.activeSporeCommitment),
+  );
+  debug?.("offer_commitment_match", {
+    ok: commitmentOk,
+    parent: parent.address.toBase58(),
+    organismNumber: parent.organismNumber,
+  });
+  if (!commitmentOk)
     throw new SporeFailure("This offer was already claimed or replaced.");
-  if (parent.nextSporeAt > nowSeconds())
+  const readyNow = nowSeconds();
+  const readyOk = parent.nextSporeAt <= readyNow;
+  debug?.("offer_ready_check", {
+    ok: readyOk,
+    parent: parent.address.toBase58(),
+    organismNumber: parent.organismNumber,
+    nextSporeAt: parent.nextSporeAt,
+    now: readyNow,
+  });
+  if (!readyOk)
     throw new SporeFailure("This spore is not ready.");
   return parent;
 }

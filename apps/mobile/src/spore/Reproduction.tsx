@@ -51,6 +51,18 @@ import {
 } from "./payload";
 
 type Stage = "home" | "scan" | "accept" | "offer" | "recover" | "birth";
+type ScanDebugMetadata = Record<string, string | number | boolean | null>;
+
+function scanDebug(phase: string, metadata: ScanDebugMetadata = {}) {
+  console.warn("[SPORE SCAN DEBUG]", { phase, ...metadata });
+}
+
+function scanErrorMetadata(error: unknown) {
+  return {
+    errorName: error instanceof Error ? error.name : "unknown",
+    errorMessage: error instanceof Error ? error.message : "unknown",
+  };
+}
 
 function formatRemaining(seconds: number) {
   const remaining = Math.max(0, seconds);
@@ -284,16 +296,57 @@ export default function Reproduction({
   function scan(data: string) {
     if (scanned.current || locked.current) return;
     scanned.current = true;
+    scanDebug("scan_received", { currentStage: stage });
     void run(async () => {
       let payload: ClaimPayload | null = null;
       let alreadyOwnsOrganism = false;
+      let scanStage = "scan_received";
       try {
-        payload = parseClaim(data);
-        if (await refresh()) {
+        scanStage = "parse_start";
+        scanDebug("parse_start", { currentStage: stage });
+        try {
+          payload = parseClaim(data);
+        } catch (e) {
+          scanDebug("parse_failed", {
+            currentStage: stage,
+            ...scanErrorMetadata(e),
+          });
+          throw e;
+        }
+        scanDebug("parse_success", {
+          currentStage: stage,
+          parent: payload.parent.toBase58(),
+        });
+        scanStage = "ownership_refresh_start";
+        scanDebug("ownership_refresh_start", { currentStage: stage });
+        const ownedOrganism = await refresh();
+        scanDebug("ownership_refresh_complete", {
+          currentStage: stage,
+          hasOrganism: Boolean(ownedOrganism),
+          organismNumber: ownedOrganism?.organismNumber ?? null,
+        });
+        if (ownedOrganism) {
           alreadyOwnsOrganism = true;
+          scanDebug("already_has_organism", {
+            currentStage: stage,
+            organismNumber: ownedOrganism.organismNumber,
+          });
           throw new SporeFailure("This Seeker already owns an organism.");
         }
-        const parent = await preflightOffer(payload);
+        scanStage = "preflight_start";
+        scanDebug("preflight_start", {
+          currentStage: stage,
+          parent: payload.parent.toBase58(),
+        });
+        const parent = await preflightOffer(payload, (phase, metadata) => {
+          scanStage = phase;
+          scanDebug(phase, metadata);
+        });
+        scanDebug("preflight_success", {
+          currentStage: stage,
+          parent: parent.address.toBase58(),
+          organismNumber: parent.organismNumber,
+        });
         if (!mounted.current) {
           payload.secret.fill(0);
           return;
@@ -301,7 +354,17 @@ export default function Reproduction({
         secret.current = payload;
         setOffer(parent);
         setStage("accept");
+        scanDebug("accept_stage_entered", {
+          currentStage: "accept",
+          parent: parent.address.toBase58(),
+          organismNumber: parent.organismNumber,
+        });
       } catch (e) {
+        scanDebug("scan_failed", {
+          currentStage: stage,
+          scanStage,
+          ...scanErrorMetadata(e),
+        });
         payload?.secret.fill(0);
         clearSecret();
         scanned.current = false;

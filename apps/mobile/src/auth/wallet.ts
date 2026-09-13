@@ -76,35 +76,7 @@ export async function requestWalletSignIn(
         sign_in_payload: signInPayload,
       });
 
-      console.warn("[AUTH MOBILE DEBUG] authorize_complete");
-      console.warn(
-        "[AUTH MOBILE DEBUG] native_siws",
-        Boolean(authorization.sign_in_result),
-      );
-
       if (authorization.sign_in_result) {
-        console.warn("[AUTH MOBILE DEBUG] native_result_shape", {
-          keys: Object.keys(authorization.sign_in_result),
-          addressType: typeof authorization.sign_in_result.address,
-          addressLength:
-            typeof authorization.sign_in_result.address === "string"
-              ? authorization.sign_in_result.address.length
-              : null,
-          signedMessageType:
-            typeof authorization.sign_in_result.signed_message,
-          signedMessageLength:
-            typeof authorization.sign_in_result.signed_message === "string"
-              ? authorization.sign_in_result.signed_message.length
-              : null,
-          signatureType: typeof authorization.sign_in_result.signature,
-          signatureLength:
-            typeof authorization.sign_in_result.signature === "string"
-              ? authorization.sign_in_result.signature.length
-              : null,
-          declaredSignatureType:
-            authorization.sign_in_result.signature_type ?? null,
-        });
-
         return authorization.sign_in_result;
       }
 
@@ -121,23 +93,16 @@ export async function requestWalletSignIn(
         throw new Error("Authorized account public key is invalid.");
       }
 
-      console.warn("[AUTH MOBILE DEBUG] fallback_account_ok");
-
       const walletAddress = new PublicKey(publicKey).toBase58();
       const message = createSignInMessage({
         ...signInPayload,
         address: walletAddress,
       });
 
-      console.warn("[AUTH MOBILE DEBUG] fallback_message_created");
-      console.warn("[AUTH MOBILE DEBUG] fallback_sign_messages_start");
-
       const [signedPayload] = await wallet.signMessages({
         addresses: [base64Address],
         payloads: [message],
       });
-
-      console.warn("[AUTH MOBILE DEBUG] fallback_sign_messages_complete");
 
       if (!signedPayload) {
         throw new Error("Authentication failed.");
@@ -150,18 +115,12 @@ export async function requestWalletSignIn(
       );
     });
 
-    console.warn("[AUTH MOBILE DEBUG] wallet_sign_in_complete");
-
     if (!signInResult) {
       throw new Error("Authentication failed.");
     }
 
     return signInResult;
-  } catch (error) {
-    console.warn(
-      "[AUTH MOBILE DEBUG] failed",
-      error instanceof Error ? error.message : "unknown",
-    );
+  } catch {
     throw new Error("Authentication failed.");
   }
 }

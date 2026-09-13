@@ -1,3 +1,5 @@
+import { sha256 } from "@noble/hashes/sha256";
+
 export const GENOME_BYTE_LENGTH = 16;
 
 export const SEEKER_ZERO_GENOME = [
@@ -29,10 +31,10 @@ export type GenomeBytes = readonly [
 export type GenomeInput = string | ArrayLike<number>;
 
 export type CreatureFamily =
+  | "silk-ray"
   | "void-drifter"
   | "crystal-bloom"
-  | "nebula-spine"
-  | "silk-ray";
+  | "nebula-spine";
 
 export type CoreMode = "compact" | "tall" | "wide" | "full";
 export type AppendageMode = "wing" | "veil" | "filament" | "spine";
@@ -76,11 +78,18 @@ export type MutationDescription =
 const HEX_GENOME_PATTERN = /^[0-9a-fA-F]{32}$/;
 
 export const BODY_FAMILY_BUCKETS: readonly CreatureFamily[] = [
+  "silk-ray",
   "void-drifter",
   "crystal-bloom",
-  "nebula-spine",
-  "silk-ray"
+  "nebula-spine"
 ] as const;
+
+const SEEKER_ZERO_FAMILY_INDEX = 0;
+const SEEKER_ZERO_FAMILY_OFFSET =
+  (SEEKER_ZERO_FAMILY_INDEX -
+    (sha256(Uint8Array.from(SEEKER_ZERO_GENOME))[0] % BODY_FAMILY_BUCKETS.length) +
+    BODY_FAMILY_BUCKETS.length) %
+  BODY_FAMILY_BUCKETS.length;
 
 const CORE_MODES: readonly CoreMode[] = ["compact", "tall", "wide", "full"] as const;
 const APPENDAGE_MODES: readonly AppendageMode[] = ["wing", "veil", "filament", "spine"] as const;
@@ -186,8 +195,20 @@ export function genomeToHex(genome: ArrayLike<number>): string {
     .join("");
 }
 
+function normalizeGenomeInput(input: GenomeInput): GenomeBytes {
+  return typeof input === "string" ? parseGenomeHex(input) : validateGenomeBytes(input);
+}
+
+export function resolveCreatureFamily(input: GenomeInput): CreatureFamily {
+  const genome = normalizeGenomeInput(input);
+  const digest = sha256(Uint8Array.from(genome));
+  const rawIndex = digest[0] % BODY_FAMILY_BUCKETS.length;
+
+  return BODY_FAMILY_BUCKETS[(rawIndex + SEEKER_ZERO_FAMILY_OFFSET) % BODY_FAMILY_BUCKETS.length];
+}
+
 export function phenotypeFromGenome(input: GenomeInput): OrganismPhenotype {
-  const genome = typeof input === "string" ? parseGenomeHex(input) : validateGenomeBytes(input);
+  const genome = normalizeGenomeInput(input);
 
   return deriveSporePhenotype(Uint8Array.from(genome));
 }
@@ -199,8 +220,7 @@ export function deriveSporePhenotype(genome: Uint8Array) {
 
   const g = [...genome];
 
-  const familyBucket = mix8(g[0]) >> 6;
-  const family = BODY_FAMILY_BUCKETS[familyBucket];
+  const family = resolveCreatureFamily(genome);
   const formLocal = local64(g[0]);
 
   const bodyProportionU = unit(g[1]);

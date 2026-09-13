@@ -69,28 +69,10 @@ export async function requestSiwsPayload() {
 }
 
 export async function verifyWalletSignIn(nonce: string, signInResult: MobileSignInResult) {
-  console.warn("[AUTH MOBILE DEBUG] verify_serialize_start");
-
-  let body: string;
-
-  try {
-    body = JSON.stringify({
-      nonce,
-      signInResult
-    });
-  } catch (error) {
-    console.warn("[AUTH MOBILE DEBUG] verify_serialize_failed", {
-      name: error instanceof Error ? error.name : "unknown",
-      message: error instanceof Error ? error.message : "unknown"
-    });
-
-    throw error;
-  }
-
-  console.warn("[AUTH MOBILE DEBUG] verify_serialize_complete", {
-    bodyLength: body.length
+  const body = JSON.stringify({
+    nonce,
+    signInResult
   });
-  console.warn("[AUTH MOBILE DEBUG] verify_fetch_start");
 
   const response = await sporeFetch("/api/auth/verify", {
     method: "POST",
@@ -98,10 +80,6 @@ export async function verifyWalletSignIn(nonce: string, signInResult: MobileSign
       "Content-Type": "application/json"
     },
     body
-  });
-
-  console.warn("[AUTH MOBILE DEBUG] verify_fetch_complete", {
-    status: response.status
   });
 
   return (await response.json()) as VerifyResponse;
@@ -152,55 +130,16 @@ async function sporeFetch(path: string, init?: RequestInit, message = "Authentic
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, init);
   } catch (error) {
-    const errorInfo = getSafeErrorInfo(error);
-
-    console.warn("[AUTH MOBILE DEBUG] spore_fetch_failed", {
-      path,
-      ...errorInfo
-    });
-
     if (!isTransientDnsFailure(error)) {
       throw error;
     }
 
-    console.warn("[AUTH MOBILE DEBUG] dns_retry_wait", {
-      path
-    });
-
     await delay(DNS_RETRY_DELAY_MS);
 
-    console.warn("[AUTH MOBILE DEBUG] dns_retry_start", {
-      path
-    });
-
-    try {
-      response = await fetch(`${getApiBaseUrl()}${path}`, init);
-    } catch (retryError) {
-      console.warn("[AUTH MOBILE DEBUG] dns_retry_failed", {
-        path,
-        ...getSafeErrorInfo(retryError)
-      });
-
-      throw retryError;
-    }
-
-    console.warn("[AUTH MOBILE DEBUG] dns_retry_complete", {
-      path,
-      status: response.status
-    });
+    response = await fetch(`${getApiBaseUrl()}${path}`, init);
   }
 
-  console.warn("[AUTH MOBILE DEBUG] spore_fetch_complete", {
-    path,
-    status: response.status
-  });
-
   if (!response.ok) {
-    console.warn("[AUTH MOBILE DEBUG] spore_fetch_non_2xx", {
-      path,
-      status: response.status
-    });
-
     throw new Error(message);
   }
 
@@ -219,13 +158,6 @@ function isTransientDnsFailure(error: unknown) {
     message.includes("Unable to resolve host") ||
     message.includes("No address associated with hostname")
   );
-}
-
-function getSafeErrorInfo(error: unknown) {
-  return {
-    name: error instanceof Error ? error.name : "unknown",
-    message: error instanceof Error ? error.message : "unknown"
-  };
 }
 
 function delay(ms: number) {
