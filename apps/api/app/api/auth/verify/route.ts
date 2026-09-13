@@ -1,5 +1,5 @@
 import { connectToDatabase } from "../../../../src/db/mongoose";
-import { authConfig } from "../../../../src/env";
+import { authConfig, getSolanaCluster } from "../../../../src/env";
 import { readJsonObject, RequestBodyError } from "../../../../src/http/request";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { createSession } from "../../../../src/auth/session";
@@ -43,6 +43,12 @@ export async function POST(request: Request) {
     if (!siws) {
       return jsonError(401, "authentication_failed", "Authentication failed.");
     }
+
+    console.log("[AUTH DEBUG]", {
+      phase: "siws_verified",
+      walletAddress: siws.walletAddress,
+      cluster: getSolanaCluster()
+    });
 
     const sgt = await verifySeekerGenesisToken(siws.walletAddress);
 

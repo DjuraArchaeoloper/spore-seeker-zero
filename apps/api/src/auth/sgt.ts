@@ -7,7 +7,7 @@ import {
   unpackMint
 } from "@solana/spl-token";
 
-import { getHeliusRpcUrl, getSgtVerificationConfig } from "../env";
+import { getHeliusRpcUrl, getSgtVerificationConfig, getSolanaCluster } from "../env";
 const TOKEN_ACCOUNT_PAGE_LIMIT = 1000;
 const MINT_ACCOUNT_BATCH_SIZE = 100;
 const MAX_TOKEN_ACCOUNT_PAGES = 50;
@@ -55,11 +55,34 @@ export class SgtVerificationUnavailableError extends Error {
 
 export async function verifySeekerGenesisToken(walletAddress: string): Promise<SgtVerificationResult | null> {
   const walletPublicKey = new PublicKey(walletAddress);
+  const normalizedWalletAddress = walletPublicKey.toBase58();
+  const cluster = getSolanaCluster();
+
+  console.log("[SGT DEBUG]", {
+    phase: "lookup_start",
+    walletAddress: normalizedWalletAddress,
+    cluster
+  });
+
   const heliusRpcUrl = getHeliusRpcUrl();
   const connection = new Connection(heliusRpcUrl, "confirmed");
-  const candidateMints = await getToken2022MintsForWallet(heliusRpcUrl, walletPublicKey.toBase58());
+  const candidateMints = await getToken2022MintsForWallet(heliusRpcUrl, normalizedWalletAddress);
+  const candidateMintAddresses = candidateMints.map((mint) => mint.toBase58());
+
+  console.log("[SGT DEBUG]", {
+    phase: "candidates_found",
+    walletAddress: normalizedWalletAddress,
+    candidateCount: candidateMintAddresses.length,
+    candidateMintAddresses
+  });
 
   if (candidateMints.length === 0) {
+    console.log("[SGT DEBUG]", {
+      phase: "no_candidates",
+      walletAddress: normalizedWalletAddress,
+      cluster
+    });
+
     return null;
   }
 
@@ -72,6 +95,11 @@ export async function verifySeekerGenesisToken(walletAddress: string): Promise<S
       const mintAddress = batch[mintIndex];
 
       if (!accountInfo || !mintAddress) {
+        console.log("[SGT ERROR DEBUG]", {
+          phase: "candidate_account_missing",
+          candidateMintAddress: mintAddress?.toBase58() ?? null
+        });
+
         continue;
       }
 
@@ -224,19 +252,63 @@ function isVerifiedSgtMint(mintAddress: PublicKey, accountInfo: Parameters<typeo
     const metadataPointer = getMetadataPointerState(mint);
     const groupMemberPointer = getGroupMemberPointerState(mint);
     const tokenGroupMemberState = getTokenGroupMemberState(mint);
+    const candidateMintAddress = mintAddress.toBase58();
+    const actual = {
+      mintAuthority: mint.mintAuthority?.toBase58() ?? null,
+      metadataPointerAuthority: metadataPointer?.authority?.toBase58() ?? null,
+      metadataAddress: metadataPointer?.metadataAddress?.toBase58() ?? null,
+      groupMemberPointerAuthority: groupMemberPointer?.authority?.toBase58() ?? null,
+      groupMemberPointerMemberAddress: groupMemberPointer?.memberAddress?.toBase58() ?? null,
+      tokenGroupMemberMint: tokenGroupMemberState?.mint?.toBase58() ?? null,
+      tokenGroupMemberGroup: tokenGroupMemberState?.group?.toBase58() ?? null
+    };
+    const expected = {
+      mintAuthority: config.mintAuthority,
+      metadataAddress: config.metadataAddress,
+      groupAddress: config.groupAddress,
+      groupMemberPointerMemberAddress: candidateMintAddress,
+      tokenGroupMemberMint: candidateMintAddress
+    };
+    const checks = {
+      mintAuthority: actual.mintAuthority === expected.mintAuthority,
+      metadataPointerAuthority: actual.metadataPointerAuthority === expected.mintAuthority,
+      metadataAddress: actual.metadataAddress === expected.metadataAddress,
+      groupMemberPointerAuthority: actual.groupMemberPointerAuthority === expected.mintAuthority,
+      groupMemberPointerMemberAddress: groupMemberPointer?.memberAddress?.equals(mintAddress) === true,
+      tokenGroupMemberMint: tokenGroupMemberState?.mint?.equals(mintAddress) === true,
+      tokenGroupMemberGroup: actual.tokenGroupMemberGroup === expected.groupAddress
+    };
+
+    console.log("[SGT CANDIDATE DEBUG]", {
+      phase: "candidate_decoded",
+      candidateMintAddress,
+      actual,
+      expected,
+      checks
+    });
 
     return (
-      mint.mintAuthority?.toBase58() === config.mintAuthority &&
-      metadataPointer?.authority?.toBase58() === config.mintAuthority &&
-      metadataPointer?.metadataAddress?.toBase58() === config.metadataAddress &&
-      groupMemberPointer?.authority?.toBase58() === config.mintAuthority &&
-      groupMemberPointer?.memberAddress?.equals(mintAddress) === true &&
-      tokenGroupMemberState?.mint?.equals(mintAddress) === true &&
-      tokenGroupMemberState?.group?.toBase58() === config.groupAddress
+      checks.mintAuthority &&
+      checks.metadataPointerAuthority &&
+      checks.metadataAddress &&
+      checks.groupMemberPointerAuthority &&
+      checks.groupMemberPointerMemberAddress &&
+      checks.tokenGroupMemberMint &&
+      checks.tokenGroupMemberGroup
     );
-  } catch {
+  } catch (error) {
+    console.log("[SGT ERROR DEBUG]", {
+      phase: "candidate_decode_error",
+      candidateMintAddress: mintAddress.toBase58(),
+      errorMessage: getSafeErrorMessage(error)
+    });
+
     return false;
   }
+}
+
+function getSafeErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown SGT decode error.";
 }
 
 function tryPublicKey(value: string) {
