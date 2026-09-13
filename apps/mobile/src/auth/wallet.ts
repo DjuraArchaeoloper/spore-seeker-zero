@@ -1,10 +1,6 @@
 import type { MobileSignInResult, SiwsPayload } from "./api";
 import type { AuthIdentity } from "./api";
 import { Buffer } from "buffer";
-import type {
-  Account,
-  Base64EncodedAddress,
-} from "@solana-mobile/mobile-wallet-adapter-protocol";
 import { createSignInMessage } from "@solana/wallet-standard-util";
 import {
   ComputeBudgetProgram,
@@ -80,86 +76,72 @@ export async function requestWalletSignIn(
         sign_in_payload: signInPayload,
       });
 
+      console.warn("[AUTH MOBILE DEBUG] authorize_complete");
+      console.warn(
+        "[AUTH MOBILE DEBUG] native_siws",
+        Boolean(authorization.sign_in_result),
+      );
+
       if (authorization.sign_in_result) {
         return authorization.sign_in_result;
       }
 
-      const account = getAuthorizedSigningAccount(authorization.accounts);
-      const walletAddress = new PublicKey(account.publicKey).toBase58();
+      const account = authorization.accounts[0];
+
+      if (!account || typeof account.address !== "string" || account.address.length === 0) {
+        throw new Error("Authorized account address missing.");
+      }
+
+      const base64Address = account.address;
+      const publicKey = Buffer.from(base64Address, "base64");
+
+      if (publicKey.length !== 32) {
+        throw new Error("Authorized account public key is invalid.");
+      }
+
+      console.warn("[AUTH MOBILE DEBUG] fallback_account_ok");
+
+      const walletAddress = new PublicKey(publicKey).toBase58();
       const message = createSignInMessage({
         ...signInPayload,
         address: walletAddress,
       });
+
+      console.warn("[AUTH MOBILE DEBUG] fallback_message_created");
+      console.warn("[AUTH MOBILE DEBUG] fallback_sign_messages_start");
+
       const [signedPayload] = await wallet.signMessages({
-        addresses: [account.base64Address],
+        addresses: [base64Address],
         payloads: [message],
       });
+
+      console.warn("[AUTH MOBILE DEBUG] fallback_sign_messages_complete");
 
       if (!signedPayload) {
         throw new Error("Authentication failed.");
       }
 
       return createFallbackSignInResult(
-        account.publicKey,
+        publicKey,
         message,
         signedPayload,
       );
     });
+
+    console.warn("[AUTH MOBILE DEBUG] wallet_sign_in_complete");
 
     if (!signInResult) {
       throw new Error("Authentication failed.");
     }
 
     return signInResult;
-  } catch {
+  } catch (error) {
+    console.warn(
+      "[AUTH MOBILE DEBUG] failed",
+      error instanceof Error ? error.message : "unknown",
+    );
     throw new Error("Authentication failed.");
   }
-}
-
-function getAuthorizedSigningAccount(accounts: readonly Account[]) {
-  const account = accounts[0];
-
-  if (!account) {
-    throw new Error("Authentication failed.");
-  }
-
-  const publicKey = getAccountPublicKey(account);
-  const base64Address = getAccountBase64Address(account, publicKey);
-
-  return {
-    base64Address,
-    publicKey,
-  };
-}
-
-function getAccountPublicKey(account: Account) {
-  const publicKey =
-    "publicKey" in account
-      ? new Uint8Array(account.publicKey)
-      : new Uint8Array(Buffer.from(account.address, "base64"));
-
-  if (publicKey.length !== 32) {
-    throw new Error("Authentication failed.");
-  }
-
-  return publicKey;
-}
-
-function getAccountBase64Address(
-  account: Account,
-  publicKey: Uint8Array,
-): Base64EncodedAddress {
-  if ("publicKey" in account) {
-    return Buffer.from(publicKey).toString("base64");
-  }
-
-  const decodedAddress = new Uint8Array(Buffer.from(account.address, "base64"));
-
-  if (!bytesEqual(decodedAddress, publicKey)) {
-    throw new Error("Authentication failed.");
-  }
-
-  return account.address;
 }
 
 function createFallbackSignInResult(
