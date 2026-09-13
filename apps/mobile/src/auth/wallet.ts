@@ -83,6 +83,28 @@ export async function requestWalletSignIn(
       );
 
       if (authorization.sign_in_result) {
+        console.warn("[AUTH MOBILE DEBUG] native_result_shape", {
+          keys: Object.keys(authorization.sign_in_result),
+          addressType: typeof authorization.sign_in_result.address,
+          addressLength:
+            typeof authorization.sign_in_result.address === "string"
+              ? authorization.sign_in_result.address.length
+              : null,
+          signedMessageType:
+            typeof authorization.sign_in_result.signed_message,
+          signedMessageLength:
+            typeof authorization.sign_in_result.signed_message === "string"
+              ? authorization.sign_in_result.signed_message.length
+              : null,
+          signatureType: typeof authorization.sign_in_result.signature,
+          signatureLength:
+            typeof authorization.sign_in_result.signature === "string"
+              ? authorization.sign_in_result.signature.length
+              : null,
+          declaredSignatureType:
+            authorization.sign_in_result.signature_type ?? null,
+        });
+
         return authorization.sign_in_result;
       }
 
