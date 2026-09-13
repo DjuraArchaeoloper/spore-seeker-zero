@@ -1,5 +1,6 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import {
+  getGroupMemberPointerState,
   getMetadataPointerState,
   getTokenGroupMemberState,
   TOKEN_2022_PROGRAM_ID,
@@ -18,6 +19,7 @@ type HeliusTokenAccount = {
         info?: {
           mint?: unknown;
           owner?: unknown;
+          state?: unknown;
           tokenAmount?: {
             amount?: unknown;
           };
@@ -27,12 +29,16 @@ type HeliusTokenAccount = {
   };
 };
 
-type HeliusTokenAccountsResponse = {
-  result?: {
-    value?: {
+type HeliusTokenAccountsValue =
+  | HeliusTokenAccount[]
+  | {
       accounts?: HeliusTokenAccount[];
       paginationKey?: string | null;
     };
+
+type HeliusTokenAccountsResponse = {
+  result?: {
+    value?: HeliusTokenAccountsValue;
   };
   error?: unknown;
 };
@@ -139,23 +145,26 @@ async function getToken2022MintsForWallet(heliusRpcUrl: string, walletAddress: s
       throw new SgtVerificationUnavailableError();
     }
 
-    const accounts = body.result?.value?.accounts;
+    const pageResult = getTokenAccountsPage(body.result?.value);
 
-    if (!Array.isArray(accounts)) {
+    if (!pageResult) {
       throw new SgtVerificationUnavailableError();
     }
+
+    const { accounts } = pageResult;
 
     for (const tokenAccount of accounts) {
       const info = tokenAccount.account?.data?.parsed?.info;
       const mint = info?.mint;
       const owner = info?.owner;
+      const state = info?.state;
       const amount = info?.tokenAmount?.amount;
 
-      if (typeof mint !== "string" || typeof owner !== "string" || typeof amount !== "string") {
+      if (typeof mint !== "string" || typeof owner !== "string" || typeof amount !== "string" || typeof state !== "string") {
         continue;
       }
 
-      if (owner !== walletAddress || amount === "0") {
+      if (owner !== walletAddress || amount !== "1" || !isInitializedTokenAccountState(state)) {
         continue;
       }
 
@@ -166,7 +175,7 @@ async function getToken2022MintsForWallet(heliusRpcUrl: string, walletAddress: s
       }
     }
 
-    paginationKey = body.result?.value?.paginationKey ?? null;
+    paginationKey = pageResult.paginationKey;
 
     if (paginationKey) {
       if (seenPaginationKeys.has(paginationKey)) {
@@ -180,17 +189,49 @@ async function getToken2022MintsForWallet(heliusRpcUrl: string, walletAddress: s
   return Array.from(mintAddresses).map((mint) => new PublicKey(mint));
 }
 
+function getTokenAccountsPage(value: HeliusTokenAccountsValue | undefined) {
+  if (Array.isArray(value)) {
+    return {
+      accounts: value,
+      paginationKey: null
+    };
+  }
+
+  if (!value || typeof value !== "object" || !("accounts" in value)) {
+    return null;
+  }
+
+  const { accounts, paginationKey } = value;
+
+  if (!Array.isArray(accounts)) {
+    return null;
+  }
+
+  return {
+    accounts,
+    paginationKey: typeof paginationKey === "string" ? paginationKey : null
+  };
+}
+
+function isInitializedTokenAccountState(state: string) {
+  return state === "initialized" || state === "frozen";
+}
+
 function isVerifiedSgtMint(mintAddress: PublicKey, accountInfo: Parameters<typeof unpackMint>[1]) {
   try {
     const config = getSgtVerificationConfig();
     const mint = unpackMint(mintAddress, accountInfo, TOKEN_2022_PROGRAM_ID);
     const metadataPointer = getMetadataPointerState(mint);
+    const groupMemberPointer = getGroupMemberPointerState(mint);
     const tokenGroupMemberState = getTokenGroupMemberState(mint);
 
     return (
       mint.mintAuthority?.toBase58() === config.mintAuthority &&
       metadataPointer?.authority?.toBase58() === config.mintAuthority &&
       metadataPointer?.metadataAddress?.toBase58() === config.metadataAddress &&
+      groupMemberPointer?.authority?.toBase58() === config.mintAuthority &&
+      groupMemberPointer?.memberAddress?.equals(mintAddress) === true &&
+      tokenGroupMemberState?.mint?.equals(mintAddress) === true &&
       tokenGroupMemberState?.group?.toBase58() === config.groupAddress
     );
   } catch {
