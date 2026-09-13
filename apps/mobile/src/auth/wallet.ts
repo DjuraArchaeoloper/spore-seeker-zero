@@ -1,7 +1,19 @@
 import type { MobileSignInResult, SiwsPayload } from "./api";
 import type { AuthIdentity } from "./api";
 import { Buffer } from "buffer";
-import { ComputeBudgetProgram, PublicKey, Transaction, type Connection, type TransactionInstruction } from "@solana/web3.js";
+import type {
+  Account,
+  Base64EncodedAddress,
+} from "@solana-mobile/mobile-wallet-adapter-protocol";
+import { createSignInMessage } from "@solana/wallet-standard-util";
+import {
+  ComputeBudgetProgram,
+  PublicKey,
+  SIGNATURE_LENGTH_IN_BYTES,
+  Transaction,
+  type Connection,
+  type TransactionInstruction,
+} from "@solana/web3.js";
 import { sporeWalletChain } from "../spore/config";
 import { SporeFailure } from "../spore/payload";
 
@@ -52,20 +64,46 @@ export async function sendWalletTransaction(connection: Connection, identity: Au
   }
 }
 
-export async function requestWalletSignIn(signInPayload: SiwsPayload): Promise<MobileSignInResult> {
+export async function requestWalletSignIn(
+  signInPayload: SiwsPayload,
+): Promise<MobileSignInResult> {
   try {
-    const { transact } = await import("@solana-mobile/mobile-wallet-adapter-protocol-web3js");
+    const { transact } =
+      await import("@solana-mobile/mobile-wallet-adapter-protocol-web3js");
     const signInResult = await transact(async (wallet) => {
       const authorization = await wallet.authorize({
         chain: signInPayload.chainId,
         identity: {
           name: "SPORE",
-          uri: signInPayload.uri
+          uri: signInPayload.uri,
         },
-        sign_in_payload: signInPayload
+        sign_in_payload: signInPayload,
       });
 
-      return authorization.sign_in_result;
+      if (authorization.sign_in_result) {
+        return authorization.sign_in_result;
+      }
+
+      const account = getAuthorizedSigningAccount(authorization.accounts);
+      const walletAddress = new PublicKey(account.publicKey).toBase58();
+      const message = createSignInMessage({
+        ...signInPayload,
+        address: walletAddress,
+      });
+      const [signedPayload] = await wallet.signMessages({
+        addresses: [account.base64Address],
+        payloads: [message],
+      });
+
+      if (!signedPayload) {
+        throw new Error("Authentication failed.");
+      }
+
+      return createFallbackSignInResult(
+        account.publicKey,
+        message,
+        signedPayload,
+      );
     });
 
     if (!signInResult) {
@@ -76,4 +114,95 @@ export async function requestWalletSignIn(signInPayload: SiwsPayload): Promise<M
   } catch {
     throw new Error("Authentication failed.");
   }
+}
+
+function getAuthorizedSigningAccount(accounts: readonly Account[]) {
+  const account = accounts[0];
+
+  if (!account) {
+    throw new Error("Authentication failed.");
+  }
+
+  const publicKey = getAccountPublicKey(account);
+  const base64Address = getAccountBase64Address(account, publicKey);
+
+  return {
+    base64Address,
+    publicKey,
+  };
+}
+
+function getAccountPublicKey(account: Account) {
+  const publicKey =
+    "publicKey" in account
+      ? new Uint8Array(account.publicKey)
+      : new Uint8Array(Buffer.from(account.address, "base64"));
+
+  if (publicKey.length !== 32) {
+    throw new Error("Authentication failed.");
+  }
+
+  return publicKey;
+}
+
+function getAccountBase64Address(
+  account: Account,
+  publicKey: Uint8Array,
+): Base64EncodedAddress {
+  if ("publicKey" in account) {
+    return Buffer.from(publicKey).toString("base64");
+  }
+
+  const decodedAddress = new Uint8Array(Buffer.from(account.address, "base64"));
+
+  if (!bytesEqual(decodedAddress, publicKey)) {
+    throw new Error("Authentication failed.");
+  }
+
+  return account.address;
+}
+
+function createFallbackSignInResult(
+  publicKey: Uint8Array,
+  message: Uint8Array,
+  signedPayload: Uint8Array,
+): MobileSignInResult {
+  if (signedPayload.length < SIGNATURE_LENGTH_IN_BYTES) {
+    throw new Error("Authentication failed.");
+  }
+
+  const signedMessage = signedPayload.slice(
+    0,
+    signedPayload.length - SIGNATURE_LENGTH_IN_BYTES,
+  );
+  const signature = signedPayload.slice(
+    signedPayload.length - SIGNATURE_LENGTH_IN_BYTES,
+  );
+  const signedMessageOrPayload =
+    signedMessage.length === 0 ? message : signedMessage;
+
+  if (!bytesEqual(signedMessageOrPayload, message)) {
+    throw new Error("Authentication failed.");
+  }
+
+  return {
+    address: Buffer.from(publicKey).toString("base64"),
+    signed_message: Buffer.from(message).toString("base64"),
+    signature: Buffer.from(signature).toString("base64"),
+    signature_type: "ed25519",
+  };
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+
+  return true;
 }
