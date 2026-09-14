@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     ...tokens.postAuth.smallText,
     fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "400",
     letterSpacing: 1,
     paddingLeft: 1,

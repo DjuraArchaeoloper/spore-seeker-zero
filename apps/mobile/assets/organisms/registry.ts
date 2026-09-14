@@ -1,13 +1,15 @@
 import type { CreatureFamily } from "@spore/shared";
 
-type CreatureLayer = "body" | "fins" | "core" | "tendrils" | "surface" | "glow";
+export type CreatureLayer = "body" | "fins" | "core" | "tendrils" | "surface" | "glow";
 type CreatureRenderLayer = CreatureLayer | "sensoryNodes" | "moustache";
 type CreatureAssetSource = number;
 type PointPair = readonly [number, number];
 
 export type CreatureLayerAssets = Record<CreatureLayer, CreatureAssetSource>;
 
-export type CreatureFamilyRegistration = {
+export type CreatureFamilyDefinition = {
+  id: CreatureFamily;
+  assets: CreatureLayerAssets;
   moustache: {
     center: PointPair;
     width: number;
@@ -32,62 +34,21 @@ export const SPORE_CREATURE_LAYER_ORDER = [
   "moustache"
 ] as const satisfies readonly CreatureRenderLayer[];
 
-export const SPORE_CREATURE_ASSETS = {
-  "void-drifter": {
-    body: require("./void-drifter/body.png"),
-    fins: require("./void-drifter/fins.png"),
-    core: require("./void-drifter/core.png"),
-    tendrils: require("./void-drifter/tendrils.png"),
-    surface: require("./void-drifter/surface.png"),
-    glow: require("./void-drifter/glow.png")
-  },
-  "crystal-bloom": {
-    body: require("./crystal-bloom/body.png"),
-    fins: require("./crystal-bloom/fins.png"),
-    core: require("./crystal-bloom/core.png"),
-    tendrils: require("./crystal-bloom/tendrils.png"),
-    surface: require("./crystal-bloom/surface.png"),
-    glow: require("./crystal-bloom/glow.png")
-  },
-  "nebula-spine": {
-    body: require("./nebula-spine/body.png"),
-    fins: require("./nebula-spine/fins.png"),
-    core: require("./nebula-spine/core.png"),
-    tendrils: require("./nebula-spine/tendrils.png"),
-    surface: require("./nebula-spine/surface.png"),
-    glow: require("./nebula-spine/glow.png")
-  },
-  "silk-ray": {
-    body: require("./silk-ray/body.png"),
-    fins: require("./silk-ray/fins.png"),
-    core: require("./silk-ray/core.png"),
-    tendrils: require("./silk-ray/tendrils.png"),
-    surface: require("./silk-ray/surface.png"),
-    glow: require("./silk-ray/glow.png")
-  }
-} as const satisfies Record<CreatureFamily, CreatureLayerAssets>;
-
 export const SPORE_MOUSTACHE_ASSET = require("./shared/moustache_01.png") as CreatureAssetSource;
 
-export const SPORE_CREATURE_REGISTRY = {
-  "silk-ray": {
-    moustache: {
-      center: [0.5078, 0.4902],
-      width: 0.142,
-      rotationDeg: 0
-    },
-    sensoryAnchors: [
-      [0.43, 0.4],
-      [0.57, 0.4],
-      [0.405, 0.48],
-      [0.595, 0.48],
-      [0.44, 0.57],
-      [0.56, 0.57],
-      [0.47, 0.33],
-      [0.53, 0.33]
-    ]
-  },
+// Art registration is separate from genome bucket assignment. Do not derive
+// BODY FORM mapping from this object's length or key order.
+export const SPORE_CREATURE_FAMILIES = {
   "void-drifter": {
+    id: "void-drifter",
+    assets: {
+      body: require("./void-drifter/body.png"),
+      fins: require("./void-drifter/fins.png"),
+      core: require("./void-drifter/core.png"),
+      tendrils: require("./void-drifter/tendrils.png"),
+      surface: require("./void-drifter/surface.png"),
+      glow: require("./void-drifter/glow.png")
+    },
     moustache: {
       center: [0.5, 0.516],
       width: 0.148,
@@ -105,6 +66,15 @@ export const SPORE_CREATURE_REGISTRY = {
     ]
   },
   "crystal-bloom": {
+    id: "crystal-bloom",
+    assets: {
+      body: require("./crystal-bloom/body.png"),
+      fins: require("./crystal-bloom/fins.png"),
+      core: require("./crystal-bloom/core.png"),
+      tendrils: require("./crystal-bloom/tendrils.png"),
+      surface: require("./crystal-bloom/surface.png"),
+      glow: require("./crystal-bloom/glow.png")
+    },
     moustache: {
       center: [0.5088, 0.4946],
       width: 0.142,
@@ -122,6 +92,15 @@ export const SPORE_CREATURE_REGISTRY = {
     ]
   },
   "nebula-spine": {
+    id: "nebula-spine",
+    assets: {
+      body: require("./nebula-spine/body.png"),
+      fins: require("./nebula-spine/fins.png"),
+      core: require("./nebula-spine/core.png"),
+      tendrils: require("./nebula-spine/tendrils.png"),
+      surface: require("./nebula-spine/surface.png"),
+      glow: require("./nebula-spine/glow.png")
+    },
     moustache: {
       center: [0.349, 0.458],
       width: 0.145,
@@ -137,5 +116,31 @@ export const SPORE_CREATURE_REGISTRY = {
       [0.42, 0.34],
       [0.58, 0.69]
     ]
+  },
+  "silk-ray": {
+    id: "silk-ray",
+    assets: {
+      body: require("./silk-ray/body.png"),
+      fins: require("./silk-ray/fins.png"),
+      core: require("./silk-ray/core.png"),
+      tendrils: require("./silk-ray/tendrils.png"),
+      surface: require("./silk-ray/surface.png"),
+      glow: require("./silk-ray/glow.png")
+    },
+    moustache: {
+      center: [0.5078, 0.4902],
+      width: 0.142,
+      rotationDeg: 0
+    },
+    sensoryAnchors: [
+      [0.43, 0.4],
+      [0.57, 0.4],
+      [0.405, 0.48],
+      [0.595, 0.48],
+      [0.44, 0.57],
+      [0.56, 0.57],
+      [0.47, 0.33],
+      [0.53, 0.33]
+    ]
   }
-} as const satisfies Record<CreatureFamily, CreatureFamilyRegistration>;
+} as const satisfies Record<CreatureFamily, CreatureFamilyDefinition>;

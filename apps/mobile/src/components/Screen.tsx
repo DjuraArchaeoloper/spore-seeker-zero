@@ -4,6 +4,7 @@ import { useFonts } from "expo-font";
 
 import { tokens } from "../design/tokens";
 import { AppText } from "./AppText";
+import { AUTH_LOGOUT_RESERVED_WIDTH } from "./AuthenticatedLogoutControl";
 import { SoftTextScrim } from "./SoftTextScrim";
 
 type ScreenProps = ViewProps & {
@@ -59,6 +60,7 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.xs,
     overflow: "visible",
     paddingBottom: tokens.spacing.lg,
+    paddingRight: AUTH_LOGOUT_RESERVED_WIDTH,
     position: "relative",
   },
   headerScrim: {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AppState,
   BackHandler,
@@ -20,6 +20,10 @@ import {
   type SpeciesResponse,
 } from "../auth/api";
 import { AppText } from "../components/AppText";
+import {
+  AuthenticatedLogoutControl,
+  AUTH_LOGOUT_TOP_OFFSET,
+} from "../components/AuthenticatedLogoutControl";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { QuietAction } from "../components/QuietAction";
 import { Screen } from "../components/Screen";
@@ -80,7 +84,7 @@ export default function Reproduction({
   setSurface,
 }: {
   identity: AuthIdentity;
-  onSignOut: () => void;
+  onSignOut: () => Promise<void> | void;
   surface: SurfaceKey;
   setSurface: (surface: SurfaceKey) => void;
 }) {
@@ -88,6 +92,7 @@ export default function Reproduction({
   const [stage, setStage] = useState<Stage>("home");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [signOutPending, setSignOutPending] = useState(false);
   const [now, setNow] = useState(nowSeconds);
   const [permission, requestPermission] = useCameraPermissions();
   const secret = useRef<ClaimPayload | null>(null);
@@ -209,6 +214,26 @@ export default function Reproduction({
       if (mounted.current) setBusy(false);
     }
   }
+  const requestSignOut = useCallback(() => {
+    if (busy || signOutPending || locked.current) {
+      return;
+    }
+
+    setSignOutPending(true);
+    setError(null);
+
+    void Promise.resolve(onSignOut())
+      .catch(() => {
+        if (mounted.current) {
+          setError("Log out failed. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (mounted.current) {
+          setSignOutPending(false);
+        }
+      });
+  }, [busy, onSignOut, signOutPending]);
   const returnToSpecimen = useCallback(() => {
     if (locked.current) return;
     scanned.current = false;
@@ -579,7 +604,7 @@ export default function Reproduction({
     return permission?.granted ? (
       <View style={styles.scanLiveScreen}>
         <CameraView
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
           onMountError={() => {
@@ -707,8 +732,37 @@ export default function Reproduction({
         />
       </Screen>
     );
+  const renderAuthenticatedSurface = (children: ReactNode, includeNavigation = false) => (
+    <>
+      <View style={styles.content}>{children}</View>
+      <AuthenticatedLogoutControl
+        busy={signOutPending}
+        disabled={busy || signOutPending}
+        onPress={requestSignOut}
+        style={[
+          styles.logoutControl,
+          {
+            top: insets.top + AUTH_LOGOUT_TOP_OFFSET,
+            right: Math.max(insets.right + tokens.spacing.sm, tokens.spacing.lg),
+          },
+        ]}
+      />
+      {includeNavigation ? (
+        <BottomNavigation
+          activeSurface={surface}
+          onSurfaceChange={(next) => {
+            if (!locked.current) {
+              setSurface(next);
+              void refresh().catch((e) => setError(sporeMessage(e)));
+            }
+          }}
+        />
+      ) : null}
+    </>
+  );
+
   if (!organism)
-    return (
+    return renderAuthenticatedSurface(
       <Screen
         title={
           organism === undefined ? "FINDING LIFE" : "LIFE STARTS WITH A SPORE"
@@ -745,7 +799,6 @@ export default function Reproduction({
                 setStage("scan");
               }}
             />
-            <QuietAction label="LOG OUT" onPress={onSignOut} />
           </View>
         )}
       </Screen>
@@ -773,54 +826,41 @@ export default function Reproduction({
       : specimenSporeState === "cooldown"
         ? `SPORE IN ${Math.ceil((organism.nextSporeAt - now) / 60)} MIN`
         : "SPORE READY";
-  return (
-    <>
-      <View style={styles.content}>
-        {surface === "specimen" ? (
-          <SpecimenScreen
-            organism={organism}
-            onLogout={onSignOut}
-            onRelease={() => {
-              void release();
-            }}
-            busy={busy}
-            sporeState={specimenSporeState}
-            sporeStatus={specimenSporeStatus}
-            canRelease={specimenSporeState === "ready" || activeOfferWithoutLocalSecret}
-            canViewSpore={localOfferActive}
-            releaseLabel={activeOfferWithoutLocalSecret ? "RELEASE NEW SPORE" : "RELEASE SPORE"}
-            onViewSpore={() => {
-              if (!localOfferActive) return;
-              setOffer(organism);
-              setStage("offer");
-              setError(null);
-            }}
-            error={error}
-          />
-        ) : surface === "bloodline" ? (
-          <BloodlineScreen
-            bloodline={bloodline.data}
-            error={bloodline.error}
-            loading={bloodline.data === undefined && !bloodline.error}
-          />
-        ) : (
-          <SpeciesScreen
-            species={species.data}
-            error={species.error}
-            loading={species.data === undefined && !species.error}
-          />
-        )}
-      </View>
-      <BottomNavigation
-        activeSurface={surface}
-        onSurfaceChange={(next) => {
-          if (!locked.current) {
-            setSurface(next);
-            void refresh().catch((e) => setError(sporeMessage(e)));
-          }
+  return renderAuthenticatedSurface(
+    surface === "specimen" ? (
+      <SpecimenScreen
+        organism={organism}
+        onRelease={() => {
+          void release();
         }}
+        busy={busy}
+        sporeState={specimenSporeState}
+        sporeStatus={specimenSporeStatus}
+        canRelease={specimenSporeState === "ready" || activeOfferWithoutLocalSecret}
+        canViewSpore={localOfferActive}
+        releaseLabel={activeOfferWithoutLocalSecret ? "RELEASE NEW SPORE" : "RELEASE SPORE"}
+        onViewSpore={() => {
+          if (!localOfferActive) return;
+          setOffer(organism);
+          setStage("offer");
+          setError(null);
+        }}
+        error={error}
       />
-    </>
+    ) : surface === "bloodline" ? (
+      <BloodlineScreen
+        bloodline={bloodline.data}
+        error={bloodline.error}
+        loading={bloodline.data === undefined && !bloodline.error}
+      />
+    ) : (
+      <SpeciesScreen
+        species={species.data}
+        error={species.error}
+        loading={species.data === undefined && !species.error}
+      />
+    ),
+    true,
   );
 }
 
@@ -857,6 +897,10 @@ function SporeQr({ payload, size }: { payload: ClaimPayload; size: number }) {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 24 },
   content: { flex: 1 },
+  logoutControl: {
+    elevation: 20,
+    position: "absolute",
+  },
   homeActions: {
     gap: tokens.spacing.sm,
   },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactElement, useEffect, useMemo, useState } from "react";
 import {
   AccessibilityInfo,
   StyleSheet,
@@ -11,8 +11,10 @@ import {
   Canvas,
   Circle,
   ColorMatrix,
+  drawAsPicture,
   Group,
   Image,
+  Skia,
   useImage,
   vec,
   type SkImage,
@@ -22,7 +24,6 @@ import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -32,16 +33,15 @@ import {
   genomeToHex,
   phenotypeFromGenome,
   validateGenomeBytes,
-  type CreatureFamily,
   type GenomeInput,
   type OrganismPhenotype
 } from "@spore/shared";
 
 import {
   ORGANISM_RUNTIME_CANVAS,
-  SPORE_CREATURE_ASSETS,
-  SPORE_CREATURE_REGISTRY,
+  SPORE_CREATURE_FAMILIES,
   SPORE_MOUSTACHE_ASSET,
+  type CreatureFamilyDefinition,
   type CreatureLayerAssets
 } from "../../../assets/organisms/registry";
 import { SHOW_MOUSTACHE } from "../../config/organism";
@@ -54,7 +54,8 @@ type OrganismRendererProps = {
 };
 
 type CreatureImages = Record<keyof CreatureLayerAssets, SkImage | null>;
-type SkiaTransform = Transforms3d | { value: Transforms3d };
+type LoadedCreatureImages = Record<keyof CreatureLayerAssets, SkImage>;
+type SkiaTransform = Transforms3d;
 
 type SensoryNode = {
   x: number;
@@ -71,7 +72,6 @@ type RenderPlan = {
   finAccentScaleX: number;
   finAccentScaleY: number;
   finAccentRotation: number;
-  finAccentWaveRad: number;
   glowTransform: Transforms3d;
   haloTransform: Transforms3d;
   tendrilOpacity: number;
@@ -99,7 +99,6 @@ const TWO_PI = Math.PI * 2;
 const ART_FRAME_SCALE = 0.88;
 const ART_FRAME_Y_OFFSET_RATIO = -0.034;
 const FIN_ACCENT_TRANSFORM_MULTIPLIER = 0.16;
-const FIN_ACCENT_WAVE_MULTIPLIER = 0.18;
 const HALO_BLUR_MULTIPLIER = 0.28;
 const HALO_OPACITY_MULTIPLIER = 0.24;
 const GLOW_OPACITY_MULTIPLIER = 0.46;
@@ -108,23 +107,52 @@ const MOUSTACHE_VISUAL_SCALE = 0.75;
 const ROOT_FLOAT_BASE_PX_AT_1024 = 4;
 const ROOT_FLOAT_MOTION_PX_MULTIPLIER = 0.34;
 const MOTION_SCALE_MULTIPLIER = 0.86;
+const FLATTENED_CREATURE_ART_REVISION = "flattened-organism-v2";
+const FLATTENED_CREATURE_ART_WIDTH = ORGANISM_RUNTIME_CANVAS.width;
+const FLATTENED_CREATURE_ART_HEIGHT = ORGANISM_RUNTIME_CANVAS.height;
+const FLATTENED_CREATURE_CACHE_MAX = 12;
 
-export function OrganismRenderer({
+const flattenedCreatureImageCache = new Map<string, SkImage>();
+const flattenedCreatureCompositionQueue = new Map<string, Promise<SkImage | null>>();
+
+export function OrganismRenderer(props: OrganismRendererProps) {
+  return SHOW_MOUSTACHE ? (
+    <OrganismRendererWithMoustache {...props} />
+  ) : (
+    <OrganismRendererCore {...props} includeMoustache={false} moustacheImage={null} />
+  );
+}
+
+function OrganismRendererWithMoustache(props: OrganismRendererProps) {
+  const moustacheImage = useImage(SPORE_MOUSTACHE_ASSET);
+
+  return <OrganismRendererCore {...props} includeMoustache moustacheImage={moustacheImage} />;
+}
+
+function OrganismRendererCore({
   animated = true,
   genome,
   size = 440,
-  style
-}: OrganismRendererProps) {
+  style,
+  includeMoustache,
+  moustacheImage
+}: OrganismRendererProps & {
+  includeMoustache: boolean;
+  moustacheImage: SkImage | null;
+}) {
   const rendererSize = sanitizeSize(size);
   const genomeKey = useMemo(() => normalizeGenomeKey(genome), [genome]);
   const phenotype = useMemo(() => phenotypeFromGenome(genomeKey), [genomeKey]);
   const family = phenotype.family;
-  const images = useSelectedFamilyImages(family);
-  const moustacheImage = useImage(SPORE_MOUSTACHE_ASSET);
-  const registration = SPORE_CREATURE_REGISTRY[family];
-  const renderPlan = useMemo(
-    () => createRenderPlan(phenotype, registration, rendererSize),
-    [phenotype, registration, rendererSize]
+  const familyDefinition = SPORE_CREATURE_FAMILIES[family];
+  const images = useSelectedFamilyImages(familyDefinition.assets);
+  const displayRenderPlan = useMemo(
+    () => createRenderPlan(phenotype, familyDefinition, rendererSize),
+    [phenotype, familyDefinition, rendererSize]
+  );
+  const artRenderPlan = useMemo(
+    () => createRenderPlan(phenotype, familyDefinition, FLATTENED_CREATURE_ART_WIDTH),
+    [phenotype, familyDefinition]
   );
   const colorMatrix = useMemo(
     () => createHueSaturationMatrix(phenotype.pigment.hueShiftDeg, phenotype.pigment.saturation),
@@ -161,18 +189,26 @@ export function OrganismRenderer({
       phenotype.pigment.saturation
     ]
   );
+  const nodeColor = hslToRgba(205 + phenotype.pigment.hueShiftDeg * 0.45, 0.74, 0.72, 1);
+  const cacheKey = useMemo(() => createFlattenedCreatureCacheKey(genomeKey), [genomeKey]);
+  const flattenedImage = useFlattenedOrganismImage({
+    artRenderPlan,
+    cacheKey,
+    colorMatrix,
+    coreMatrix,
+    filamentMatrix,
+    glowMatrix,
+    images,
+    includeMoustache,
+    moustacheImage,
+    nodeColor,
+    surfaceMatrix,
+    surfaceMode: phenotype.surface.mode
+  });
   const reduceMotion = useReduceMotion();
   const motionEnabled = animated && !reduceMotion;
   const phase = useSharedValue(0);
-  const {
-    finAccentScaleX,
-    finAccentScaleY,
-    finAccentRotation,
-    finAccentWaveRad,
-    rootFloatPx,
-    rootSwayRad,
-    tendrilScale
-  } = renderPlan;
+  const { rootFloatPx, rootSwayRad } = displayRenderPlan;
   const pulseScaleAmplitude = phenotype.motion.pulseScaleAmplitude;
 
   useEffect(() => {
@@ -220,20 +256,6 @@ export function OrganismRenderer({
     };
   }, [motionEnabled, pulseScaleAmplitude, rootFloatPx, rootSwayRad]);
 
-  const finAccentTransform = useDerivedValue<Transforms3d>(() => {
-    const wave = motionEnabled ? Math.sin(phase.value * TWO_PI) * finAccentWaveRad : 0;
-
-    return [
-      { scaleX: finAccentScaleX },
-      { scaleY: finAccentScaleY },
-      { rotate: finAccentRotation + wave }
-    ];
-  }, [finAccentRotation, finAccentScaleX, finAccentScaleY, finAccentWaveRad, motionEnabled]);
-
-  const tendrilTransform = useMemo<Transforms3d>(() => [{ scale: tendrilScale }], [tendrilScale]);
-
-  const nodeColor = hslToRgba(205 + phenotype.pigment.hueShiftDeg * 0.45, 0.74, 0.72, 1);
-
   return (
     <Animated.View
       style={[
@@ -245,76 +267,328 @@ export function OrganismRenderer({
         style
       ]}
     >
-      <Canvas
-        style={[
-          styles.canvas,
-          {
-            height: rendererSize,
-            width: rendererSize
-          }
-        ]}
-      >
-        <Group origin={renderPlan.center} transform={renderPlan.biologicalTransform}>
-          <ImageLayer
-            blendMode="screen"
-            blur={renderPlan.haloBlur}
-            image={images.glow}
-            matrix={glowMatrix}
-            opacity={renderPlan.haloOpacity}
-            origin={renderPlan.center}
-            size={rendererSize}
-            transform={renderPlan.haloTransform}
-          />
-          <ImageLayer
-            blendMode="screen"
-            image={images.glow}
-            matrix={glowMatrix}
-            opacity={renderPlan.glowOpacity}
-            origin={renderPlan.center}
-            size={rendererSize}
-            transform={renderPlan.glowTransform}
-          />
-          <BaseAnatomyLayer
-            bodyImage={images.body}
-            colorMatrix={colorMatrix}
-            finAccentTransform={finAccentTransform}
-            finsImage={images.fins}
-            plan={renderPlan}
-            size={rendererSize}
-          />
-          <ImageLayer
-            image={images.tendrils}
-            matrix={colorMatrix}
-            opacity={renderPlan.tendrilOpacity}
-            origin={renderPlan.center}
-            size={rendererSize}
-            transform={tendrilTransform}
-          />
-          <ImageLayer
-            blendMode="screen"
-            image={images.core}
-            matrix={coreMatrix}
-            opacity={renderPlan.coreOpacity}
-            origin={renderPlan.center}
-            size={rendererSize}
-            transform={renderPlan.coreTransform}
-          />
-          <SurfaceLayer
-            image={images.surface}
-            filamentMatrix={filamentMatrix}
-            plan={renderPlan}
-            size={rendererSize}
-            surfaceMatrix={surfaceMatrix}
-            surfaceMode={phenotype.surface.mode}
-          />
-          <SensoryNodes color={nodeColor} nodes={renderPlan.sensoryNodes} />
-          {SHOW_MOUSTACHE ? (
-            <Moustache image={moustacheImage} plan={renderPlan} />
-          ) : null}
-        </Group>
-      </Canvas>
+      {flattenedImage ? (
+        <Canvas
+          style={[
+            styles.canvas,
+            {
+              height: rendererSize,
+              width: rendererSize
+            }
+          ]}
+        >
+          <Image fit="fill" height={rendererSize} image={flattenedImage} width={rendererSize} x={0} y={0} />
+        </Canvas>
+      ) : null}
     </Animated.View>
   );
+}
+
+function FlattenedOrganismComposite({
+  colorMatrix,
+  coreMatrix,
+  filamentMatrix,
+  glowMatrix,
+  images,
+  includeMoustache,
+  moustacheImage,
+  nodeColor,
+  plan,
+  surfaceMatrix,
+  surfaceMode
+}: {
+  colorMatrix: number[];
+  coreMatrix: number[];
+  filamentMatrix: number[];
+  glowMatrix: number[];
+  images: LoadedCreatureImages;
+  includeMoustache: boolean;
+  moustacheImage: SkImage | null;
+  nodeColor: string;
+  plan: RenderPlan;
+  surfaceMatrix: number[];
+  surfaceMode: OrganismPhenotype["surface"]["mode"];
+}) {
+  return (
+    <Group origin={plan.center} transform={plan.biologicalTransform}>
+      <ImageLayer
+        blendMode="screen"
+        blur={plan.haloBlur}
+        image={images.glow}
+        matrix={glowMatrix}
+        opacity={plan.haloOpacity}
+        origin={plan.center}
+        size={FLATTENED_CREATURE_ART_WIDTH}
+        transform={plan.haloTransform}
+      />
+      <ImageLayer
+        blendMode="screen"
+        image={images.glow}
+        matrix={glowMatrix}
+        opacity={plan.glowOpacity}
+        origin={plan.center}
+        size={FLATTENED_CREATURE_ART_WIDTH}
+        transform={plan.glowTransform}
+      />
+      <BaseAnatomyLayer
+        bodyImage={images.body}
+        colorMatrix={colorMatrix}
+        finAccentTransform={createStaticFinAccentTransform(plan)}
+        finsImage={images.fins}
+        plan={plan}
+        size={FLATTENED_CREATURE_ART_WIDTH}
+      />
+      <ImageLayer
+        image={images.tendrils}
+        matrix={colorMatrix}
+        opacity={plan.tendrilOpacity}
+        origin={plan.center}
+        size={FLATTENED_CREATURE_ART_WIDTH}
+        transform={[{ scale: plan.tendrilScale }]}
+      />
+      <ImageLayer
+        blendMode="screen"
+        image={images.core}
+        matrix={coreMatrix}
+        opacity={plan.coreOpacity}
+        origin={plan.center}
+        size={FLATTENED_CREATURE_ART_WIDTH}
+        transform={plan.coreTransform}
+      />
+      <SurfaceLayer
+        image={images.surface}
+        filamentMatrix={filamentMatrix}
+        plan={plan}
+        size={FLATTENED_CREATURE_ART_WIDTH}
+        surfaceMatrix={surfaceMatrix}
+        surfaceMode={surfaceMode}
+      />
+      <SensoryNodes color={nodeColor} nodes={plan.sensoryNodes} />
+      {includeMoustache ? <Moustache image={moustacheImage} plan={plan} /> : null}
+    </Group>
+  );
+}
+
+function useFlattenedOrganismImage({
+  artRenderPlan,
+  cacheKey,
+  colorMatrix,
+  coreMatrix,
+  filamentMatrix,
+  glowMatrix,
+  images,
+  includeMoustache,
+  moustacheImage,
+  nodeColor,
+  surfaceMatrix,
+  surfaceMode
+}: {
+  artRenderPlan: RenderPlan;
+  cacheKey: string;
+  colorMatrix: number[];
+  coreMatrix: number[];
+  filamentMatrix: number[];
+  glowMatrix: number[];
+  images: CreatureImages;
+  includeMoustache: boolean;
+  moustacheImage: SkImage | null;
+  nodeColor: string;
+  surfaceMatrix: number[];
+  surfaceMode: OrganismPhenotype["surface"]["mode"];
+}) {
+  const [entry, setEntry] = useState<{ cacheKey: string; image: SkImage } | null>(() => {
+    const cachedImage = getFlattenedCreatureFromCache(cacheKey);
+
+    return cachedImage ? { cacheKey, image: cachedImage } : null;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const cachedImage = getFlattenedCreatureFromCache(cacheKey);
+
+    if (cachedImage) {
+      setEntry({ cacheKey, image: cachedImage });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadedImages = getLoadedCreatureImages(images);
+
+    if (!loadedImages || (includeMoustache && !moustacheImage)) {
+      setEntry((current) => (current?.cacheKey === cacheKey ? null : current));
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setEntry((current) => (current?.cacheKey === cacheKey ? current : null));
+
+    const compositeElement = (
+      <FlattenedOrganismComposite
+        colorMatrix={colorMatrix}
+        coreMatrix={coreMatrix}
+        filamentMatrix={filamentMatrix}
+        glowMatrix={glowMatrix}
+        images={loadedImages}
+        includeMoustache={includeMoustache}
+        moustacheImage={moustacheImage}
+        nodeColor={nodeColor}
+        plan={artRenderPlan}
+        surfaceMatrix={surfaceMatrix}
+        surfaceMode={surfaceMode}
+      />
+    );
+
+    void composeFlattenedCreature(cacheKey, compositeElement)
+      .then((image) => {
+        if (cancelled || !image) {
+          return;
+        }
+
+        cacheFlattenedCreature(cacheKey, image);
+        setEntry({ cacheKey, image });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEntry((current) => (current?.cacheKey === cacheKey ? null : current));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    artRenderPlan,
+    cacheKey,
+    colorMatrix,
+    coreMatrix,
+    filamentMatrix,
+    glowMatrix,
+    images.body,
+    images.core,
+    images.fins,
+    images.glow,
+    images.surface,
+    images.tendrils,
+    includeMoustache,
+    moustacheImage,
+    nodeColor,
+    surfaceMatrix,
+    surfaceMode
+  ]);
+
+  return entry?.cacheKey === cacheKey ? entry.image : null;
+}
+
+async function renderFlattenedOrganismImage(element: ReactElement) {
+  const bounds = Skia.XYWHRect(
+    0,
+    0,
+    FLATTENED_CREATURE_ART_WIDTH,
+    FLATTENED_CREATURE_ART_HEIGHT
+  );
+  const picture = await drawAsPicture(element, bounds);
+  const surface = Skia.Surface.MakeOffscreen(
+    FLATTENED_CREATURE_ART_WIDTH,
+    FLATTENED_CREATURE_ART_HEIGHT
+  );
+
+  if (!surface) {
+    picture.dispose();
+    return null;
+  }
+
+  const canvas = surface.getCanvas();
+  canvas.clear(Skia.Color("transparent"));
+  canvas.drawPicture(picture);
+  surface.flush();
+  picture.dispose();
+
+  const snapshot = surface.makeImageSnapshot(bounds);
+
+  return snapshot.makeNonTextureImage() ?? snapshot;
+}
+
+function getLoadedCreatureImages(images: CreatureImages): LoadedCreatureImages | null {
+  const { body, core, fins, glow, surface, tendrils } = images;
+
+  if (!body || !core || !fins || !glow || !surface || !tendrils) {
+    return null;
+  }
+
+  return {
+    body,
+    core,
+    fins,
+    glow,
+    surface,
+    tendrils
+  };
+}
+
+function createStaticFinAccentTransform(plan: RenderPlan): Transforms3d {
+  return [
+    { scaleX: plan.finAccentScaleX },
+    { scaleY: plan.finAccentScaleY },
+    { rotate: plan.finAccentRotation }
+  ];
+}
+
+function createFlattenedCreatureCacheKey(normalizedGenome: string) {
+  return [
+    `renderer=${FLATTENED_CREATURE_ART_REVISION}`,
+    `genome=${normalizedGenome}`,
+    `resolution=${FLATTENED_CREATURE_ART_WIDTH}x${FLATTENED_CREATURE_ART_HEIGHT}`,
+    `moustache=${SHOW_MOUSTACHE ? "on" : "off"}`
+  ].join("|");
+}
+
+function getFlattenedCreatureFromCache(cacheKey: string) {
+  const image = flattenedCreatureImageCache.get(cacheKey) ?? null;
+
+  if (!image) {
+    return null;
+  }
+
+  flattenedCreatureImageCache.delete(cacheKey);
+  flattenedCreatureImageCache.set(cacheKey, image);
+
+  return image;
+}
+
+function cacheFlattenedCreature(cacheKey: string, image: SkImage) {
+  if (flattenedCreatureImageCache.has(cacheKey)) {
+    flattenedCreatureImageCache.delete(cacheKey);
+  }
+
+  flattenedCreatureImageCache.set(cacheKey, image);
+
+  while (flattenedCreatureImageCache.size > FLATTENED_CREATURE_CACHE_MAX) {
+    const oldestKey = flattenedCreatureImageCache.keys().next().value;
+
+    if (!oldestKey) {
+      return;
+    }
+
+    flattenedCreatureImageCache.delete(oldestKey);
+  }
+}
+
+function composeFlattenedCreature(cacheKey: string, element: ReactElement) {
+  const existingPromise = flattenedCreatureCompositionQueue.get(cacheKey);
+
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const compositionPromise = renderFlattenedOrganismImage(element).finally(() => {
+    flattenedCreatureCompositionQueue.delete(cacheKey);
+  });
+
+  flattenedCreatureCompositionQueue.set(cacheKey, compositionPromise);
+
+  return compositionPromise;
 }
 
 function BaseAnatomyLayer({
@@ -509,9 +783,7 @@ function ImageLayer({
   );
 }
 
-function useSelectedFamilyImages(family: CreatureFamily): CreatureImages {
-  const assets = SPORE_CREATURE_ASSETS[family];
-
+function useSelectedFamilyImages(assets: CreatureLayerAssets): CreatureImages {
   return {
     body: useImage(assets.body),
     fins: useImage(assets.fins),
@@ -551,7 +823,7 @@ function normalizeGenomeKey(genome: GenomeInput) {
 
 function createRenderPlan(
   phenotype: OrganismPhenotype,
-  registration: (typeof SPORE_CREATURE_REGISTRY)[CreatureFamily],
+  registration: CreatureFamilyDefinition,
   size: number
 ): RenderPlan {
   const scale = size / ORGANISM_RUNTIME_CANVAS.width;
@@ -591,9 +863,6 @@ function createRenderPlan(
     finAccentScaleX: 1 + (finScaleX - 1) * FIN_ACCENT_TRANSFORM_MULTIPLIER,
     finAccentScaleY: 1 + (finScaleY - 1) * FIN_ACCENT_TRANSFORM_MULTIPLIER,
     finAccentRotation: degToRad((opposingRotation + sideRotation) * FIN_ACCENT_TRANSFORM_MULTIPLIER),
-    finAccentWaveRad: degToRad(
-      phenotype.motion.finWaveDeg * phenotype.appendages.expressionMotionMul * FIN_ACCENT_WAVE_MULTIPLIER
-    ),
     glowTransform: [{ scale: 1 + (phenotype.bioluminescence.glowScale - 1) * 0.48 }],
     haloTransform: [{ scale: 1 + (phenotype.halo.scale - 1) * 0.32 }],
     tendrilOpacity: clamp(tendrilOpacity, 0.08, 1),

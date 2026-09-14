@@ -42,6 +42,7 @@ const space = {
   lg: theme.spacing?.lg ?? 16,
   xl: theme.spacing?.xl ?? 24,
   xxl: theme.spacing?.xxl ?? 32,
+  xxxl: theme.spacing?.xxxl ?? 48,
 };
 
 function readField(organism: unknown, fields: string[]) {
@@ -391,8 +392,11 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
 
 const styles = StyleSheet.create({
   bloodlineContent: {
-    gap: space.xl,
-    paddingBottom: space.xxl,
+    flex: 1,
+    gap: space.xxxl,
+    justifyContent: "center",
+    paddingBottom: space.xxxl,
+    paddingTop: space.lg,
   },
   bloodlineSection: {
     gap: space.md,

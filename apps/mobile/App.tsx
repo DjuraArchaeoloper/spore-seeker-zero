@@ -123,15 +123,27 @@ function SporeApp() {
       return;
     }
 
+    const { signOutOfSpore } = await import("./src/auth/auth");
+    let signOutError: unknown = null;
+
     try {
-      const { signOutOfSpore } = await import("./src/auth/auth");
       await signOutOfSpore();
-    } catch {}
+    } catch (error) {
+      signOutError = error;
+      console.warn(
+        "[SPORE AUTH] Logout failed during session revocation.",
+        error instanceof Error ? error.message : "Unknown logout error.",
+      );
+    }
 
     setActiveSurface("specimen");
     setAuthState({
       status: "unauthenticated",
     });
+
+    if (signOutError) {
+      throw new Error("Log out failed. Please try again.");
+    }
   }
 
   if (!VISUAL_PREVIEW && authState.status !== "authenticated") {

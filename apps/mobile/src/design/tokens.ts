@@ -79,7 +79,7 @@ export const tokens = {
     full: 999
   },
   border: {
-    width: 1
+    width: 0.2
   },
   opacity: {
     disabled: 0.42,

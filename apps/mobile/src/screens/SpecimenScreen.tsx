@@ -6,9 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SEEKER_ZERO_GENOME_HEX, type GenomeInput } from "@spore/shared";
 
 import { AppText } from "../components/AppText";
+import { AUTH_LOGOUT_TOP_RESERVE } from "../components/AuthenticatedLogoutControl";
 import { OrganismRenderer } from "../components/organism/OrganismRenderer";
 import { PrimaryButton } from "../components/PrimaryButton";
-import { QuietAction } from "../components/QuietAction";
 import { tokens } from "../design/tokens";
 
 // Art direction in logical pixels; the flexible stage absorbs height changes.
@@ -50,7 +50,6 @@ export type SpecimenScreenProps = {
   previewOrigin?: boolean;
   onRelease?: () => void;
   onViewSpore?: () => void;
-  onLogout?: () => void;
   busy?: boolean;
   canRelease?: boolean;
   canViewSpore?: boolean;
@@ -63,7 +62,6 @@ export type SpecimenScreenProps = {
 // The static origin is only used by visual preview; production supplies a canonical account.
 export function SpecimenScreen({
   organism,
-  onLogout,
   previewOrigin = false,
   onRelease,
   onViewSpore,
@@ -86,11 +84,11 @@ export function SpecimenScreen({
     SPECIMEN_LAYOUT.creatureMaxSize,
   );
   const horizontalScale = Math.min((width - insets.left - insets.right) / 390, 1.15);
-  const topSpace = insets.top + (compact ? 24 : height * SPECIMEN_LAYOUT.metaTopRatio);
-  // Keep the existing logout affordance in the breathing room below the CTA.
-  const bottomSpace = Math.max(8,
-    (compact ? 24 : Math.min(height * SPECIMEN_LAYOUT.footerBottomRatio, 64)) - (onLogout ? 52 : 0),
+  const topSpace = Math.max(
+    insets.top + (compact ? 24 : height * SPECIMEN_LAYOUT.metaTopRatio),
+    insets.top + AUTH_LOGOUT_TOP_RESERVE,
   );
+  const bottomSpace = Math.max(8, compact ? 24 : Math.min(height * SPECIMEN_LAYOUT.footerBottomRatio, 64));
   const specimen = organism ?? (previewOrigin ? canonicalOrigin : null);
   const ready = sporeState === "ready";
   const showViewSpore = sporeState === "active" && canViewSpore;
@@ -172,7 +170,7 @@ export function SpecimenScreen({
           <AppText
             maxFontSizeMultiplier={1.2}
             numberOfLines={1}
-            adjustsFontSizeToFit
+            // adjustsFontSizeToFit
             style={[styles.name, {
               fontSize: SPECIMEN_LAYOUT.titleSize * horizontalScale,
               letterSpacing: SPECIMEN_LAYOUT.titleTracking * horizontalScale,
@@ -182,7 +180,7 @@ export function SpecimenScreen({
           >
             {designation.title}
           </AppText>
-          <AppText maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.subtitle} variant="metadata">
+          <AppText maxFontSizeMultiplier={1.2} numberOfLines={1} style={styles.subtitle} variant="metadata">
             {designation.subtitle}
           </AppText>
         </View>
@@ -206,7 +204,6 @@ export function SpecimenScreen({
             onPress={actionPress}
           />
           {error ? <AppText style={styles.error}>{error}</AppText> : null}
-          {onLogout ? <QuietAction label="LOG OUT" onPress={onLogout} /> : null}
         </View>
       </View>
     </View>
@@ -234,8 +231,8 @@ const styles = StyleSheet.create({
     fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
     color: tokens.postAuth.secondary,
-    fontSize: 9,
-    fontWeight: "400",
+    fontSize: 14,
+    fontWeight: "600",
     letterSpacing: 2.6,
     paddingLeft: 2.6,
     lineHeight: 16,
@@ -278,7 +275,7 @@ const styles = StyleSheet.create({
     fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
     color: tokens.postAuth.secondary,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "400",
     letterSpacing: 1.8,
     paddingLeft: 1.8,
@@ -298,7 +295,7 @@ const styles = StyleSheet.create({
     fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
     color: tokens.postAuth.primary,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "400",
     letterSpacing: 2.1,
     lineHeight: 17,

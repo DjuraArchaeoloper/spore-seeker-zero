@@ -1,5 +1,3 @@
-import { sha256 } from "@noble/hashes/sha256";
-
 export const GENOME_BYTE_LENGTH = 16;
 
 export const SEEKER_ZERO_GENOME = [
@@ -77,19 +75,21 @@ export type MutationDescription =
 
 const HEX_GENOME_PATTERN = /^[0-9a-fA-F]{32}$/;
 
-export const BODY_FAMILY_BUCKETS: readonly CreatureFamily[] = [
-  "silk-ray",
-  "void-drifter",
-  "crystal-bloom",
-  "nebula-spine"
-] as const;
+type BodyFamilyBucket = 0 | 1 | 2 | 3;
 
-const SEEKER_ZERO_FAMILY_INDEX = 0;
-const SEEKER_ZERO_FAMILY_OFFSET =
-  (SEEKER_ZERO_FAMILY_INDEX -
-    (sha256(Uint8Array.from(SEEKER_ZERO_GENOME))[0] % BODY_FAMILY_BUCKETS.length) +
-    BODY_FAMILY_BUCKETS.length) %
-  BODY_FAMILY_BUCKETS.length;
+export const BODY_FAMILY_BY_BUCKET: Record<BodyFamilyBucket, CreatureFamily> = {
+  0: "void-drifter",
+  1: "crystal-bloom",
+  2: "nebula-spine",
+  3: "silk-ray"
+} as const;
+
+export const BODY_FAMILY_BUCKETS: readonly CreatureFamily[] = [
+  BODY_FAMILY_BY_BUCKET[0],
+  BODY_FAMILY_BY_BUCKET[1],
+  BODY_FAMILY_BY_BUCKET[2],
+  BODY_FAMILY_BY_BUCKET[3]
+] as const;
 
 const CORE_MODES: readonly CoreMode[] = ["compact", "tall", "wide", "full"] as const;
 const APPENDAGE_MODES: readonly AppendageMode[] = ["wing", "veil", "filament", "spine"] as const;
@@ -201,10 +201,9 @@ function normalizeGenomeInput(input: GenomeInput): GenomeBytes {
 
 export function resolveCreatureFamily(input: GenomeInput): CreatureFamily {
   const genome = normalizeGenomeInput(input);
-  const digest = sha256(Uint8Array.from(genome));
-  const rawIndex = digest[0] % BODY_FAMILY_BUCKETS.length;
+  const familyBucket = (mix8(genome[0]) >> 6) as BodyFamilyBucket;
 
-  return BODY_FAMILY_BUCKETS[(rawIndex + SEEKER_ZERO_FAMILY_OFFSET) % BODY_FAMILY_BUCKETS.length];
+  return BODY_FAMILY_BY_BUCKET[familyBucket];
 }
 
 export function phenotypeFromGenome(input: GenomeInput): OrganismPhenotype {

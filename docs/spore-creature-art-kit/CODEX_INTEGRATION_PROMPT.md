@@ -40,8 +40,10 @@ Shared cosmetic:
 
 Metadata:
 
-- `apps/mobile/assets/organisms/registry.json`
+- `apps/mobile/assets/organisms/registry.ts`
 - `apps/mobile/assets/organisms/registry.ts.example`
+
+`registry.ts` is the mobile runtime source of truth. Each family has one `CreatureFamilyDefinition` containing its id, six biological assets, sensory anchors, and moustache placement. Do not build runtime logic from `registry.json`.
 
 The mobile runtime files are 1024×1024 transparent PNGs with a shared registration canvas.
 
@@ -143,7 +145,7 @@ The moustache:
 - has no settings screen
 - must be globally removable by changing the one constant
 
-Use each family's moustache placement data from `registry.json`.
+Use each family's moustache placement data from `registry.ts`.
 Keep it tiny and immaculate.
 
 ## Parent/child resemblance

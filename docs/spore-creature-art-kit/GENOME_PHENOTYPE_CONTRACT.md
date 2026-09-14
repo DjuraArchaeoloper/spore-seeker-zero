@@ -30,6 +30,8 @@ The mixing step is deterministic and makes nearby byte values less likely to loo
 
 This order is intentional: the canonical Seeker Zero BODY FORM byte is `0x53`; it resolves to bucket 3 and therefore **Silk Ray**.
 
+This mapping must stay explicit. Do not derive it from the runtime art registry, an array length, or the number of available asset folders. Adding creature family #5, #6, or #15 must not silently remap existing genomes. The final initial mapping can be intentionally locked when the full family set is approved, but adding art is not itself a genome-mapping change.
+
 ## 16 locked genes
 
 | Byte | Gene | v1 rendering responsibility |
@@ -61,19 +63,75 @@ Therefore the renderer must **not** let one gene secretly control unrelated visu
 
 BODY FORM is intentionally the largest possible mutation because it selects the anatomical foundation family. Other genes are materially smaller changes.
 
-## Art rules
+## Runtime family registry
+
+Runtime family data lives in `apps/mobile/assets/organisms/registry.ts`.
+
+Each family uses one explicit definition:
+
+```ts
+type CreatureFamilyDefinition = {
+  id: CreatureFamily;
+  assets: {
+    body: number;
+    fins: number;
+    core: number;
+    tendrils: number;
+    surface: number;
+    glow: number;
+  };
+  moustache: {
+    center: readonly [number, number];
+    width: number;
+    rotationDeg: number;
+  };
+  sensoryAnchors: readonly (readonly [number, number])[];
+};
+```
+
+The renderer consumes this definition and should not contain ordinary per-family branches such as `if family === "silk-ray"`. Family-specific asset paths, moustache placement, and sensory anchors belong in the registry.
+
+Metro requires static image paths, so every asset path in `registry.ts` must be written as a literal `require("./family/file.png")`. Do not replace these with dynamic `require()` paths.
+
+The shared moustache remains `apps/mobile/assets/organisms/shared/moustache_01.png`. Families provide moustache anchor metadata only; they do not need their own moustache artwork.
+
+## Family folder contract
 
 Runtime mobile assets live under:
 
 `apps/mobile/assets/organisms/`
 
-They are **1024×1024 transparent PNGs**.
+Every runtime biological family folder must contain exactly these six required biological layers:
 
-High-resolution 2048×2048 art source is under:
+```text
+apps/mobile/assets/organisms/<family-id>/
+  body.png
+  fins.png
+  core.png
+  tendrils.png
+  surface.png
+  glow.png
+```
+
+Runtime biological assets are **1024×1024 transparent PNGs**.
+
+High-resolution source masters live under:
 
 `docs/spore-creature-art-kit/source-2048/`
 
-Do **not** bundle source masters, contact sheets or reference previews into the mobile app.
+Each source family folder should use the same six filenames at **2048×2048** unless the art lead explicitly approves a different source-master size:
+
+```text
+docs/spore-creature-art-kit/source-2048/<family-id>/
+  body.png
+  fins.png
+  core.png
+  tendrils.png
+  surface.png
+  glow.png
+```
+
+Do **not** bundle source masters, contact sheets, or reference previews into the mobile app.
 
 Layer order:
 
@@ -93,3 +151,69 @@ SHOW_MOUSTACHE = true
 ```
 
 It is not a genome trait and must never appear in NFT trait metadata.
+
+## Canvas and coordinate contract
+
+All biological layer files in one family must share the exact same canvas:
+
+- runtime: 1024 x 1024 transparent PNG
+- source master: 2048 x 2048 transparent PNG unless explicitly approved otherwise
+- same origin
+- same center
+- same normalized coordinate system
+- same transparent padding strategy
+
+Layers are authored in position. The runtime should not guess where body parts attach, trim files, recenter individual layers, or apply family-specific registration corrections. If a layer needs to move to look correct, the PNG is wrong and should be repaired at the art-source level.
+
+The renderer is allowed to apply the deterministic phenotype transforms defined above. Every approved family must still look coherent after those existing transforms. Do not approve artwork that only looks joined in one static preview but separates under the allowed body proportion, membrane, appendage, surface, core, halo, and asymmetry transforms.
+
+## Join and layer ownership contract
+
+Parts that join must overlap generously beneath neighboring anatomy. Never rely on two transparent cut edges meeting perfectly pixel to pixel.
+
+Bad:
+
+```text
+body edge | fin edge
+```
+
+Good:
+
+```text
+fin extends underneath body; body hides the attachment
+```
+
+Body artwork should cover or hide major attachment joins where appropriate. Fins, membranes, appendages, and tendrils must extend far enough beneath the body that filtering, scaling, and subtle transforms do not reveal slivers.
+
+Layer ownership rules:
+
+- `body.png` contains the central body/membrane mass that should visually own major joins.
+- `fins.png` contains fin, wing, veil, or membrane anatomy that attaches under the body.
+- `core.png` contains core-specific internal material only.
+- `tendrils.png` contains tendrils and appendage anatomy only.
+- `surface.png` contains surface/detail information only.
+- `glow.png` contains glow/halo energy only.
+
+Do not use one layer to secretly patch another layer with duplicate anatomy. In particular:
+
+- `tendrils.png` must not include duplicate fin or body structures just to hide weak joins.
+- `core.png` must not bake broad body or surface structures that prevent the nucleus gene from feeling meaningful.
+- `surface.png` must not contain accidental rectangular transparent holes, hard mask cutouts, or large unrelated anatomy.
+
+Alpha edges must be clean and intentionally feathered. No visible background pixels are allowed. Transparent areas must be truly transparent.
+
+Each family must be inspected as a full composite before approval. The final composite must look seamless before flattening. Flattening is a performance and stability step, not a seam repair technique.
+
+## Adding or replacing families
+
+To add a new family:
+
+1. Add a standardized runtime folder under `apps/mobile/assets/organisms/<family-id>/`.
+2. Add the six required runtime PNGs.
+3. Add matching source masters under `docs/spore-creature-art-kit/source-2048/<family-id>/`.
+4. Add one `CreatureFamilyDefinition` entry in `apps/mobile/assets/organisms/registry.ts`.
+5. Update the explicit body-form mapping in `packages/shared/src/genome.ts` only when the new genome bucket assignment is intentionally approved.
+
+To replace an existing family, keep the same family id and filenames, replace the six runtime PNGs and source masters, and update only the registry metadata that the renderer actually uses, such as sensory anchors or moustache placement.
+
+Adding or replacing art that follows this contract should not require renderer changes.

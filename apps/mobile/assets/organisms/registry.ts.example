@@ -1,49 +1,57 @@
 /**
- * SPORE Creature Asset Registry — reference implementation.
+ * SPORE Creature Asset Registry — shape reference.
  *
- * IMPORTANT:
- * Metro requires static image paths. Do not replace these with dynamic
- * require(`./${family}/body.png`) expressions.
+ * Metro requires static image paths. The runtime registry must use literal
+ * require("./family/body.png") paths, not dynamic template strings.
  *
- * Codex should adapt/import this into the existing renderer rather than
- * introducing a second competing asset system.
+ * Adding art should mean:
+ * 1. add a standardized family folder with the six biological PNGs
+ * 2. add one CreatureFamilyDefinition entry
+ * 3. intentionally update the genome body-form mapping only when approved
  */
 
-export const SPORE_CREATURE_ASSETS = {
-  "void-drifter": {
-    body: require("./void-drifter/body.png"),
-    fins: require("./void-drifter/fins.png"),
-    core: require("./void-drifter/core.png"),
-    tendrils: require("./void-drifter/tendrils.png"),
-    surface: require("./void-drifter/surface.png"),
-    glow: require("./void-drifter/glow.png"),
-  },
-  "crystal-bloom": {
-    body: require("./crystal-bloom/body.png"),
-    fins: require("./crystal-bloom/fins.png"),
-    core: require("./crystal-bloom/core.png"),
-    tendrils: require("./crystal-bloom/tendrils.png"),
-    surface: require("./crystal-bloom/surface.png"),
-    glow: require("./crystal-bloom/glow.png"),
-  },
-  "nebula-spine": {
-    body: require("./nebula-spine/body.png"),
-    fins: require("./nebula-spine/fins.png"),
-    core: require("./nebula-spine/core.png"),
-    tendrils: require("./nebula-spine/tendrils.png"),
-    surface: require("./nebula-spine/surface.png"),
-    glow: require("./nebula-spine/glow.png"),
-  },
-  "silk-ray": {
+import type { CreatureFamily } from "@spore/shared";
+
+export type CreatureLayer = "body" | "fins" | "core" | "tendrils" | "surface" | "glow";
+type CreatureAssetSource = number;
+type PointPair = readonly [number, number];
+
+export type CreatureLayerAssets = Record<CreatureLayer, CreatureAssetSource>;
+
+export type CreatureFamilyDefinition = {
+  id: CreatureFamily;
+  assets: CreatureLayerAssets;
+  moustache: {
+    center: PointPair;
+    width: number;
+    rotationDeg: number;
+  };
+  sensoryAnchors: readonly PointPair[];
+};
+
+export const EXAMPLE_CREATURE_FAMILY = {
+  id: "silk-ray",
+  assets: {
     body: require("./silk-ray/body.png"),
     fins: require("./silk-ray/fins.png"),
     core: require("./silk-ray/core.png"),
     tendrils: require("./silk-ray/tendrils.png"),
     surface: require("./silk-ray/surface.png"),
-    glow: require("./silk-ray/glow.png"),
+    glow: require("./silk-ray/glow.png")
   },
-} as const;
-
-export const SPORE_MOUSTACHE_ASSET = require("./shared/moustache_01.png");
-
-export type SporeCreatureFamily = keyof typeof SPORE_CREATURE_ASSETS;
+  moustache: {
+    center: [0.5078, 0.4902],
+    width: 0.142,
+    rotationDeg: 0
+  },
+  sensoryAnchors: [
+    [0.43, 0.4],
+    [0.57, 0.4],
+    [0.405, 0.48],
+    [0.595, 0.48],
+    [0.44, 0.57],
+    [0.56, 0.57],
+    [0.47, 0.33],
+    [0.53, 0.33]
+  ]
+} as const satisfies CreatureFamilyDefinition;
