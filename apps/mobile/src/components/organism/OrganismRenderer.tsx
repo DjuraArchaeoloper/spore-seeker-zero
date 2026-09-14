@@ -106,7 +106,25 @@ const INTERNAL_FILAMENT_OPACITY_MULTIPLIER = 0.22;
 const MOUSTACHE_VISUAL_SCALE = 0.75;
 const ROOT_FLOAT_BASE_PX_AT_1024 = 4;
 const ROOT_FLOAT_MOTION_PX_MULTIPLIER = 0.34;
-const MOTION_SCALE_MULTIPLIER = 0.86;
+const IDLE_DRIFT_X_AMPLITUDE_MULTIPLIER = 1.0;
+const IDLE_DRIFT_Y_AMPLITUDE_MULTIPLIER = 1.5;
+const IDLE_DRIFT_X_PERIOD_MULTIPLIER = 1.18;
+const IDLE_DRIFT_Y_PERIOD_MULTIPLIER = 1.07;
+const IDLE_BREATH_PERIOD_MULTIPLIER = 1.42;
+const IDLE_SWAY_PERIOD_MULTIPLIER = 1.31;
+const IDLE_DRIFT_X_PHASE = 0.17;
+const IDLE_DRIFT_Y_PHASE = 0.41;
+const IDLE_BREATH_PHASE = 0.29;
+const IDLE_SWAY_PHASE = 0.63;
+const IDLE_BREATH_SCALE_X_MULTIPLIER = 0.86;
+const IDLE_BREATH_SCALE_MIN_AMPLITUDE = 0.005;
+const IDLE_BREATH_SCALE_MAX_AMPLITUDE = 0.01;
+const IDLE_SWAY_MIN_DEG = 0.5;
+const IDLE_SWAY_MAX_DEG = 0.8;
+const IDLE_OPACITY_BASE = 0.996;
+const IDLE_OPACITY_LIFT = 0.004;
+const MOTION_PULSE_MIN_AMPLITUDE = 0.006;
+const MOTION_PULSE_RANGE = 0.024;
 const FLATTENED_CREATURE_ART_REVISION = "flattened-organism-v2";
 const FLATTENED_CREATURE_ART_WIDTH = ORGANISM_RUNTIME_CANVAS.width;
 const FLATTENED_CREATURE_ART_HEIGHT = ORGANISM_RUNTIME_CANVAS.height;
@@ -207,54 +225,86 @@ function OrganismRendererCore({
   });
   const reduceMotion = useReduceMotion();
   const motionEnabled = animated && !reduceMotion;
-  const phase = useSharedValue(0);
+  const driftXPhase = useSharedValue(IDLE_DRIFT_X_PHASE);
+  const driftYPhase = useSharedValue(IDLE_DRIFT_Y_PHASE);
+  const breathPhase = useSharedValue(IDLE_BREATH_PHASE);
+  const swayPhase = useSharedValue(IDLE_SWAY_PHASE);
   const { rootFloatPx, rootSwayRad } = displayRenderPlan;
   const pulseScaleAmplitude = phenotype.motion.pulseScaleAmplitude;
+  const motionIntensity = clamp(
+    (pulseScaleAmplitude - MOTION_PULSE_MIN_AMPLITUDE) / MOTION_PULSE_RANGE,
+    0,
+    1
+  );
+  const breathScaleAmplitude =
+    IDLE_BREATH_SCALE_MIN_AMPLITUDE +
+    (IDLE_BREATH_SCALE_MAX_AMPLITUDE - IDLE_BREATH_SCALE_MIN_AMPLITUDE) * motionIntensity;
+  const swayAmplitudeRad = degToRad(
+    IDLE_SWAY_MIN_DEG + (IDLE_SWAY_MAX_DEG - IDLE_SWAY_MIN_DEG) * motionIntensity
+  );
 
   useEffect(() => {
-    cancelAnimation(phase);
+    cancelAnimation(driftXPhase);
+    cancelAnimation(driftYPhase);
+    cancelAnimation(breathPhase);
+    cancelAnimation(swayPhase);
 
     if (!motionEnabled) {
-      phase.value = 0;
+      driftXPhase.value = IDLE_DRIFT_X_PHASE;
+      driftYPhase.value = IDLE_DRIFT_Y_PHASE;
+      breathPhase.value = IDLE_BREATH_PHASE;
+      swayPhase.value = IDLE_SWAY_PHASE;
       return;
     }
 
-    phase.value = 0;
-    phase.value = withRepeat(
-      withSequence(
-        withTiming(1, {
-          duration: phenotype.motion.periodMs,
-          easing: Easing.linear
-        }),
-        withTiming(0, {
-          duration: 1,
-          easing: Easing.linear
-        })
-      ),
-      -1
+    driftXPhase.value = IDLE_DRIFT_X_PHASE;
+    driftYPhase.value = IDLE_DRIFT_Y_PHASE;
+    breathPhase.value = IDLE_BREATH_PHASE;
+    swayPhase.value = IDLE_SWAY_PHASE;
+    driftXPhase.value = createIdlePhaseLoop(
+      IDLE_DRIFT_X_PHASE,
+      phenotype.motion.periodMs * IDLE_DRIFT_X_PERIOD_MULTIPLIER
+    );
+    driftYPhase.value = createIdlePhaseLoop(
+      IDLE_DRIFT_Y_PHASE,
+      phenotype.motion.periodMs * IDLE_DRIFT_Y_PERIOD_MULTIPLIER
+    );
+    breathPhase.value = createIdlePhaseLoop(
+      IDLE_BREATH_PHASE,
+      phenotype.motion.periodMs * IDLE_BREATH_PERIOD_MULTIPLIER
+    );
+    swayPhase.value = createIdlePhaseLoop(
+      IDLE_SWAY_PHASE,
+      phenotype.motion.periodMs * IDLE_SWAY_PERIOD_MULTIPLIER
     );
 
     return () => {
-      cancelAnimation(phase);
+      cancelAnimation(driftXPhase);
+      cancelAnimation(driftYPhase);
+      cancelAnimation(breathPhase);
+      cancelAnimation(swayPhase);
     };
-  }, [motionEnabled, phase, phenotype.motion.periodMs]);
+  }, [breathPhase, driftXPhase, driftYPhase, motionEnabled, phenotype.motion.periodMs, swayPhase]);
 
   const organismMotion = useAnimatedStyle(() => {
-    const wave = motionEnabled ? Math.sin(phase.value * TWO_PI) : 0;
-    const driftWave = motionEnabled ? Math.cos(phase.value * TWO_PI) : 0;
-    const sway = motionEnabled ? Math.sin(phase.value * TWO_PI + Math.PI * 0.18) * rootSwayRad : 0;
-    const pulseScale = 1 + wave * pulseScaleAmplitude * MOTION_SCALE_MULTIPLIER;
+    const driftXWave = motionEnabled ? Math.sin(driftXPhase.value * TWO_PI) : 0;
+    const driftYWave = motionEnabled ? Math.sin(driftYPhase.value * TWO_PI) : 0;
+    const breathWave = motionEnabled ? Math.sin(breathPhase.value * TWO_PI) : 0;
+    const swayWave = motionEnabled ? Math.sin(swayPhase.value * TWO_PI) : 0;
+    const breathScaleX = 1 + breathWave * breathScaleAmplitude * IDLE_BREATH_SCALE_X_MULTIPLIER;
+    const breathScaleY = 1 + breathWave * breathScaleAmplitude;
 
     return {
-      opacity: 0.992 + Math.max(0, wave) * 0.008,
+      opacity: IDLE_OPACITY_BASE + Math.max(0, breathWave) * IDLE_OPACITY_LIFT,
       transform: [
-        { translateX: driftWave * rootFloatPx * 0.38 },
-        { translateY: wave * rootFloatPx },
-        { rotate: `${sway}rad` },
-        { scale: pulseScale }
+        { translateX: driftXWave * rootFloatPx * IDLE_DRIFT_X_AMPLITUDE_MULTIPLIER },
+        { translateY: driftYWave * rootFloatPx * IDLE_DRIFT_Y_AMPLITUDE_MULTIPLIER },
+        { rotate: `${swayWave * Math.min(rootSwayRad, swayAmplitudeRad)}rad` },
+        { scaleX: breathScaleX },
+        { scaleY: breathScaleY }
       ]
     };
-  }, [motionEnabled, pulseScaleAmplitude, rootFloatPx, rootSwayRad]);
+  }, [breathScaleAmplitude, motionEnabled, rootFloatPx, rootSwayRad, swayAmplitudeRad]);
 
   return (
     <Animated.View
@@ -589,6 +639,24 @@ function composeFlattenedCreature(cacheKey: string, element: ReactElement) {
   flattenedCreatureCompositionQueue.set(cacheKey, compositionPromise);
 
   return compositionPromise;
+}
+
+function createIdlePhaseLoop(startPhase: number, durationMs: number) {
+  const duration = Number.isFinite(durationMs) ? Math.max(1, Math.round(durationMs)) : 3000;
+
+  return withRepeat(
+    withSequence(
+      withTiming(startPhase + 1, {
+        duration,
+        easing: Easing.linear
+      }),
+      withTiming(startPhase, {
+        duration: 1,
+        easing: Easing.linear
+      })
+    ),
+    -1
+  );
 }
 
 function BaseAnatomyLayer({
