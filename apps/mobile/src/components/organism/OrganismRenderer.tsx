@@ -125,6 +125,16 @@ const IDLE_OPACITY_BASE = 0.996;
 const IDLE_OPACITY_LIFT = 0.004;
 const MOTION_PULSE_MIN_AMPLITUDE = 0.006;
 const MOTION_PULSE_RANGE = 0.024;
+const PRESENCE_GLOW_CENTER_Y_RATIO = 0.48;
+const PRESENCE_GLOW_CORE_RADIUS_RATIO = 0.28;
+const PRESENCE_GLOW_CORE_BLUR_RATIO = 0.11;
+const PRESENCE_GLOW_CORE_SCALE_Y = 1.26;
+const PRESENCE_GLOW_ATMOSPHERE_RADIUS_RATIO = 0.42;
+const PRESENCE_GLOW_ATMOSPHERE_BLUR_RATIO = 0.18;
+const PRESENCE_GLOW_ATMOSPHERE_SCALE_X = 0.92;
+const PRESENCE_GLOW_ATMOSPHERE_SCALE_Y = 0.88;
+const PRESENCE_GLOW_CORE_COLOR = "rgba(134, 224, 255, 0.24)";
+const PRESENCE_GLOW_ATMOSPHERE_COLOR = "rgba(177, 154, 255, 0.105)";
 const FLATTENED_CREATURE_ART_REVISION = "flattened-organism-v2";
 const FLATTENED_CREATURE_ART_WIDTH = ORGANISM_RUNTIME_CANVAS.width;
 const FLATTENED_CREATURE_ART_HEIGHT = ORGANISM_RUNTIME_CANVAS.height;
@@ -327,6 +337,7 @@ function OrganismRendererCore({
             }
           ]}
         >
+          <PresenceGlow size={rendererSize} />
           <Image fit="fill" height={rendererSize} image={flattenedImage} width={rendererSize} x={0} y={0} />
         </Canvas>
       ) : null}
@@ -656,6 +667,42 @@ function createIdlePhaseLoop(startPhase: number, durationMs: number) {
       })
     ),
     -1
+  );
+}
+
+function PresenceGlow({ size }: { size: number }) {
+  const center = vec(size * 0.5, size * 0.5);
+  const glowCenterY = size * PRESENCE_GLOW_CENTER_Y_RATIO;
+
+  return (
+    <>
+      <Group
+        origin={center}
+        transform={[
+          { scaleX: PRESENCE_GLOW_ATMOSPHERE_SCALE_X },
+          { scaleY: PRESENCE_GLOW_ATMOSPHERE_SCALE_Y }
+        ]}
+      >
+        <Circle
+          color={PRESENCE_GLOW_ATMOSPHERE_COLOR}
+          cx={size * 0.5}
+          cy={glowCenterY}
+          r={size * PRESENCE_GLOW_ATMOSPHERE_RADIUS_RATIO}
+        >
+          <BlurMask blur={size * PRESENCE_GLOW_ATMOSPHERE_BLUR_RATIO} style="normal" />
+        </Circle>
+      </Group>
+      <Group origin={center} transform={[{ scaleY: PRESENCE_GLOW_CORE_SCALE_Y }]}>
+        <Circle
+          color={PRESENCE_GLOW_CORE_COLOR}
+          cx={size * 0.5}
+          cy={glowCenterY}
+          r={size * PRESENCE_GLOW_CORE_RADIUS_RATIO}
+        >
+          <BlurMask blur={size * PRESENCE_GLOW_CORE_BLUR_RATIO} style="normal" />
+        </Circle>
+      </Group>
+    </>
   );
 }
 
