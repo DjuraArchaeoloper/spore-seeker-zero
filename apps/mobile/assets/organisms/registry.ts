@@ -142,5 +142,161 @@ export const SPORE_CREATURE_FAMILIES = {
       [0.47, 0.33],
       [0.53, 0.33]
     ]
+  },
+  "pearl-medusa": {
+    id: "pearl-medusa",
+    assets: {
+      body: require("./pearl-medusa/body.png"),
+      fins: require("./pearl-medusa/fins.png"),
+      core: require("./pearl-medusa/core.png"),
+      tendrils: require("./pearl-medusa/tendrils.png"),
+      surface: require("./pearl-medusa/surface.png"),
+      glow: require("./pearl-medusa/glow.png")
+    },
+    moustache: {
+      center: [0.5088, 0.4946],
+      width: 0.142,
+      rotationDeg: 0
+    },
+    sensoryAnchors: [
+      [0.43, 0.41],
+      [0.57, 0.41],
+      [0.39, 0.49],
+      [0.61, 0.49],
+      [0.43, 0.58],
+      [0.57, 0.58],
+      [0.47, 0.34],
+      [0.53, 0.34]
+    ]
+  },
+  "prism-spine": {
+    id: "prism-spine",
+    assets: {
+      body: require("./prism-spine/body.png"),
+      fins: require("./prism-spine/fins.png"),
+      core: require("./prism-spine/core.png"),
+      tendrils: require("./prism-spine/tendrils.png"),
+      surface: require("./prism-spine/surface.png"),
+      glow: require("./prism-spine/glow.png")
+    },
+    moustache: {
+      center: [0.5088, 0.4946],
+      width: 0.142,
+      rotationDeg: 0
+    },
+    sensoryAnchors: [
+      [0.43, 0.41],
+      [0.57, 0.41],
+      [0.39, 0.49],
+      [0.61, 0.49],
+      [0.43, 0.58],
+      [0.57, 0.58],
+      [0.47, 0.34],
+      [0.53, 0.34]
+    ]
+  },
+  "astral-chrysalis": {
+    id: "astral-chrysalis",
+    assets: {
+      body: require("./astral-chrysalis/body.png"),
+      fins: require("./astral-chrysalis/fins.png"),
+      core: require("./astral-chrysalis/core.png"),
+      tendrils: require("./astral-chrysalis/tendrils.png"),
+      surface: require("./astral-chrysalis/surface.png"),
+      glow: require("./astral-chrysalis/glow.png")
+    },
+    moustache: {
+      center: [0.5088, 0.4946],
+      width: 0.142,
+      rotationDeg: 0
+    },
+    sensoryAnchors: [
+      [0.43, 0.41],
+      [0.57, 0.41],
+      [0.39, 0.49],
+      [0.61, 0.49],
+      [0.43, 0.58],
+      [0.57, 0.58],
+      [0.47, 0.34],
+      [0.53, 0.34]
+    ]
+  },
+  "nova-urchin": {
+    id: "nova-urchin",
+    assets: {
+      body: require("./nova-urchin/body.png"),
+      fins: require("./nova-urchin/fins.png"),
+      core: require("./nova-urchin/core.png"),
+      tendrils: require("./nova-urchin/tendrils.png"),
+      surface: require("./nova-urchin/surface.png"),
+      glow: require("./nova-urchin/glow.png")
+    },
+    moustache: {
+      center: [0.5088, 0.4946],
+      width: 0.142,
+      rotationDeg: 0
+    },
+    sensoryAnchors: [
+      [0.43, 0.41],
+      [0.57, 0.41],
+      [0.39, 0.49],
+      [0.61, 0.49],
+      [0.43, 0.58],
+      [0.57, 0.58],
+      [0.47, 0.34],
+      [0.53, 0.34]
+    ]
+  },
+  "celestial-queen": {
+    id: "celestial-queen",
+    assets: {
+      body: require("./celestial-queen/body.png"),
+      fins: require("./celestial-queen/fins.png"),
+      core: require("./celestial-queen/core.png"),
+      tendrils: require("./celestial-queen/tendrils.png"),
+      surface: require("./celestial-queen/surface.png"),
+      glow: require("./celestial-queen/glow.png")
+    },
+    moustache: {
+      center: [0.5088, 0.4946],
+      width: 0.142,
+      rotationDeg: 0
+    },
+    sensoryAnchors: [
+      [0.43, 0.41],
+      [0.57, 0.41],
+      [0.39, 0.49],
+      [0.61, 0.49],
+      [0.43, 0.58],
+      [0.57, 0.58],
+      [0.47, 0.34],
+      [0.53, 0.34]
+    ]
+  },
+  "ribbon-leviathan": {
+    id: "ribbon-leviathan",
+    assets: {
+      body: require("./ribbon-leviathan/body.png"),
+      fins: require("./ribbon-leviathan/fins.png"),
+      core: require("./ribbon-leviathan/core.png"),
+      tendrils: require("./ribbon-leviathan/tendrils.png"),
+      surface: require("./ribbon-leviathan/surface.png"),
+      glow: require("./ribbon-leviathan/glow.png")
+    },
+    moustache: {
+      center: [0.5088, 0.4946],
+      width: 0.142,
+      rotationDeg: 0
+    },
+    sensoryAnchors: [
+      [0.43, 0.41],
+      [0.57, 0.41],
+      [0.39, 0.49],
+      [0.61, 0.49],
+      [0.43, 0.58],
+      [0.57, 0.58],
+      [0.47, 0.34],
+      [0.53, 0.34]
+    ]
   }
 } as const satisfies Record<CreatureFamily, CreatureFamilyDefinition>;

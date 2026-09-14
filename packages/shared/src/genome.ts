@@ -32,7 +32,13 @@ export type CreatureFamily =
   | "silk-ray"
   | "void-drifter"
   | "crystal-bloom"
-  | "nebula-spine";
+  | "nebula-spine"
+  | "pearl-medusa"
+  | "prism-spine"
+  | "astral-chrysalis"
+  | "nova-urchin"
+  | "celestial-queen"
+  | "ribbon-leviathan";
 
 export type CoreMode = "compact" | "tall" | "wide" | "full";
 export type AppendageMode = "wing" | "veil" | "filament" | "spine";
@@ -75,21 +81,38 @@ export type MutationDescription =
 
 const HEX_GENOME_PATTERN = /^[0-9a-fA-F]{32}$/;
 
-type BodyFamilyBucket = 0 | 1 | 2 | 3;
+type BodyFamilySlot = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
-export const BODY_FAMILY_BY_BUCKET: Record<BodyFamilyBucket, CreatureFamily> = {
+const BODY_FAMILY_SLOT_COUNT = 10;
+
+export const BODY_FAMILY_BY_SLOT: Record<BodyFamilySlot, CreatureFamily> = {
   0: "void-drifter",
   1: "crystal-bloom",
   2: "nebula-spine",
-  3: "silk-ray"
+  3: "celestial-queen",
+  4: "pearl-medusa",
+  5: "prism-spine",
+  6: "astral-chrysalis",
+  7: "nova-urchin",
+  8: "silk-ray",
+  9: "ribbon-leviathan"
 } as const;
 
-export const BODY_FAMILY_BUCKETS: readonly CreatureFamily[] = [
-  BODY_FAMILY_BY_BUCKET[0],
-  BODY_FAMILY_BY_BUCKET[1],
-  BODY_FAMILY_BY_BUCKET[2],
-  BODY_FAMILY_BY_BUCKET[3]
+export const BODY_FAMILY_SLOTS: readonly CreatureFamily[] = [
+  BODY_FAMILY_BY_SLOT[0],
+  BODY_FAMILY_BY_SLOT[1],
+  BODY_FAMILY_BY_SLOT[2],
+  BODY_FAMILY_BY_SLOT[3],
+  BODY_FAMILY_BY_SLOT[4],
+  BODY_FAMILY_BY_SLOT[5],
+  BODY_FAMILY_BY_SLOT[6],
+  BODY_FAMILY_BY_SLOT[7],
+  BODY_FAMILY_BY_SLOT[8],
+  BODY_FAMILY_BY_SLOT[9]
 ] as const;
+
+export const BODY_FAMILY_BY_BUCKET = BODY_FAMILY_BY_SLOT;
+export const BODY_FAMILY_BUCKETS = BODY_FAMILY_SLOTS;
 
 const CORE_MODES: readonly CoreMode[] = ["compact", "tall", "wide", "full"] as const;
 const APPENDAGE_MODES: readonly AppendageMode[] = ["wing", "veil", "filament", "spine"] as const;
@@ -201,9 +224,9 @@ function normalizeGenomeInput(input: GenomeInput): GenomeBytes {
 
 export function resolveCreatureFamily(input: GenomeInput): CreatureFamily {
   const genome = normalizeGenomeInput(input);
-  const familyBucket = (mix8(genome[0]) >> 6) as BodyFamilyBucket;
+  const familySlot = Math.floor((mix8(genome[0]) * BODY_FAMILY_SLOT_COUNT) / 256) as BodyFamilySlot;
 
-  return BODY_FAMILY_BY_BUCKET[familyBucket];
+  return BODY_FAMILY_BY_SLOT[familySlot];
 }
 
 export function phenotypeFromGenome(input: GenomeInput): OrganismPhenotype {
