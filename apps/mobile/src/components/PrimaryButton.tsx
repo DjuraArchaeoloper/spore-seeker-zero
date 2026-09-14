@@ -27,6 +27,7 @@ export function PrimaryButton({ disabled = false, label, onPress, appearance = "
       ]}
     >
       <AppText
+        maxFontSizeMultiplier={specimen ? 1.2 : undefined}
         tone={disabled ? "muted" : "primary"}
         variant="label"
         style={specimen ? [styles.specimenLabel, disabled && styles.specimenLabelDisabled] : undefined}
@@ -39,27 +40,37 @@ export function PrimaryButton({ disabled = false, label, onPress, appearance = "
 
 const styles = StyleSheet.create({
   specimen: {
-    backgroundColor: "rgba(6, 14, 18, 0.64)",
-    borderColor: tokens.specimen.outline,
-    borderRadius: tokens.radii.full,
-    minHeight: 54,
-    paddingHorizontal: tokens.spacing.xxl,
-    paddingVertical: tokens.spacing.lg
+    backgroundColor: "rgba(4, 27, 33, 0.54)",
+    borderColor: "rgba(165, 237, 248, 0.82)",
+    borderRadius: 18,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    // Uneven inset light uses the same native capability as the auth membrane.
+    boxShadow: [
+      { offsetX: 7, offsetY: 0, blurRadius: 14, spreadDistance: -3, color: "rgba(131, 230, 242, 0.28)", inset: true },
+      { offsetX: -8, offsetY: 0, blurRadius: 12, spreadDistance: -3, color: "rgba(170, 243, 250, 0.35)", inset: true },
+      { offsetX: 0, offsetY: 1, blurRadius: 4, spreadDistance: 0, color: "rgba(180, 241, 250, 0.18)", inset: true },
+    ],
   },
   specimenDisabled: {
-    backgroundColor: "rgba(6, 14, 18, 0.48)",
-    borderColor: "rgba(181, 238, 226, 0.38)"
+    backgroundColor: "rgba(5, 10, 12, 0.26)",
+    borderColor: "rgba(163, 171, 178, 0.16)",
+    boxShadow: "none",
   },
   specimenLabel: {
     color: tokens.specimen.primary,
+    fontFamily: "Michroma_400Regular",
+    includeFontPadding: false,
     fontSize: 12,
-    fontWeight: "500",
-    letterSpacing: 3,
+    fontWeight: "400",
+    letterSpacing: 2.7,
+    paddingLeft: 2.7,
     lineHeight: 18,
     textAlign: "center"
   },
   specimenLabelDisabled: {
-    color: "#b9c4c6"
+    color: "rgba(163, 171, 178, 0.54)"
   },
   button: {
     alignItems: "center",

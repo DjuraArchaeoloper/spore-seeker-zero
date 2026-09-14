@@ -104,6 +104,7 @@ const HALO_BLUR_MULTIPLIER = 0.28;
 const HALO_OPACITY_MULTIPLIER = 0.24;
 const GLOW_OPACITY_MULTIPLIER = 0.46;
 const INTERNAL_FILAMENT_OPACITY_MULTIPLIER = 0.22;
+const MOUSTACHE_VISUAL_SCALE = 0.75;
 const ROOT_FLOAT_BASE_PX_AT_1024 = 4;
 const ROOT_FLOAT_MOTION_PX_MULTIPLIER = 0.34;
 const MOTION_SCALE_MULTIPLIER = 0.86;
@@ -619,7 +620,7 @@ function createRenderPlan(
     moustache: {
       centerX: moustache.center[0] * size,
       centerY: moustache.center[1] * size,
-      width: moustache.width * size,
+      width: moustache.width * size * MOUSTACHE_VISUAL_SCALE,
       rotation: degToRad(moustache.rotationDeg)
     }
   };

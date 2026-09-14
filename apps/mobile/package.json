@@ -9,6 +9,7 @@
     "android:dev-build": "expo run:android"
   },
   "dependencies": {
+    "@expo-google-fonts/michroma": "^0.4.2",
     "@noble/hashes": "1.8.0",
     "@shopify/react-native-skia": "2.6.2",
     "@solana-mobile/mobile-wallet-adapter-protocol": "2.2.9",
@@ -20,6 +21,7 @@
     "expo": "~57.0.22",
     "expo-camera": "~57.0.5",
     "expo-dev-client": "~57.0.19",
+    "expo-font": "~57.0.4",
     "expo-secure-store": "~57.0.4",
     "qrcode-generator": "2.0.4",
     "react": "19.2.3",

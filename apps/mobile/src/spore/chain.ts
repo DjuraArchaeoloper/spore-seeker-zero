@@ -280,8 +280,6 @@ export async function releaseSpore(identity: AuthIdentity, secret: Uint8Array) {
   const parent = await fetchOrganism(address);
   if (!parent || parent.nextSporeAt > nowSeconds())
     throw new SporeFailure("Your spore is not ready.");
-  if (hasOffer(parent))
-    throw new SporeFailure("An offer is still active. Wait for it to expire.");
   const hash = commitment(secret);
   const slot = await send(identity, "release_spore", hash, [
     meta(owner, true, true),

@@ -3,7 +3,6 @@ import {
   AppState,
   BackHandler,
   Linking,
-  Pressable,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -12,6 +11,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Canvas, Path, Skia } from "@shopify/react-native-skia";
 import qrcode from "qrcode-generator";
 import { Buffer } from "buffer";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { AuthIdentity } from "../auth/api";
 import {
   getBloodline,
@@ -21,6 +21,7 @@ import {
 } from "../auth/api";
 import { AppText } from "../components/AppText";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { QuietAction } from "../components/QuietAction";
 import { Screen } from "../components/Screen";
 import { tokens } from "../design/tokens";
 import { OrganismRenderer } from "../components/organism/OrganismRenderer";
@@ -74,10 +75,12 @@ function formatRemaining(seconds: number) {
 
 export default function Reproduction({
   identity,
+  onSignOut,
   surface,
   setSurface,
 }: {
   identity: AuthIdentity;
+  onSignOut: () => void;
   surface: SurfaceKey;
   setSurface: (surface: SurfaceKey) => void;
 }) {
@@ -88,6 +91,8 @@ export default function Reproduction({
   const [now, setNow] = useState(nowSeconds);
   const [permission, requestPermission] = useCameraPermissions();
   const secret = useRef<ClaimPayload | null>(null);
+  const releaseCandidate = useRef<ClaimPayload | null>(null);
+  const releaseForegroundReconcile = useRef(false);
   const locked = useRef(false);
   const scanned = useRef(false);
   const mounted = useRef(true);
@@ -102,17 +107,62 @@ export default function Reproduction({
     error?: string | null;
   }>({});
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  const clearSecret = useCallback(() => {
-    secret.current?.secret.fill(0);
-    secret.current = null;
-    setOffer(null);
+  const clearReleaseCandidate = useCallback((preserve?: ClaimPayload | null) => {
+    if (releaseCandidate.current && releaseCandidate.current !== preserve) {
+      releaseCandidate.current.secret.fill(0);
+    }
+
+    releaseCandidate.current = null;
   }, []);
+  const clearSecret = useCallback(() => {
+    const currentSecret = secret.current;
+
+    currentSecret?.secret.fill(0);
+    secret.current = null;
+    clearReleaseCandidate(currentSecret);
+    setOffer(null);
+  }, [clearReleaseCandidate]);
   const refresh = useCallback(async () => {
     const value = await fetchOwnOrganism(identity, birthSlot.current);
     if (mounted.current) setOrganism(value);
     return value;
   }, [identity]);
+  const activateCandidateOffer = useCallback((candidate: ClaimPayload, parent: Organism) => {
+    if (!mounted.current) {
+      return;
+    }
+
+    if (secret.current && secret.current !== candidate) {
+      secret.current.secret.fill(0);
+    }
+
+    secret.current = candidate;
+    clearReleaseCandidate(candidate);
+    setOrganism(parent);
+    setOffer(parent);
+    setStage("offer");
+    setError(null);
+  }, [clearReleaseCandidate]);
+  const candidateMatchesOffer = useCallback((candidate: ClaimPayload, parent: Organism) => (
+    parent.address.equals(candidate.parent) &&
+    parent.activeSporeExpiresAt > nowSeconds() &&
+    Buffer.from(parent.activeSporeCommitment).equals(Buffer.from(commitment(candidate.secret)))
+  ), []);
+  const reconcileReleaseCandidate = useCallback(async (
+    candidate: ClaimPayload,
+    canonicalParent?: Organism | null,
+  ) => {
+    const parent = canonicalParent ?? await fetchOwnOrganism(identity, birthSlot.current);
+
+    if (parent && candidateMatchesOffer(candidate, parent)) {
+      activateCandidateOffer(candidate, parent);
+      return true;
+    }
+
+    return false;
+  }, [activateCandidateOffer, candidateMatchesOffer, identity]);
   useEffect(() => {
     mounted.current = true;
     void refresh().catch((e) => setError(sporeMessage(e)));
@@ -120,6 +170,17 @@ export default function Reproduction({
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         setNow(nowSeconds());
+        const candidate = releaseCandidate.current;
+
+        if (candidate && !releaseForegroundReconcile.current) {
+          releaseForegroundReconcile.current = true;
+          void reconcileReleaseCandidate(candidate)
+            .catch(() => {})
+            .finally(() => {
+              releaseForegroundReconcile.current = false;
+            });
+        }
+
         if (!locked.current)
           void refresh().catch((e) => setError(sporeMessage(e)));
       }
@@ -130,8 +191,9 @@ export default function Reproduction({
       listener.remove();
       secret.current?.secret.fill(0);
       secret.current = null;
+      clearReleaseCandidate();
     };
-  }, [refresh]);
+  }, [clearReleaseCandidate, reconcileReleaseCandidate, refresh]);
 
   async function run(action: () => Promise<void>) {
     if (locked.current) return;
@@ -270,24 +332,56 @@ export default function Reproduction({
 
   async function release() {
     await run(async () => {
+      if (!organism) {
+        throw new SporeFailure("Your spore is not ready.");
+      }
+
       clearSecret();
       const bytes = new Uint8Array(32);
+      // Existing index.js installs react-native-get-random-values before App loads.
+      do {
+        globalThis.crypto.getRandomValues(bytes);
+      } while (!bytes.some(Boolean));
+
+      const candidate: ClaimPayload = {
+        parent: organism.address,
+        secret: bytes,
+      };
+
+      releaseCandidate.current = candidate;
+
       try {
-        // Existing index.js installs react-native-get-random-values before App loads.
-        do {
-          globalThis.crypto.getRandomValues(bytes);
-        } while (!bytes.some(Boolean));
-        const parent = await releaseSpore(identity, bytes);
+        const parent = await releaseSpore(identity, candidate.secret);
         if (!mounted.current) {
-          bytes.fill(0);
           return;
         }
-        secret.current = { parent: parent.address, secret: bytes };
-        setOrganism(parent);
-        setOffer(parent);
-        setStage("offer");
+        if (!await reconcileReleaseCandidate(candidate, parent)) {
+          clearReleaseCandidate(candidate);
+          candidate.secret.fill(0);
+          throw new SporeFailure(
+            "The released offer is no longer available. Refresh your organism.",
+          );
+        }
       } catch (e) {
-        bytes.fill(0);
+        let checkedCanonicalState = false;
+        let recovered = false;
+
+        try {
+          recovered = await reconcileReleaseCandidate(candidate);
+          checkedCanonicalState = true;
+        } catch {
+          // Keep the candidate in memory; foreground recovery may still reconcile after wallet return.
+        }
+
+        if (recovered) {
+          return;
+        }
+
+        if (checkedCanonicalState) {
+          clearReleaseCandidate(candidate);
+          candidate.secret.fill(0);
+        }
+
         await refresh().catch(() => {});
         throw e;
       }
@@ -449,35 +543,92 @@ export default function Reproduction({
     now < offer.activeSporeExpiresAt
   )
     return (
-      <Screen title="SPORE RELEASED">
-        <View style={styles.center}>
-          <SporeQr payload={secret.current} size={Math.min(width - 64, 320)} />
-          <AppText>Let another Seeker scan this spore.</AppText>
-          <AppText>
-            {formatRemaining(offer.activeSporeExpiresAt - now)}
+      <View
+        style={[
+          styles.offerScreen,
+          {
+            paddingTop: insets.top + tokens.spacing.xl,
+            paddingBottom: Math.max(insets.bottom + tokens.spacing.lg, tokens.spacing.xxl),
+          },
+        ]}
+      >
+        <View style={styles.offerHeader}>
+          <AppText style={styles.offerTitle} variant="title">
+            SPORE RELEASED
           </AppText>
         </View>
-        <QuietAction label="BACK TO SPECIMEN" onPress={returnToSpecimen} />
-      </Screen>
+
+        <View style={styles.offerContent}>
+          <SporeQr payload={secret.current} size={Math.min(width - 64, 320)} />
+          <View style={styles.offerCopy}>
+            <AppText style={styles.offerInstruction}>
+              Let another Seeker scan this spore.
+            </AppText>
+            <AppText style={styles.offerTimer} variant="metadata">
+              {formatRemaining(offer.activeSporeExpiresAt - now)}
+            </AppText>
+          </View>
+        </View>
+
+        <View style={styles.offerAction}>
+          <QuietAction label="BACK TO SPECIMEN" onPress={returnToSpecimen} />
+        </View>
+      </View>
     );
   if (stage === "scan")
-    return (
-      <Screen title="SCAN SPORE">
-        {permission?.granted ? (
-          <CameraView
-            style={styles.camera}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-            onMountError={() => {
-              setError(
-                "The camera is unavailable. Close the scanner and try again.",
-              );
-            }}
-            onBarcodeScanned={busy ? undefined : ({ data }) => scan(data)}
-          />
-        ) : (
-          <View style={styles.center}>
-            <AppText>Camera access is needed to scan a spore.</AppText>
+    return permission?.granted ? (
+      <View style={styles.scanLiveScreen}>
+        <CameraView
+          style={StyleSheet.absoluteFillObject}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+          onMountError={() => {
+            setError(
+              "The camera is unavailable. Close the scanner and try again.",
+            );
+          }}
+          onBarcodeScanned={busy ? undefined : ({ data }) => scan(data)}
+        />
+
+        <View
+          pointerEvents="none"
+          style={[
+            styles.scanLiveHeader,
+            { paddingTop: insets.top + tokens.spacing.xl },
+          ]}
+        >
+          <AppText style={styles.scanLiveTitle} variant="title">
+            SCAN SPORE
+          </AppText>
+          <AppText style={styles.scanLiveHint} variant="metadata">
+            POINT AT A SPORE
+          </AppText>
+        </View>
+
+        <View
+          style={[
+            styles.scanLiveFooter,
+            { paddingBottom: Math.max(insets.bottom + tokens.spacing.lg, tokens.spacing.xxl) },
+          ]}
+        >
+          {error ? <AppText style={styles.scanLiveMessage}>{error}</AppText> : null}
+          {busy ? (
+            <AppText style={styles.scanLivePending}>CHECKING SPORE…</AppText>
+          ) : (
+            <QuietAction label="CANCEL" onPress={close} />
+          )}
+        </View>
+      </View>
+    ) : (
+      <Screen
+        title="SCAN SPORE"
+        style={{ paddingBottom: Math.max(insets.bottom + tokens.spacing.lg, tokens.spacing.xl) }}
+      >
+        <View style={styles.scanPermissionContent}>
+          <View style={styles.scanPermissionBlock}>
+            <AppText style={styles.scanPermissionText}>
+              Camera access is needed to scan a spore.
+            </AppText>
             <PrimaryButton
               label={
                 permission?.canAskAgain === false
@@ -496,7 +647,7 @@ export default function Reproduction({
               }}
             />
           </View>
-        )}
+        </View>
         {error ? <AppText style={styles.message}>{error}</AppText> : null}
         {busy ? (
           <AppText style={styles.pending}>CHECKING SPORE…</AppText>
@@ -505,37 +656,55 @@ export default function Reproduction({
         )}
       </Screen>
     );
-  if (stage === "accept" || stage === "recover")
+  if (stage === "accept")
     return (
-      <Screen
-        title={stage === "recover" ? "LIFE IS BORN" : "A SPORE FOUND YOU"}
+      <View
+        style={[
+          styles.acceptLifeScreen,
+          {
+            paddingTop: insets.top + tokens.spacing.xl,
+            paddingBottom: Math.max(insets.bottom + tokens.spacing.lg, tokens.spacing.xxl),
+          },
+        ]}
       >
+        <View style={styles.acceptLifeContent}>
+          <View style={styles.acceptLifeCopy}>
+            <AppText style={styles.acceptLifeTitle} variant="title">
+              A SPORE FOUND YOU
+            </AppText>
+            <AppText style={styles.acceptLifeText} tone="secondary">
+              Descend from Seeker Zero.
+            </AppText>
+            {error ? <AppText style={styles.acceptLifeMessage}>{error}</AppText> : null}
+          </View>
+
+          <View style={styles.acceptLifeActions}>
+            <PrimaryButton
+              label={busy ? "ACCEPTING LIFE…" : "ACCEPT LIFE"}
+              disabled={busy}
+              onPress={() => {
+                void accept();
+              }}
+            />
+            <QuietAction label="CANCEL" disabled={busy} onPress={close} />
+          </View>
+        </View>
+      </View>
+    );
+  if (stage === "recover")
+    return (
+      <Screen title="LIFE IS BORN">
         <View style={styles.center}>
-          <AppText>
-            {stage === "recover"
-              ? "Your organism is still emerging."
-              : "Descend from Seeker Zero."}
-          </AppText>
+          <AppText>Your organism is still emerging.</AppText>
           {error ? <AppText style={styles.message}>{error}</AppText> : null}
         </View>
         <PrimaryButton
-          label={
-            busy
-              ? stage === "recover"
-                ? "REVEALING…"
-                : "ACCEPTING LIFE…"
-              : stage === "recover"
-                ? "REVEAL ORGANISM"
-                : "ACCEPT LIFE"
-          }
+          label={busy ? "REVEALING…" : "REVEAL ORGANISM"}
           disabled={busy}
           onPress={() => {
-            void (stage === "recover" ? run(readBirth) : accept());
+            void run(readBirth);
           }}
         />
-        {stage === "accept" ? (
-          <QuietAction label="CANCEL" disabled={busy} onPress={close} />
-        ) : null}
       </Screen>
     );
   if (!organism)
@@ -566,15 +735,18 @@ export default function Reproduction({
             />
           ) : null
         ) : (
-          <PrimaryButton
-            label="SCAN SPORE"
-            disabled={busy}
-            onPress={() => {
-              scanned.current = false;
-              setError(null);
-              setStage("scan");
-            }}
-          />
+          <View style={styles.homeActions}>
+            <PrimaryButton
+              label="SCAN SPORE"
+              disabled={busy}
+              onPress={() => {
+                scanned.current = false;
+                setError(null);
+                setStage("scan");
+              }}
+            />
+            <QuietAction label="LOG OUT" onPress={onSignOut} />
+          </View>
         )}
       </Screen>
     );
@@ -588,10 +760,13 @@ export default function Reproduction({
     specimenSporeState === "active" &&
     !!offer &&
     !!secret.current &&
+    organism.address.equals(secret.current.parent) &&
     now < offer.activeSporeExpiresAt &&
     Buffer.from(organism.activeSporeCommitment).equals(
       Buffer.from(commitment(secret.current.secret)),
     );
+  const activeOfferWithoutLocalSecret =
+    specimenSporeState === "active" && !localOfferActive;
   const specimenSporeStatus =
     specimenSporeState === "active"
       ? "SPORE OFFER ACTIVE"
@@ -604,14 +779,16 @@ export default function Reproduction({
         {surface === "specimen" ? (
           <SpecimenScreen
             organism={organism}
+            onLogout={onSignOut}
             onRelease={() => {
               void release();
             }}
             busy={busy}
             sporeState={specimenSporeState}
             sporeStatus={specimenSporeStatus}
-            canRelease={specimenSporeState === "ready"}
+            canRelease={specimenSporeState === "ready" || activeOfferWithoutLocalSecret}
             canViewSpore={localOfferActive}
+            releaseLabel={activeOfferWithoutLocalSecret ? "RELEASE NEW SPORE" : "RELEASE SPORE"}
             onViewSpore={() => {
               if (!localOfferActive) return;
               setOffer(organism);
@@ -677,38 +854,174 @@ function SporeQr({ payload, size }: { payload: ClaimPayload; size: number }) {
   );
 }
 
-function QuietAction({
-  disabled = false,
-  label,
-  onPress,
-}: {
-  disabled?: boolean;
-  label: string;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.quietAction,
-        disabled && styles.quietActionDisabled,
-        pressed && !disabled && styles.quietActionPressed,
-      ]}
-    >
-      <AppText style={styles.quietActionLabel} variant="metadata">
-        {label}
-      </AppText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 24 },
   content: { flex: 1 },
-  camera: { flex: 1, marginBottom: 24 },
+  homeActions: {
+    gap: tokens.spacing.sm,
+  },
+  scanLiveScreen: {
+    backgroundColor: "black",
+    flex: 1,
+  },
+  scanLiveHeader: {
+    alignItems: "center",
+    left: 0,
+    paddingHorizontal: tokens.spacing.xl,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  scanLiveTitle: {
+    color: tokens.colors.textPrimary,
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: 2,
+    lineHeight: 28,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.62)",
+    textShadowOffset: { height: 1, width: 0 },
+    textShadowRadius: 8,
+  },
+  scanLiveHint: {
+    color: "rgba(244, 247, 244, 0.68)",
+    fontSize: 10,
+    letterSpacing: 2.4,
+    lineHeight: 16,
+    marginTop: tokens.spacing.xs,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.62)",
+    textShadowOffset: { height: 1, width: 0 },
+    textShadowRadius: 8,
+  },
+  scanLiveFooter: {
+    alignItems: "center",
+    bottom: 0,
+    gap: tokens.spacing.md,
+    left: 0,
+    paddingHorizontal: tokens.spacing.xl,
+    position: "absolute",
+    right: 0,
+  },
+  scanLiveMessage: {
+    color: tokens.colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.7)",
+    textShadowOffset: { height: 1, width: 0 },
+    textShadowRadius: 8,
+  },
+  scanLivePending: {
+    color: tokens.specimen.mint,
+    fontSize: 11,
+    letterSpacing: 2,
+    lineHeight: 16,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.7)",
+    textShadowOffset: { height: 1, width: 0 },
+    textShadowRadius: 8,
+    textTransform: "uppercase",
+  },
+  scanPermissionContent: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    paddingBottom: tokens.spacing.xxl,
+  },
+  scanPermissionBlock: {
+    gap: tokens.spacing.xl,
+    maxWidth: 360,
+    width: "100%",
+  },
+  scanPermissionText: {
+    color: tokens.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  acceptLifeScreen: {
+    flex: 1,
+    paddingHorizontal: tokens.spacing.xl,
+  },
+  acceptLifeContent: {
+    alignItems: "center",
+    flex: 1,
+    gap: tokens.spacing.xxl,
+    justifyContent: "center",
+    paddingBottom: tokens.spacing.xxxl,
+    paddingTop: tokens.spacing.xxl,
+  },
+  acceptLifeCopy: {
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    maxWidth: 360,
+    width: "100%",
+  },
+  acceptLifeTitle: {
+    color: tokens.colors.textPrimary,
+    textAlign: "center",
+  },
+  acceptLifeText: {
+    textAlign: "center",
+  },
+  acceptLifeMessage: {
+    color: tokens.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: tokens.spacing.xs,
+    textAlign: "center",
+  },
+  acceptLifeActions: {
+    gap: tokens.spacing.sm,
+    maxWidth: 360,
+    width: "100%",
+  },
+  offerScreen: {
+    flex: 1,
+    paddingHorizontal: tokens.spacing.xl,
+  },
+  offerHeader: {
+    alignItems: "center",
+    paddingBottom: tokens.spacing.lg,
+  },
+  offerTitle: {
+    color: tokens.colors.textPrimary,
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: 1.8,
+    lineHeight: 30,
+    textAlign: "center",
+  },
+  offerContent: {
+    alignItems: "center",
+    flex: 1,
+    gap: tokens.spacing.xl,
+    justifyContent: "center",
+    paddingBottom: tokens.spacing.xl,
+  },
+  offerCopy: {
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+  },
+  offerInstruction: {
+    color: tokens.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  offerTimer: {
+    color: tokens.specimen.mint,
+    fontSize: 12,
+    fontVariant: ["tabular-nums"],
+    fontWeight: "600",
+    letterSpacing: 2.2,
+    lineHeight: 17,
+    textAlign: "center",
+  },
+  offerAction: {
+    paddingTop: tokens.spacing.sm,
+  },
   message: {
     color: tokens.colors.textMuted,
     fontSize: 13,
@@ -722,23 +1035,5 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: "center",
     textTransform: "uppercase",
-  },
-  quietAction: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
-    paddingHorizontal: tokens.spacing.xl,
-  },
-  quietActionDisabled: {
-    opacity: 0.42,
-  },
-  quietActionPressed: {
-    opacity: tokens.opacity.muted,
-  },
-  quietActionLabel: {
-    color: tokens.colors.textMuted,
-    fontSize: 11,
-    lineHeight: 16,
-    textAlign: "center",
   },
 });

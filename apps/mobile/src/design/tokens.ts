@@ -1,4 +1,17 @@
 export const tokens = {
+  postAuth: {
+    primary: "#F7FBFB",
+    secondary: "#B8CED3",
+    tertiary: "#87A1A8",
+    smallText: {
+      fontFamily: "Michroma_400Regular",
+      fontWeight: "400",
+      includeFontPadding: false,
+      textShadowColor: "rgba(0, 0, 0, 0.68)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
+    },
+  },
   specimen: {
     background: "#03080d",
     primary: "#f3f5f6",

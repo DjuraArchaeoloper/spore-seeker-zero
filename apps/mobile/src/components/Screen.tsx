@@ -1,7 +1,10 @@
 import { Platform, StatusBar, StyleSheet, View, type ViewProps } from "react-native";
+import { Michroma_400Regular } from "@expo-google-fonts/michroma";
+import { useFonts } from "expo-font";
 
 import { tokens } from "../design/tokens";
 import { AppText } from "./AppText";
+import { SoftTextScrim } from "./SoftTextScrim";
 
 type ScreenProps = ViewProps & {
   title: string;
@@ -9,15 +12,18 @@ type ScreenProps = ViewProps & {
 };
 
 export function Screen({ children, eyebrow, style, title, ...props }: ScreenProps) {
+  const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
+  if (fontError) throw fontError;
   return (
     <View {...props} style={[styles.screen, style]}>
-      <View style={styles.header}>
+      <View style={[styles.header, { opacity: fontsLoaded ? 1 : 0 }]}>
+        <SoftTextScrim style={styles.headerScrim} variant="header" />
         {eyebrow ? (
-          <AppText tone="muted" variant="metadata">
+          <AppText style={styles.eyebrow} variant="metadata">
             {eyebrow}
           </AppText>
         ) : null}
-        <AppText variant="title">{title}</AppText>
+        <AppText style={styles.title} variant="title">{title}</AppText>
       </View>
       {children}
     </View>
@@ -25,15 +31,40 @@ export function Screen({ children, eyebrow, style, title, ...props }: ScreenProp
 }
 
 const styles = StyleSheet.create({
+  eyebrow: {
+    ...tokens.postAuth.smallText,
+    color: tokens.postAuth.tertiary,
+    fontSize: 12,
+    letterSpacing: 1.25,
+    lineHeight: 17,
+  },
+  title: {
+    fontFamily: "Michroma_400Regular",
+    fontWeight: "400",
+    color: tokens.postAuth.primary,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0, 0, 0, 0.62)",
+    textShadowOffset: { height: 1, width: 0 },
+    textShadowRadius: 3,
+  },
   screen: {
     // backgroundColor: tokens.colors.background,
     flex: 1,
+    overflow: "visible",
     paddingBottom: tokens.spacing.xl,
     paddingHorizontal: tokens.spacing.xl,
     paddingTop: (Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : 0) + tokens.spacing.xl
   },
   header: {
     gap: tokens.spacing.xs,
-    paddingBottom: tokens.spacing.lg
+    overflow: "visible",
+    paddingBottom: tokens.spacing.lg,
+    position: "relative",
+  },
+  headerScrim: {
+    bottom: 4,
+    left: -20,
+    right: "20%",
+    top: -16,
   }
 });

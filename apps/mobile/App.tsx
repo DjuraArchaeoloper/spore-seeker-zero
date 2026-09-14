@@ -3,6 +3,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ComponentType } from "react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { AppText } from "./src/components/AppText";
+import { PostAuthReadabilityVeil } from "./src/components/PostAuthReadabilityVeil";
 
 import { AuthEntryScreen } from "./src/screens/AuthEntryScreen";
 import { BloodlineScreen } from "./src/screens/BloodlineScreen";
@@ -19,11 +20,15 @@ const VISUAL_PREVIEW = process.env.EXPO_PUBLIC_SPORE_VISUAL_PREVIEW === "true";
 // Camera and wallet flow modules are never evaluated by visual preview.
 const Reproduction = lazy(() => import("./src/spore/Reproduction"));
 
-const screens: Record<SurfaceKey, ComponentType> = {
-  specimen: SpecimenScreen,
+const previewScreens: Record<SurfaceKey, ComponentType> = {
+  specimen: PreviewSpecimenScreen,
   bloodline: BloodlineScreen,
   species: SpeciesScreen,
 };
+
+function PreviewSpecimenScreen() {
+  return <SpecimenScreen previewOrigin canRelease />;
+}
 
 type AuthIdentity = {
   sgtMint: string;
@@ -53,7 +58,7 @@ function SporeApp() {
     status: "restoring",
   });
   const [activeSurface, setActiveSurface] = useState<SurfaceKey>("specimen");
-  const ActiveScreen = screens[activeSurface];
+  const ActivePreviewScreen = previewScreens[activeSurface];
 
   useEffect(() => {
     if (VISUAL_PREVIEW) {
@@ -113,12 +118,29 @@ function SporeApp() {
     }
   }
 
+  async function leaveSpore() {
+    if (VISUAL_PREVIEW) {
+      return;
+    }
+
+    try {
+      const { signOutOfSpore } = await import("./src/auth/auth");
+      await signOutOfSpore();
+    } catch {}
+
+    setActiveSurface("specimen");
+    setAuthState({
+      status: "unauthenticated",
+    });
+  }
+
   if (!VISUAL_PREVIEW && authState.status !== "authenticated") {
     return (
       <View style={styles.app}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={tokens.colors.background}
+          backgroundColor="transparent"
+          translucent
         />
         <AuthEntryScreen
           error={authState.error}
@@ -131,39 +153,38 @@ function SporeApp() {
 
   return (
     <View style={styles.app}>
-      {/* {activeSurface === "specimen" ? ( */}
-        <View pointerEvents="none" style={styles.specimenBackground}>
-          <Image
-            accessible={false}
-            source={require("./assets/backgrounds/specimen-bg.png")}
-            resizeMode="stretch"
-            style={styles.specimenBackgroundImage}
-          />
-
-          <View style={styles.specimenOverlay} />
-        </View>
-      {/* ) : null} */}
+      <Image
+        accessible={false}
+        source={require("./assets/backgrounds/specimen-biological-bg.png")}
+        resizeMode="cover"
+        style={styles.postAuthBackground}
+      />
+      <PostAuthReadabilityVeil />
       <StatusBar
         barStyle="light-content"
-        backgroundColor={
-          activeSurface === "specimen"
-            ? "transparent"
-            : tokens.colors.background
-        }
-        translucent={activeSurface === "specimen"}
+        backgroundColor="transparent"
+        translucent
       />
       {!VISUAL_PREVIEW && authState.status === "authenticated" ? (
         <Suspense fallback={<AppText>Reading your Seeker…</AppText>}>
-          <Reproduction identity={authState.identity} surface={activeSurface} setSurface={setActiveSurface} />
+          <Reproduction
+            identity={authState.identity}
+            onSignOut={leaveSpore}
+            surface={activeSurface}
+            setSurface={setActiveSurface}
+          />
         </Suspense>
-      ) : <><View style={styles.surface}>
-        <ActiveScreen />
-      </View>
-      <BottomNavigation
-        activeSurface={activeSurface}
-        onSurfaceChange={setActiveSurface}
-      />
-      </>}
+      ) : (
+        <>
+          <View style={styles.surface}>
+            <ActivePreviewScreen />
+          </View>
+          <BottomNavigation
+            activeSurface={activeSurface}
+            onSurfaceChange={setActiveSurface}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -179,16 +200,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
 
-  specimenBackground: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    opacity: 0.4
-  },
-
-  specimenBackgroundImage: {
+  postAuthBackground: {
     position: "absolute",
     top: 0,
     right: 0,
@@ -196,14 +208,6 @@ const styles = StyleSheet.create({
     left: 0,
     width: "100%",
     height: "100%",
-  },
-
-  specimenOverlay: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: tokens.specimen.overlay,
+    opacity: 0.5
   },
 });

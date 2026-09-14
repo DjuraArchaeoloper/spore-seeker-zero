@@ -2,6 +2,7 @@ import { StyleSheet, View } from "react-native";
 
 import { AppText } from "../components/AppText";
 import { Screen } from "../components/Screen";
+import { SoftTextScrim } from "../components/SoftTextScrim";
 import { tokens } from "../design/tokens";
 
 type SpeciesResponse = {
@@ -24,9 +25,10 @@ const theme = tokens as {
 };
 
 const color = {
-  text: theme.colors?.text ?? "#F7F2E8",
-  muted: theme.colors?.muted ?? theme.colors?.textMuted ?? "#8F897D",
-  faint: theme.colors?.faint ?? "rgba(247, 242, 232, 0.52)",
+  text: tokens.postAuth.primary,
+  muted: tokens.postAuth.tertiary,
+  soft: tokens.postAuth.secondary,
+  faint: tokens.postAuth.tertiary,
 };
 
 const space = {
@@ -36,6 +38,7 @@ const space = {
   lg: theme.spacing?.lg ?? 16,
   xl: theme.spacing?.xl ?? 24,
   xxl: theme.spacing?.xxl ?? 32,
+  xxxl: theme.spacing?.xxxl ?? 48,
 };
 
 function formatPopulation(population: number) {
@@ -110,10 +113,15 @@ export function SpeciesScreen({ species, error, loading = false }: SpeciesScreen
   if (loading) {
     return (
       <Screen eyebrow="GLOBAL STATE" title="Species">
-        <View style={styles.content}>
-          <View style={styles.state}>
-            <AppText style={styles.stateLabel}>SPECIES STATE</AppText>
-            <AppText style={styles.stateText}>LOADING SPECIES.</AppText>
+        <View style={[styles.content, styles.loadingContent]}>
+          <View style={styles.population}>
+            <AppText style={[styles.populationNumber, styles.populationNumberPending]}>-</AppText>
+            <AppText style={styles.populationLabel}>POPULATION</AppText>
+          </View>
+
+          <View style={styles.generation}>
+            <AppText style={styles.sectionLabel}>SPECIES STATE</AppText>
+            <AppText style={styles.stateText}>READING SPECIES</AppText>
           </View>
         </View>
       </Screen>
@@ -125,6 +133,7 @@ export function SpeciesScreen({ species, error, loading = false }: SpeciesScreen
       <Screen eyebrow="GLOBAL STATE" title="Species">
         <View style={styles.content}>
           <View style={styles.state}>
+            <SoftTextScrim style={styles.stateScrim} variant="state" />
             <AppText style={styles.stateLabel}>SPECIES UNAVAILABLE</AppText>
             <AppText style={styles.stateText}>{error}</AppText>
           </View>
@@ -138,6 +147,7 @@ export function SpeciesScreen({ species, error, loading = false }: SpeciesScreen
       <Screen eyebrow="GLOBAL STATE" title="Species">
         <View style={styles.content}>
           <View style={styles.state}>
+            <SoftTextScrim style={styles.stateScrim} variant="state" />
             <AppText style={styles.stateLabel}>NO SPECIES DATA</AppText>
             <AppText style={styles.stateText}>SPECIES RECORD UNAVAILABLE.</AppText>
           </View>
@@ -154,7 +164,7 @@ export function SpeciesScreen({ species, error, loading = false }: SpeciesScreen
     <Screen eyebrow="GLOBAL STATE" title="Species">
       <View style={styles.content}>
         <View style={styles.population}>
-          <AppText style={styles.populationNumber}>
+          <AppText adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.populationNumber}>
             {population === null ? "-" : formatPopulation(population)}
           </AppText>
           <AppText style={styles.populationLabel}>POPULATION</AppText>
@@ -186,86 +196,117 @@ export function SpeciesScreen({ species, error, loading = false }: SpeciesScreen
 
 const styles = StyleSheet.create({
   content: {
-    gap: space.xxl,
-    paddingBottom: space.xxl,
-    paddingTop: space.xl,
+    flex: 1,
+    gap: space.xxxl,
+    justifyContent: "center",
+    paddingBottom: space.xxxl,
+    paddingTop: space.lg,
+  },
+  loadingContent: {
+    justifyContent: "center",
   },
   state: {
+    alignSelf: "stretch",
     gap: space.sm,
+    overflow: "visible",
     paddingTop: space.xl,
+    position: "relative",
+  },
+  stateScrim: {
+    bottom: -18,
+    left: -18,
+    right: 20,
+    top: 6,
   },
   stateLabel: {
-    color: color.muted,
-    fontSize: 11,
-    letterSpacing: 0,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 12,
+    letterSpacing: 1.1,
+    lineHeight: 17,
     textTransform: "uppercase",
   },
   stateText: {
+    ...tokens.postAuth.smallText,
     color: color.text,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    letterSpacing: 0.7,
+    lineHeight: 20,
+    textTransform: "uppercase",
   },
   population: {
-    gap: space.xs,
-    paddingTop: space.xl,
+    gap: space.sm,
   },
   populationNumber: {
     color: color.text,
-    fontSize: 72,
-    lineHeight: 78,
+    fontSize: 92,
+    fontWeight: "600",
+    lineHeight: 98,
+  },
+  populationNumberPending: {
+    color: color.faint,
+    fontWeight: "400",
   },
   populationLabel: {
-    color: color.muted,
-    fontSize: 13,
-    letterSpacing: 0,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 12,
+    letterSpacing: 1.25,
     lineHeight: 18,
     textTransform: "uppercase",
   },
   generation: {
-    gap: space.sm,
-    paddingTop: space.md,
+    gap: space.xs,
   },
   sectionLabel: {
-    color: color.muted,
-    fontSize: 11,
-    letterSpacing: 0,
-    lineHeight: 16,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 12,
+    letterSpacing: 1.25,
+    lineHeight: 17,
     textTransform: "uppercase",
   },
   generationValue: {
     color: color.text,
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 21,
+    fontWeight: "500",
+    lineHeight: 27,
   },
   origin: {
-    gap: space.lg,
-    paddingTop: space.xl,
+    gap: space.md,
+    paddingTop: space.sm,
   },
   originRecord: {
-    gap: space.xs,
+    gap: 3,
   },
   originName: {
     color: color.text,
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 21,
+    fontWeight: "500",
+    lineHeight: 27,
   },
   originMeta: {
-    color: color.faint,
-    fontSize: 13,
-    letterSpacing: 0,
+    ...tokens.postAuth.smallText,
+    color: color.muted,
+    fontSize: 11,
+    letterSpacing: 1,
     lineHeight: 18,
     textTransform: "uppercase",
   },
   originLine: {
-    color: color.muted,
-    fontSize: 13,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 12,
+    letterSpacing: 0.8,
     lineHeight: 20,
-    marginTop: space.sm,
+    marginTop: space.md,
     textTransform: "uppercase",
   },
   originUnavailable: {
-    color: color.muted,
-    fontSize: 13,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 11,
+    letterSpacing: 1,
     lineHeight: 20,
     textTransform: "uppercase",
   },

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Michroma_400Regular } from "@expo-google-fonts/michroma";
+import { useFonts } from "expo-font";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SEEKER_ZERO_GENOME_HEX, type GenomeInput } from "@spore/shared";
@@ -6,7 +8,20 @@ import { SEEKER_ZERO_GENOME_HEX, type GenomeInput } from "@spore/shared";
 import { AppText } from "../components/AppText";
 import { OrganismRenderer } from "../components/organism/OrganismRenderer";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { QuietAction } from "../components/QuietAction";
 import { tokens } from "../design/tokens";
+
+// Art direction in logical pixels; the flexible stage absorbs height changes.
+const SPECIMEN_LAYOUT = {
+  creatureScale: 1.08,
+  creatureMaxSize: 560,
+  metaTopRatio: 0.065,
+  footerBottomRatio: 0.065,
+  titleSize: 22,
+  titleTracking: 5,
+  actionWidth: "76%",
+  actionMaxWidth: 360,
+} as const;
 
 export type SpecimenOrganism = {
   // API u64 values are decimal strings. Never convert identity to Number.
@@ -18,7 +33,7 @@ export type SpecimenOrganism = {
 export const canonicalOrigin: SpecimenOrganism = {
   organismNumber: "0",
   generation: 0,
-  genome: SEEKER_ZERO_GENOME_HEX
+  genome: SEEKER_ZERO_GENOME_HEX,
 };
 
 export function getSpecimenDesignation(organismNumber: string) {
@@ -35,9 +50,11 @@ export type SpecimenScreenProps = {
   previewOrigin?: boolean;
   onRelease?: () => void;
   onViewSpore?: () => void;
+  onLogout?: () => void;
   busy?: boolean;
   canRelease?: boolean;
   canViewSpore?: boolean;
+  releaseLabel?: string;
   sporeState?: SpecimenSporeState;
   sporeStatus?: string;
   error?: string | null;
@@ -46,41 +63,65 @@ export type SpecimenScreenProps = {
 // The static origin is only used by visual preview; production supplies a canonical account.
 export function SpecimenScreen({
   organism,
+  onLogout,
   previewOrigin = false,
   onRelease,
   onViewSpore,
   busy = false,
   canRelease = false,
   canViewSpore = false,
+  releaseLabel = "RELEASE SPORE",
   sporeState = "ready",
   sporeStatus = "SPORE READY",
-  error
+  error,
 }: SpecimenScreenProps) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const compact = height < 740;
-  const organismSize = Math.min(stageSize.width, stageSize.height, 560);
+  const organismSize = Math.min(
+    stageSize.width * SPECIMEN_LAYOUT.creatureScale,
+    Math.max(0, stageSize.height - 8),
+    SPECIMEN_LAYOUT.creatureMaxSize,
+  );
+  const horizontalScale = Math.min((width - insets.left - insets.right) / 390, 1.15);
+  const topSpace = insets.top + (compact ? 24 : height * SPECIMEN_LAYOUT.metaTopRatio);
+  // Keep the existing logout affordance in the breathing room below the CTA.
+  const bottomSpace = Math.max(8,
+    (compact ? 24 : Math.min(height * SPECIMEN_LAYOUT.footerBottomRatio, 64)) - (onLogout ? 52 : 0),
+  );
   const specimen = organism ?? (previewOrigin ? canonicalOrigin : null);
   const ready = sporeState === "ready";
   const showViewSpore = sporeState === "active" && canViewSpore;
-  const actionLabel = busy ? (showViewSpore ? "OPENING…" : "RELEASING…") : showViewSpore ? "VIEW SPORE" : "RELEASE SPORE";
+  const actionLabel = busy
+    ? showViewSpore
+      ? "OPENING…"
+      : "RELEASING…"
+    : showViewSpore
+      ? "VIEW SPORE"
+      : releaseLabel;
   const actionDisabled = busy || (showViewSpore ? !canViewSpore : !canRelease);
   const actionPress = showViewSpore ? onViewSpore : onRelease;
 
+  if (fontError) throw fontError;
+
   if (!specimen) {
     return (
-      <View style={[
-        styles.screen,
-        {
-          paddingTop: insets.top + (compact ? 20 : 32),
-          paddingLeft: insets.left,
-          paddingRight: insets.right,
-          paddingBottom: compact ? 24 : Math.min(height * 0.065, 64)
-        }
-      ]}>
+      <View
+        style={[
+          styles.screen,
+          {
+            paddingTop: topSpace,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+            paddingBottom: bottomSpace,
+            opacity: fontsLoaded ? 1 : 0,
+          },
+        ]}
+      >
         <View style={styles.emptyState}>
-          <AppText style={styles.identifier} variant="metadata">
+          <AppText style={[styles.identifier, styles.emptyLabel]} variant="metadata">
             SPECIMEN UNAVAILABLE
           </AppText>
           {error ? <AppText style={styles.error}>{error}</AppText> : null}
@@ -92,27 +133,33 @@ export function SpecimenScreen({
   const designation = getSpecimenDesignation(specimen.organismNumber);
 
   return (
-    <View style={[
-      styles.screen,
-      {
-        paddingTop: insets.top + (compact ? 20 : 32),
-        paddingLeft: insets.left,
-        paddingRight: insets.right,
-        paddingBottom: compact ? 24 : Math.min(height * 0.065, 64)
-      }
-    ]}>
+    <View
+      style={[
+        styles.screen,
+        {
+          paddingTop: topSpace,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+          paddingBottom: bottomSpace,
+          opacity: fontsLoaded ? 1 : 0,
+        },
+      ]}
+    >
       <View style={styles.metadata}>
-        <AppText style={styles.identifier} variant="metadata">
-          GEN {specimen.generation} · #{specimen.organismNumber.padStart(6, "0")}
+        <AppText maxFontSizeMultiplier={1.2} style={styles.identifier} variant="metadata">
+          GEN {specimen.generation} · #
+          {specimen.organismNumber.padStart(6, "0")}
         </AppText>
       </View>
 
       <View
         style={styles.organismStage}
         onLayout={({ nativeEvent: { layout } }) => {
-          setStageSize((previous) => previous.width === layout.width && previous.height === layout.height
-            ? previous
-            : { width: layout.width, height: layout.height });
+          setStageSize((previous) =>
+            previous.width === layout.width && previous.height === layout.height
+              ? previous
+              : { width: layout.width, height: layout.height },
+          );
         }}
       >
         {organismSize > 0 ? (
@@ -120,26 +167,46 @@ export function SpecimenScreen({
         ) : null}
       </View>
 
-      <View style={[styles.footer, { gap: compact ? 22 : 30 }]}>
+      <View style={[styles.footer, { gap: compact ? 20 : 28 }]}>
         <View style={styles.identity}>
-          <AppText style={[styles.name, { letterSpacing: width < 360 ? 3.5 : 5 }]} variant="title">
+          <AppText
+            maxFontSizeMultiplier={1.2}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={[styles.name, {
+              fontSize: SPECIMEN_LAYOUT.titleSize * horizontalScale,
+              letterSpacing: SPECIMEN_LAYOUT.titleTracking * horizontalScale,
+              paddingLeft: SPECIMEN_LAYOUT.titleTracking * horizontalScale,
+            }]}
+            variant="title"
+          >
             {designation.title}
           </AppText>
-          <AppText style={styles.subtitle} variant="metadata">
+          <AppText maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.subtitle} variant="metadata">
             {designation.subtitle}
           </AppText>
         </View>
 
         <View style={styles.readyRow}>
           <View style={[styles.readyDot, !ready && styles.readyDotInactive]} />
-          <AppText style={[styles.status, !ready && styles.statusInactive]} variant="metadata">
+          <AppText
+            maxFontSizeMultiplier={1.2}
+            style={[styles.status, !ready && styles.statusInactive]}
+            variant="metadata"
+          >
             {sporeStatus}
           </AppText>
         </View>
 
         <View style={styles.action}>
-          <PrimaryButton appearance="specimen" disabled={actionDisabled} label={actionLabel} onPress={actionPress} />
+          <PrimaryButton
+            appearance="specimen"
+            disabled={actionDisabled}
+            label={actionLabel}
+            onPress={actionPress}
+          />
           {error ? <AppText style={styles.error}>{error}</AppText> : null}
+          {onLogout ? <QuietAction label="LOG OUT" onPress={onLogout} /> : null}
         </View>
       </View>
     </View>
@@ -148,95 +215,126 @@ export function SpecimenScreen({
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1
+    flex: 1,
   },
   emptyState: {
     alignItems: "center",
     flex: 1,
     gap: tokens.spacing.md,
     justifyContent: "center",
-    paddingHorizontal: tokens.spacing.xl
+    paddingHorizontal: tokens.spacing.xl,
   },
   metadata: {
     alignItems: "center",
     paddingHorizontal: tokens.spacing.xl,
-    paddingBottom: tokens.spacing.sm
+    paddingBottom: tokens.spacing.sm,
   },
   identifier: {
-    color: tokens.specimen.secondary,
-    fontSize: 11,
+    ...tokens.postAuth.smallText,
+    fontFamily: "Michroma_400Regular",
+    includeFontPadding: false,
+    color: tokens.postAuth.secondary,
+    fontSize: 9,
     fontWeight: "400",
-    letterSpacing: 3,
-    lineHeight: 18,
-    textAlign: "center"
+    letterSpacing: 2.6,
+    paddingLeft: 2.6,
+    lineHeight: 16,
+    textAlign: "center",
+  },
+  emptyLabel: {
+    color: tokens.postAuth.primary,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    paddingLeft: 1.8,
   },
   organismStage: {
     alignItems: "center",
     flex: 1,
+    minHeight: 0,
     justifyContent: "center",
-    overflow: "visible"
+    overflow: "visible",
   },
   footer: {
     alignItems: "center",
     flexShrink: 0,
-    paddingHorizontal: tokens.spacing.xl,
-    paddingTop: tokens.spacing.lg
+    paddingHorizontal: tokens.spacing.md,
+    paddingTop: tokens.spacing.xs,
   },
   identity: {
     alignItems: "center",
-    gap: tokens.spacing.sm
+    width: "100%",
+    gap: 8,
   },
   name: {
-    color: tokens.specimen.primary,
-    fontSize: 23,
+    color: tokens.postAuth.primary,
+    fontFamily: "Michroma_400Regular",
+    includeFontPadding: false,
     fontWeight: "400",
-    lineHeight: 32,
-    textAlign: "center"
+    lineHeight: 33,
+    textAlign: "center",
   },
   subtitle: {
-    color: tokens.specimen.secondary,
-    fontSize: 10,
+    ...tokens.postAuth.smallText,
+    fontFamily: "Michroma_400Regular",
+    includeFontPadding: false,
+    color: tokens.postAuth.secondary,
+    fontSize: 9,
     fontWeight: "400",
-    letterSpacing: 2.2,
-    lineHeight: 17,
+    letterSpacing: 1.8,
+    paddingLeft: 1.8,
+    lineHeight: 16,
     textAlign: "center",
-    textTransform: "uppercase"
+    textTransform: "uppercase",
   },
   readyRow: {
     alignItems: "center",
     flexDirection: "row",
     gap: tokens.spacing.md,
-    justifyContent: "center"
+    justifyContent: "center",
+    paddingHorizontal: 12,
   },
   status: {
-    color: tokens.specimen.mint,
+    ...tokens.postAuth.smallText,
+    fontFamily: "Michroma_400Regular",
+    includeFontPadding: false,
+    color: tokens.postAuth.primary,
     fontSize: 10,
-    fontWeight: "500",
-    letterSpacing: 2.7,
-    lineHeight: 16
+    fontWeight: "400",
+    letterSpacing: 2.1,
+    lineHeight: 17,
+    textAlign: "center",
+    flexShrink: 1,
   },
   statusInactive: {
-    color: tokens.specimen.secondary
+    color: tokens.postAuth.secondary,
   },
   readyDot: {
-    backgroundColor: tokens.specimen.mint,
+    backgroundColor: "#a5f7ff",
+    boxShadow: "0 0 6px 2px rgba(85, 221, 238, 0.32)",
     borderRadius: tokens.radii.full,
-    height: 5,
-    width: 5
+    height: 6,
+    shadowColor: tokens.specimen.mint,
+    shadowOffset: { height: 0, width: 0 },
+    shadowOpacity: 0.36,
+    shadowRadius: 6,
+    width: 6,
   },
   readyDotInactive: {
-    backgroundColor: tokens.specimen.secondary
+    backgroundColor: "rgba(163, 171, 178, 0.34)",
+    shadowOpacity: 0,
+    boxShadow: "none",
   },
   action: {
-    width: "88%",
-    maxWidth: 360,
-    gap: tokens.spacing.md
+    width: SPECIMEN_LAYOUT.actionWidth,
+    maxWidth: SPECIMEN_LAYOUT.actionMaxWidth,
+    gap: 8,
   },
   error: {
-    color: tokens.specimen.secondary,
+    ...tokens.postAuth.smallText,
+    color: tokens.postAuth.primary,
     fontSize: 12,
     fontWeight: "400",
     lineHeight: 18,
-    textAlign: "center"
-  }
+    textAlign: "center",
+  },
 });

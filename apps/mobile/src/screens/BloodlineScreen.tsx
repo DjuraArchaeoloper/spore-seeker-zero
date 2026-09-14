@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 import type { BloodlineResponse } from "../auth/api";
 import { AppText } from "../components/AppText";
 import { Screen } from "../components/Screen";
+import { SoftTextScrim } from "../components/SoftTextScrim";
 import { tokens } from "../design/tokens";
 
 type BloodlineScreenProps = {
@@ -26,11 +27,12 @@ const theme = tokens as {
 };
 
 const color = {
-  text: theme.colors?.text ?? "#F7F2E8",
-  muted: theme.colors?.muted ?? theme.colors?.textMuted ?? "#8F897D",
-  faint: theme.colors?.faint ?? "rgba(247, 242, 232, 0.44)",
+  text: tokens.postAuth.primary,
+  muted: tokens.postAuth.tertiary,
+  soft: tokens.postAuth.secondary,
   line: theme.colors?.border ?? "rgba(247, 242, 232, 0.18)",
   accent: theme.colors?.accent ?? "#D9D2C3",
+  accentFaint: theme.colors?.accentSoft ?? "rgba(184, 230, 210, 0.14)",
 };
 
 const space = {
@@ -170,9 +172,25 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
     return (
       <Screen eyebrow="ANCESTRY" title="Bloodline">
         <View style={styles.bloodlineContent}>
-          <View style={styles.bloodlineState}>
-            <AppText style={styles.bloodlineStateLabel}>LINEAGE</AppText>
-            <AppText style={styles.bloodlineStateText}>LOADING BLOODLINE.</AppText>
+          <View style={styles.bloodlineSection}>
+            <AppText style={styles.bloodlineSectionLabel}>LINEAGE</AppText>
+            <View style={styles.bloodlineLineage}>
+              <View style={styles.bloodlineLineageRow}>
+                <View style={styles.bloodlineNodeColumn}>
+                  <View style={[styles.bloodlineNode, styles.bloodlineNodeDim]} />
+                  <View style={styles.bloodlineConnector} />
+                </View>
+                <View style={styles.bloodlineLineageCopy}>
+                  <AppText style={styles.bloodlineStateText}>READING LINEAGE</AppText>
+                </View>
+              </View>
+              <View style={[styles.bloodlineLineageRow, styles.bloodlineLineageRowLast]}>
+                <View style={styles.bloodlineNodeColumn}>
+                  <View style={[styles.bloodlineNode, styles.bloodlineCurrentNode, styles.bloodlineNodeDim]} />
+                </View>
+                <View style={styles.bloodlineLineageCopy} />
+              </View>
+            </View>
           </View>
         </View>
       </Screen>
@@ -184,6 +202,7 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
       <Screen eyebrow="ANCESTRY" title="Bloodline">
         <View style={styles.bloodlineContent}>
           <View style={styles.bloodlineState}>
+            <SoftTextScrim style={styles.bloodlineStateScrim} variant="state" />
             <AppText style={styles.bloodlineStateLabel}>BLOODLINE UNAVAILABLE</AppText>
             <AppText style={styles.bloodlineStateText}>{error}</AppText>
           </View>
@@ -197,6 +216,7 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
       <Screen eyebrow="ANCESTRY" title="Bloodline">
         <View style={styles.bloodlineContent}>
           <View style={styles.bloodlineState}>
+            <SoftTextScrim style={styles.bloodlineStateScrim} variant="state" />
             <AppText style={styles.bloodlineStateLabel}>NO BLOODLINE DATA</AppText>
             <AppText style={styles.bloodlineStateText}>LINEAGE RECORD UNAVAILABLE.</AppText>
           </View>
@@ -271,12 +291,22 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
           <AppText style={styles.bloodlineSectionLabel}>DIRECT OFFSPRING</AppText>
           {renderedDirectChildren.length > 0 ? (
             <View style={styles.bloodlineChildren}>
-              {renderedDirectChildren.map((child, index) => (
-                <View key={`${lineageIdentity(child)}-${index}`} style={styles.bloodlineChildRow}>
-                  <AppText style={styles.bloodlineChildNumber}>{formatOrganismNumber(child)}</AppText>
-                  <AppText style={styles.bloodlineChildGeneration}>{formatGeneration(child)}</AppText>
-                </View>
-              ))}
+              {renderedDirectChildren.map((child, index) => {
+                const isLast = index === renderedDirectChildren.length - 1;
+
+                return (
+                  <View key={`${lineageIdentity(child)}-${index}`} style={styles.bloodlineChildRow}>
+                    <View style={styles.bloodlineChildNodeColumn}>
+                      <View style={styles.bloodlineChildNode} />
+                      {!isLast ? <View style={styles.bloodlineChildConnector} /> : null}
+                    </View>
+                    <View style={styles.bloodlineChildCopy}>
+                      <AppText style={styles.bloodlineChildNumber}>{formatOrganismNumber(child)}</AppText>
+                      <AppText style={styles.bloodlineChildGeneration}>{formatGeneration(child)}</AppText>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           ) : (
             <AppText style={styles.bloodlineNoOffspring}>NO OFFSPRING YET.</AppText>
@@ -361,42 +391,59 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
 
 const styles = StyleSheet.create({
   bloodlineContent: {
-    gap: space.xxl,
+    gap: space.xl,
     paddingBottom: space.xxl,
   },
   bloodlineSection: {
-    gap: space.lg,
+    gap: space.md,
   },
   bloodlineSectionLabel: {
-    color: color.muted,
-    fontSize: 11,
-    letterSpacing: 0,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 12,
+    letterSpacing: 1.25,
+    lineHeight: 17,
     textTransform: "uppercase",
   },
   bloodlineState: {
+    alignSelf: "stretch",
     gap: space.sm,
+    overflow: "visible",
     paddingTop: space.xl,
+    position: "relative",
+  },
+  bloodlineStateScrim: {
+    bottom: -18,
+    left: -18,
+    right: 20,
+    top: 6,
   },
   bloodlineStateLabel: {
-    color: color.muted,
-    fontSize: 11,
-    letterSpacing: 0,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 12,
+    letterSpacing: 1.1,
+    lineHeight: 17,
     textTransform: "uppercase",
   },
   bloodlineStateText: {
+    ...tokens.postAuth.smallText,
     color: color.text,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    letterSpacing: 0.7,
+    lineHeight: 20,
+    textTransform: "uppercase",
   },
   bloodlineLineage: {
     gap: 0,
+    paddingTop: space.xs,
   },
   bloodlineLineageRow: {
     flexDirection: "row",
-    minHeight: 64,
+    minHeight: 68,
   },
   bloodlineLineageRowLast: {
-    minHeight: 42,
+    minHeight: 48,
   },
   bloodlineNodeColumn: {
     alignItems: "center",
@@ -406,105 +453,146 @@ const styles = StyleSheet.create({
   bloodlineNode: {
     alignItems: "center",
     backgroundColor: "transparent",
-    borderColor: color.faint,
-    borderRadius: 6,
+    borderColor: "rgba(178, 188, 182, 0.28)",
+    borderRadius: 5,
     borderWidth: 1,
-    height: 12,
+    height: 10,
     justifyContent: "center",
-    marginTop: 2,
-    width: 12,
+    marginTop: 4,
+    width: 10,
   },
   bloodlineSeekerNode: {
-    borderColor: color.accent,
+    borderColor: "rgba(184, 230, 210, 0.42)",
   },
   bloodlineCurrentNode: {
-    borderColor: color.text,
-    borderRadius: 8,
-    height: 16,
-    width: 16,
+    backgroundColor: color.accentFaint,
+    borderColor: color.accent,
+    borderRadius: 9,
+    height: 18,
+    marginTop: 0,
+    shadowColor: color.accent,
+    shadowOffset: { height: 0, width: 0 },
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    width: 18,
   },
   bloodlineCurrentNodeCore: {
-    backgroundColor: color.text,
+    backgroundColor: color.accent,
     borderRadius: 4,
-    height: 8,
-    width: 8,
+    height: 6,
+    width: 6,
+  },
+  bloodlineNodeDim: {
+    opacity: 0.46,
   },
   bloodlineConnector: {
     backgroundColor: color.line,
     flex: 1,
-    marginTop: space.xs,
+    marginTop: 5,
     width: 1,
   },
   bloodlineLineageCopy: {
     flex: 1,
-    gap: space.xs,
+    gap: 3,
     paddingBottom: space.lg,
   },
   bloodlineLineageName: {
     color: color.text,
-    fontSize: 18,
+    fontSize: 17,
     lineHeight: 22,
   },
   bloodlineLineageNameQuiet: {
-    color: color.muted,
+    color: color.soft,
   },
   bloodlineLineageNameCurrent: {
-    fontSize: 20,
-    lineHeight: 24,
+    color: color.text,
+    fontSize: 21,
+    fontWeight: "600",
+    lineHeight: 26,
   },
   bloodlineLineageMeta: {
+    ...tokens.postAuth.smallText,
     color: color.muted,
-    fontSize: 12,
-    letterSpacing: 0,
+    fontSize: 11,
+    letterSpacing: 1,
     lineHeight: 16,
     textTransform: "uppercase",
   },
   bloodlineLineageMetaCurrent: {
-    color: color.text,
+    color: color.accent,
   },
   bloodlineChildren: {
-    gap: space.md,
+    gap: 0,
+    paddingTop: space.xs,
   },
   bloodlineChildRow: {
+    flexDirection: "row",
+    minHeight: 40,
+  },
+  bloodlineChildNodeColumn: {
     alignItems: "center",
+    marginRight: space.md,
+    width: 18,
+  },
+  bloodlineChildNode: {
+    backgroundColor: "rgba(184, 230, 210, 0.42)",
+    borderRadius: 4,
+    height: 7,
+    marginTop: 7,
+    width: 7,
+  },
+  bloodlineChildConnector: {
+    backgroundColor: "rgba(244, 247, 244, 0.08)",
+    flex: 1,
+    marginTop: 5,
+    width: 1,
+  },
+  bloodlineChildCopy: {
+    alignItems: "baseline",
+    flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 24,
+    paddingBottom: space.md,
   },
   bloodlineChildNumber: {
-    color: color.text,
-    fontSize: 16,
-    lineHeight: 22,
+    color: color.soft,
+    fontSize: 15,
+    lineHeight: 20,
   },
   bloodlineChildGeneration: {
+    ...tokens.postAuth.smallText,
     color: color.muted,
-    fontSize: 12,
-    letterSpacing: 0,
+    fontSize: 11,
+    letterSpacing: 1,
     lineHeight: 16,
     textTransform: "uppercase",
   },
   bloodlineNoOffspring: {
-    color: color.muted,
-    fontSize: 13,
-    letterSpacing: 0,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 11,
+    letterSpacing: 1,
     lineHeight: 18,
+    paddingLeft: 30,
     textTransform: "uppercase",
   },
   bloodlineDescendants: {
     alignItems: "baseline",
     flexDirection: "row",
     gap: space.sm,
-    paddingTop: space.sm,
+    paddingTop: space.xs,
   },
   bloodlineDescendantNumber: {
     color: color.text,
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 38,
+    fontWeight: "500",
+    lineHeight: 42,
   },
   bloodlineDescendantLabel: {
-    color: color.muted,
-    fontSize: 12,
-    letterSpacing: 0,
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 11,
+    letterSpacing: 1,
     lineHeight: 16,
     textTransform: "uppercase",
   },
