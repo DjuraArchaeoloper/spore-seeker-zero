@@ -94,8 +94,8 @@ export function SpecimenScreen({
   const showViewSpore = sporeState === "active" && canViewSpore;
   const actionLabel = busy
     ? showViewSpore
-      ? "OPENING…"
-      : "RELEASING…"
+      ? "OPENING"
+      : "RELEASING"
     : showViewSpore
       ? "VIEW SPORE"
       : releaseLabel;
@@ -201,6 +201,8 @@ export function SpecimenScreen({
             appearance="specimen"
             disabled={actionDisabled}
             label={actionLabel}
+            loading={busy}
+            loadingLabel={actionLabel}
             onPress={actionPress}
           />
           {error ? <AppText style={styles.error}>{error}</AppText> : null}

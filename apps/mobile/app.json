@@ -1,9 +1,10 @@
 {
   "expo": {
-    "name": "SPORE",
+    "name": "SPOR",
     "slug": "spore-seeker-zero",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "platforms": [
       "android"
     ],
@@ -12,15 +13,18 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow SPORE to scan a spore QR.",
+          "cameraPermission": "Allow SPOR to scan a spore QR.",
           "recordAudioAndroid": false
         }
       ]
     ],
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "android": {
-      "package": "com.spore.seekerzero",
+      "package": "com.spor.seekerzero",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#050607"
+      },
       "permissions": [
         "android.permission.CAMERA"
       ]

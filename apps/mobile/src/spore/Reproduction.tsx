@@ -27,8 +27,8 @@ import {
 import { PrimaryButton } from "../components/PrimaryButton";
 import { QuietAction } from "../components/QuietAction";
 import { Screen } from "../components/Screen";
+import { SporeLoader } from "../components/SporeLoader";
 import { tokens } from "../design/tokens";
-import { OrganismRenderer } from "../components/organism/OrganismRenderer";
 import { SpecimenScreen } from "../screens/SpecimenScreen";
 import { BloodlineScreen } from "../screens/BloodlineScreen";
 import { SpeciesScreen } from "../screens/SpeciesScreen";
@@ -54,12 +54,27 @@ import {
   SporeFailure,
   type ClaimPayload,
 } from "./payload";
+import {
+  BirthRevealPendingStage,
+  BirthRevealStage,
+  type BirthRevealPayload,
+} from "./BirthRevealStage";
 
-type Stage = "home" | "scan" | "accept" | "offer" | "recover" | "birth";
+type Stage = "home" | "scan" | "accept" | "offer" | "recover";
+type BirthRevealState =
+  | { status: "idle" }
+  | { status: "submittingClaim"; parent: Organism | null }
+  | { status: "awaitingNewborn"; parent: Organism | null }
+  | { status: "newbornResolved"; payload: BirthRevealPayload }
+  | { status: "showingReveal"; payload: BirthRevealPayload }
+  | { status: "revealComplete"; payload: BirthRevealPayload };
 type ScanDebugMetadata = Record<string, string | number | boolean | null>;
 
+const NEWBORN_RESOLVE_ATTEMPTS = 6;
+const NEWBORN_RESOLVE_DELAY_MS = 700;
+
 function scanDebug(phase: string, metadata: ScanDebugMetadata = {}) {
-  console.warn("[SPORE SCAN DEBUG]", { phase, ...metadata });
+  console.warn("[SPOR SCAN DEBUG]", { phase, ...metadata });
 }
 
 function scanErrorMetadata(error: unknown) {
@@ -77,6 +92,12 @@ function formatRemaining(seconds: number) {
   return `${minutes.toString().padStart(2, "0")}:${secondsPart.toString().padStart(2, "0")} REMAINING`;
 }
 
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 export default function Reproduction({
   identity,
   onSignOut,
@@ -90,6 +111,9 @@ export default function Reproduction({
 }) {
   const [organism, setOrganism] = useState<Organism | null | undefined>();
   const [stage, setStage] = useState<Stage>("home");
+  const [birthReveal, setBirthReveal] = useState<BirthRevealState>({
+    status: "idle",
+  });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [signOutPending, setSignOutPending] = useState(false);
@@ -102,6 +126,7 @@ export default function Reproduction({
   const scanned = useRef(false);
   const mounted = useRef(true);
   const birthSlot = useRef<number | undefined>(undefined);
+  const pendingClaimParent = useRef<Organism | null>(null);
   const [offer, setOffer] = useState<Organism | null>(null);
   const [bloodline, setBloodline] = useState<{
     data?: BloodlineResponse | null;
@@ -214,6 +239,87 @@ export default function Reproduction({
       if (mounted.current) setBusy(false);
     }
   }
+  const resolveNewborn = useCallback(async (attempts = NEWBORN_RESOLVE_ATTEMPTS) => {
+    let lastReadError: unknown = null;
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        const child = await fetchOwnOrganism(identity, birthSlot.current);
+        lastReadError = null;
+
+        if (child) {
+          return child;
+        }
+      } catch (error) {
+        if (error instanceof SporeFailure) {
+          throw error;
+        }
+
+        lastReadError = error;
+      }
+
+      if (attempt < attempts - 1) {
+        await delay(NEWBORN_RESOLVE_DELAY_MS);
+      }
+    }
+
+    if (lastReadError) {
+      throw lastReadError;
+    }
+
+    throw new SporeFailure("Life is born. Your organism is still emerging.");
+  }, [identity]);
+  const beginBirthReveal = useCallback((newborn: Organism, parent: Organism | null) => {
+    const payload: BirthRevealPayload = { newborn, parent };
+
+    if (!mounted.current) {
+      return;
+    }
+
+    setOrganism(newborn);
+    setBirthReveal({ status: "newbornResolved", payload });
+  }, []);
+  const completeBirthReveal = useCallback((payload: BirthRevealPayload) => {
+    if (!mounted.current) {
+      return;
+    }
+
+    pendingClaimParent.current = null;
+    setBirthReveal({ status: "revealComplete", payload });
+    setOrganism(payload.newborn);
+    setSurface("specimen");
+    setStage("home");
+    setError(null);
+
+    setTimeout(() => {
+      if (mounted.current) {
+        setBirthReveal((current) =>
+          current.status === "revealComplete" &&
+          current.payload.newborn.organismNumber === payload.newborn.organismNumber
+            ? { status: "idle" }
+            : current,
+        );
+      }
+    }, 0);
+  }, [setSurface]);
+  useEffect(() => {
+    if (birthReveal.status !== "newbornResolved") {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (mounted.current) {
+        setBirthReveal({
+          status: "showingReveal",
+          payload: birthReveal.payload,
+        });
+      }
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [birthReveal]);
   const requestSignOut = useCallback(() => {
     if (busy || signOutPending || locked.current) {
       return;
@@ -253,7 +359,7 @@ export default function Reproduction({
   }, [clearSecret, refresh]);
   useEffect(() => {
     const back = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (locked.current || stage === "recover" || stage === "birth")
+      if (locked.current || stage === "recover" || birthReveal.status !== "idle")
         return true;
       if (stage !== "home") {
         if (stage === "offer") returnToSpecimen();
@@ -263,7 +369,7 @@ export default function Reproduction({
       return false;
     });
     return () => back.remove();
-  }, [stage, close, returnToSpecimen]);
+  }, [birthReveal.status, stage, close, returnToSpecimen]);
   useEffect(() => {
     if (!(stage === "offer" || stage === "home") || !offer || !secret.current) return;
     let live = true;
@@ -499,38 +605,57 @@ export default function Reproduction({
     });
   }
   async function readBirth() {
-    const child = await fetchOwnOrganism(identity, birthSlot.current);
-    if (!child)
+    const parent = pendingClaimParent.current;
+
+    setBirthReveal({ status: "awaitingNewborn", parent });
+
+    try {
+      const child = await resolveNewborn();
+      beginBirthReveal(child, parent);
+    } catch {
+      if (mounted.current) {
+        setBirthReveal({ status: "idle" });
+      }
+
       throw new SporeFailure(
         "Life is born. Your organism is still emerging.",
       );
-    if (mounted.current) {
-      setOrganism(child);
-      setStage("birth");
     }
   }
   async function accept() {
     await run(async () => {
       const payload = secret.current;
       if (!payload) throw new SporeFailure("Scan a fresh spore offer.");
+      const parent = offer;
+      pendingClaimParent.current = parent;
+      setBirthReveal({ status: "submittingClaim", parent });
       try {
         birthSlot.current = await claimSpore(identity, payload);
       } catch (e) {
         // A wallet/RPC timeout may happen after landing. Reconcile before another signature.
         clearSecret();
         setStage("home");
-        const child = await refresh().catch(() => null);
+        setBirthReveal({ status: "idle" });
+        const child = await resolveNewborn(2).catch(() => null);
         if (child) {
-          setStage("birth");
+          beginBirthReveal(child, parent);
           return;
         }
+        pendingClaimParent.current = null;
         throw e;
       }
       clearSecret();
-      setStage("recover");
+      setStage("home");
+      setBirthReveal({ status: "awaitingNewborn", parent });
       try {
-        await readBirth();
+        const child = await resolveNewborn();
+        beginBirthReveal(child, parent);
       } catch {
+        if (mounted.current) {
+          setBirthReveal({ status: "idle" });
+          setStage("recover");
+        }
+
         throw new SporeFailure(
           "Life is born. Your organism is still emerging.",
         );
@@ -538,29 +663,26 @@ export default function Reproduction({
     });
   }
 
-  if (stage === "birth" && organism)
+  if (
+    birthReveal.status === "submittingClaim" ||
+    birthReveal.status === "awaitingNewborn" ||
+    birthReveal.status === "newbornResolved"
+  ) {
     return (
-      <Screen
-        title={`GEN ${organism.generation} · #${organism.organismNumber.padStart(6, "0")}`}
-      >
-        <View style={styles.center}>
-          <OrganismRenderer
-            genome={organism.genome}
-            size={Math.min(width - 48, 380)}
-          />
-          <AppText variant="title">SEEKERBORNE</AppText>
-          <AppText>Descendant of Seeker Zero.</AppText>
-        </View>
-        <PrimaryButton
-          label="CONTINUE"
-          onPress={() => {
-            setSurface("specimen");
-            setStage("home");
-            void refresh().catch(() => {});
-          }}
-        />
-      </Screen>
+      <BirthRevealPendingStage status={birthReveal.status} />
     );
+  }
+
+  if (birthReveal.status === "showingReveal") {
+    return (
+      <BirthRevealStage
+        newborn={birthReveal.payload.newborn}
+        onComplete={completeBirthReveal}
+        parent={birthReveal.payload.parent}
+      />
+    );
+  }
+
   if (
     stage === "offer" &&
     offer &&
@@ -638,7 +760,10 @@ export default function Reproduction({
         >
           {error ? <AppText style={styles.scanLiveMessage}>{error}</AppText> : null}
           {busy ? (
-            <AppText style={styles.scanLivePending}>CHECKING SPORE…</AppText>
+            <View style={styles.scanLivePendingRow}>
+              <SporeLoader mode="inline" size={22} />
+              <AppText style={styles.scanLivePending}>CHECKING SPORE</AppText>
+            </View>
           ) : (
             <QuietAction label="CANCEL" onPress={close} />
           )}
@@ -675,7 +800,10 @@ export default function Reproduction({
         </View>
         {error ? <AppText style={styles.message}>{error}</AppText> : null}
         {busy ? (
-          <AppText style={styles.pending}>CHECKING SPORE…</AppText>
+          <View style={styles.pendingRow}>
+            <SporeLoader mode="inline" size={22} />
+            <AppText style={styles.pending}>CHECKING SPORE</AppText>
+          </View>
         ) : (
           <QuietAction label="CANCEL" onPress={close} />
         )}
@@ -705,8 +833,10 @@ export default function Reproduction({
 
           <View style={styles.acceptLifeActions}>
             <PrimaryButton
-              label={busy ? "ACCEPTING LIFE…" : "ACCEPT LIFE"}
               disabled={busy}
+              label="ACCEPT LIFE"
+              loading={busy}
+              loadingLabel="ACCEPTING LIFE"
               onPress={() => {
                 void accept();
               }}
@@ -724,8 +854,10 @@ export default function Reproduction({
           {error ? <AppText style={styles.message}>{error}</AppText> : null}
         </View>
         <PrimaryButton
-          label={busy ? "REVEALING…" : "REVEAL ORGANISM"}
           disabled={busy}
+          label="REVEAL ORGANISM"
+          loading={busy}
+          loadingLabel="REVEALING"
           onPress={() => {
             void run(readBirth);
           }}
@@ -769,11 +901,15 @@ export default function Reproduction({
         }
       >
         <View style={styles.center}>
-          <AppText>
-            {organism === undefined
-              ? "Finding your organism."
-              : "Receive a spore from another Seeker."}
-          </AppText>
+          {organism === undefined && !error ? (
+            <SporeLoader mode="screen" label="FINDING LIFE" />
+          ) : (
+            <AppText>
+              {organism === undefined
+                ? "Finding your organism."
+                : "Receive a spore from another Seeker."}
+            </AppText>
+          )}
           {error ? <AppText style={styles.message}>{error}</AppText> : null}
         </View>
         {organism === undefined ? (
@@ -781,6 +917,8 @@ export default function Reproduction({
             <PrimaryButton
               label="RETRY"
               disabled={busy}
+              loading={busy}
+              loadingLabel="RETRYING"
               onPress={() => {
                 void run(async () => {
                   await refresh();
@@ -967,6 +1105,12 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
     textTransform: "uppercase",
   },
+  scanLivePendingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+    justifyContent: "center",
+  },
   scanPermissionContent: {
     alignItems: "center",
     flex: 1,
@@ -1079,5 +1223,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: "center",
     textTransform: "uppercase",
+  },
+  pendingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+    justifyContent: "center",
   },
 });

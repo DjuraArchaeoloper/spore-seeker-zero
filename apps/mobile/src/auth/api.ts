@@ -118,7 +118,7 @@ export async function getSpecies() {
 
 function getApiBaseUrl() {
   if (!API_BASE_URL) {
-    throw new Error("SPORE is not configured.");
+    throw new Error("SPOR is not configured.");
   }
 
   return API_BASE_URL.replace(/\/$/, "");

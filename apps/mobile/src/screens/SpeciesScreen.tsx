@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { AppText } from "../components/AppText";
 import { Screen } from "../components/Screen";
 import { SoftTextScrim } from "../components/SoftTextScrim";
+import { SporeLoader } from "../components/SporeLoader";
 import { tokens } from "../design/tokens";
 
 type SpeciesResponse = {
@@ -28,7 +29,6 @@ const color = {
   text: tokens.postAuth.primary,
   muted: tokens.postAuth.tertiary,
   soft: tokens.postAuth.secondary,
-  faint: tokens.postAuth.tertiary,
 };
 
 const space = {
@@ -113,17 +113,7 @@ export function SpeciesScreen({ species, error, loading = false }: SpeciesScreen
   if (loading) {
     return (
       <Screen eyebrow="GLOBAL STATE" title="Species">
-        <View style={[styles.content, styles.loadingContent]}>
-          <View style={styles.population}>
-            <AppText style={[styles.populationNumber, styles.populationNumberPending]}>-</AppText>
-            <AppText style={styles.populationLabel}>POPULATION</AppText>
-          </View>
-
-          <View style={styles.generation}>
-            <AppText style={styles.sectionLabel}>SPECIES STATE</AppText>
-            <AppText style={styles.stateText}>READING SPECIES</AppText>
-          </View>
-        </View>
+        <SporeLoader mode="screen" label="READING SPECIES" style={styles.loadingContent} />
       </Screen>
     );
   }
@@ -203,6 +193,7 @@ const styles = StyleSheet.create({
     paddingTop: space.lg,
   },
   loadingContent: {
+    flex: 1,
     justifyContent: "center",
   },
   state: {
@@ -242,10 +233,6 @@ const styles = StyleSheet.create({
     fontSize: 92,
     fontWeight: "600",
     lineHeight: 98,
-  },
-  populationNumberPending: {
-    color: color.faint,
-    fontWeight: "400",
   },
   populationLabel: {
     ...tokens.postAuth.smallText,

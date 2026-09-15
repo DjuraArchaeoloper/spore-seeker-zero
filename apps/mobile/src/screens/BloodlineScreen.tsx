@@ -4,6 +4,7 @@ import type { BloodlineResponse } from "../auth/api";
 import { AppText } from "../components/AppText";
 import { Screen } from "../components/Screen";
 import { SoftTextScrim } from "../components/SoftTextScrim";
+import { SporeLoader } from "../components/SporeLoader";
 import { tokens } from "../design/tokens";
 
 type BloodlineScreenProps = {
@@ -172,28 +173,7 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
   if (loading) {
     return (
       <Screen eyebrow="ANCESTRY" title="Bloodline">
-        <View style={styles.bloodlineContent}>
-          <View style={styles.bloodlineSection}>
-            <AppText style={styles.bloodlineSectionLabel}>LINEAGE</AppText>
-            <View style={styles.bloodlineLineage}>
-              <View style={styles.bloodlineLineageRow}>
-                <View style={styles.bloodlineNodeColumn}>
-                  <View style={[styles.bloodlineNode, styles.bloodlineNodeDim]} />
-                  <View style={styles.bloodlineConnector} />
-                </View>
-                <View style={styles.bloodlineLineageCopy}>
-                  <AppText style={styles.bloodlineStateText}>READING LINEAGE</AppText>
-                </View>
-              </View>
-              <View style={[styles.bloodlineLineageRow, styles.bloodlineLineageRowLast]}>
-                <View style={styles.bloodlineNodeColumn}>
-                  <View style={[styles.bloodlineNode, styles.bloodlineCurrentNode, styles.bloodlineNodeDim]} />
-                </View>
-                <View style={styles.bloodlineLineageCopy} />
-              </View>
-            </View>
-          </View>
-        </View>
+        <SporeLoader mode="screen" label="READING LINEAGE" style={styles.bloodlineLoading} />
       </Screen>
     );
   }
@@ -397,6 +377,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingBottom: space.xxxl,
     paddingTop: space.lg,
+  },
+  bloodlineLoading: {
+    flex: 1,
   },
   bloodlineSection: {
     gap: space.md,

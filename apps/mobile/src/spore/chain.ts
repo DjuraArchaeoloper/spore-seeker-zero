@@ -44,7 +44,7 @@ async function assertConfiguredNetwork() {
     .then((hash) => {
       if (hash !== sporeGenesisHash())
         throw new SporeFailure(
-          "SPORE requires the configured Solana environment.",
+          "SPOR requires the configured Solana environment.",
         );
     })
     .catch((error: unknown) => {
@@ -59,7 +59,7 @@ export function connection() {
     throw new SporeFailure("Reproduction is unavailable in visual preview.");
   const url = process.env.EXPO_PUBLIC_SPORE_RPC_URL;
   if (!url?.startsWith("https://"))
-    throw new SporeFailure("SPORE RPC is not configured.");
+    throw new SporeFailure("SPOR RPC is not configured.");
   return (rpc ??= new Connection(url, "confirmed"));
 }
 
@@ -86,7 +86,7 @@ function checkedData(info: AccountInfo<Buffer>, name: string): Buffer {
     !info.owner.equals(programId()) ||
     !Buffer.from(data.subarray(0, 8)).equals(discriminator(`account:${name}`))
   ) {
-    throw new SporeFailure("Invalid canonical SPORE account.");
+    throw new SporeFailure("Invalid canonical SPOR account.");
   }
 
   return data;
@@ -99,7 +99,7 @@ export function decodeOrganism(
 ): Organism {
   const data = checkedData(info, "Organism");
   if (data.length !== 157)
-    throw new SporeFailure("Invalid canonical SPORE account.");
+    throw new SporeFailure("Invalid canonical SPOR account.");
   let offset = 8;
   const take = (length: number): Buffer => {
     const bytes = Buffer.from(data.subarray(offset, offset + length));
@@ -109,14 +109,14 @@ export function decodeOrganism(
   const timestamp = () => {
     const value = Number(take(8).readBigInt64LE(0));
     if (!Number.isSafeInteger(value))
-      throw new SporeFailure("Invalid canonical SPORE account.");
+      throw new SporeFailure("Invalid canonical SPOR account.");
     return value;
   };
   const organismNumber = take(8).readBigUInt64LE(0).toString();
   const sgtMint = new PublicKey(take(32));
   const option = take(1)[0];
   if (option !== 0 && option !== 1)
-    throw new SporeFailure("Invalid canonical SPORE account.");
+    throw new SporeFailure("Invalid canonical SPOR account.");
   const parentOrganism = option === 1 ? new PublicKey(take(32)) : null;
   const generation = take(4).readUInt32LE(0);
   const genome = new Uint8Array(take(16));
@@ -125,7 +125,7 @@ export function decodeOrganism(
   const activeSporeCommitment = new Uint8Array(take(32));
   const activeSporeExpiresAt = timestamp();
   if (!organismPda(sgtMint).equals(address))
-    throw new SporeFailure("Invalid canonical SPORE account.");
+    throw new SporeFailure("Invalid canonical SPOR account.");
   return {
     address,
     organismNumber,

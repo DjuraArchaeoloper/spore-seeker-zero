@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "rea
 
 import { tokens } from "../design/tokens";
 import { AppText } from "./AppText";
+import { SporeLoader } from "./SporeLoader";
 
 export const AUTH_LOGOUT_TOP_OFFSET = 8;
 export const AUTH_LOGOUT_HIT_SIZE = 48;
@@ -28,7 +29,7 @@ export function AuthenticatedLogoutControl({
 
   return (
     <Pressable
-      accessibilityLabel="Log out of SPORE"
+      accessibilityLabel="Log out of SPOR"
       accessibilityRole="button"
       accessibilityState={{ busy, disabled }}
       disabled={disabled}
@@ -43,9 +44,13 @@ export function AuthenticatedLogoutControl({
     >
       {({ pressed }) => (
         <View style={[styles.backing, pressed && !disabled && styles.backingPressed]}>
-          <AppText maxFontSizeMultiplier={1.15} numberOfLines={1} style={styles.label} variant="metadata">
-            LOG OUT
-          </AppText>
+          {busy ? (
+            <SporeLoader mode="button" size={14} />
+          ) : (
+            <AppText maxFontSizeMultiplier={1.15} numberOfLines={1} style={styles.label} variant="metadata">
+              LOG OUT
+            </AppText>
+          )}
         </View>
       )}
     </Pressable>

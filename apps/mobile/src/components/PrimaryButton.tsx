@@ -1,44 +1,67 @@
-import { Pressable, StyleSheet, type GestureResponderEvent } from "react-native";
+import { Pressable, StyleSheet, View, type GestureResponderEvent } from "react-native";
 
 import { tokens } from "../design/tokens";
 import { AppText } from "./AppText";
+import { SporeLoader } from "./SporeLoader";
 
 type PrimaryButtonProps = {
   label: string;
   disabled?: boolean;
+  loading?: boolean;
+  loadingLabel?: string;
   onPress?: (event: GestureResponderEvent) => void;
   appearance?: "default" | "specimen";
 };
 
-export function PrimaryButton({ disabled = false, label, onPress, appearance = "default" }: PrimaryButtonProps) {
+export function PrimaryButton({
+  disabled = false,
+  label,
+  loading = false,
+  loadingLabel,
+  onPress,
+  appearance = "default",
+}: PrimaryButtonProps) {
   const specimen = appearance === "specimen";
+  const buttonDisabled = disabled || loading;
+  const visuallyDisabled = buttonDisabled && !loading;
+  const visibleLabel = loading ? loadingLabel ?? label : label;
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ busy: loading, disabled: buttonDisabled }}
+      disabled={buttonDisabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        disabled && styles.disabled,
+        visuallyDisabled && styles.disabled,
         specimen && styles.specimen,
-        specimen && disabled && styles.specimenDisabled,
-        pressed && !disabled && styles.pressed
+        specimen && visuallyDisabled && styles.specimenDisabled,
+        pressed && !buttonDisabled && styles.pressed
       ]}
     >
-      <AppText
-        maxFontSizeMultiplier={specimen ? 1.2 : undefined}
-        tone={disabled ? "muted" : "primary"}
-        variant="label"
-        style={specimen ? [styles.specimenLabel, disabled && styles.specimenLabelDisabled] : undefined}
-      >
-        {label}
-      </AppText>
+      <View style={styles.content}>
+        {loading ? <SporeLoader mode="button" size={specimen ? 16 : 18} /> : null}
+        <AppText
+          maxFontSizeMultiplier={specimen ? 1.2 : undefined}
+          tone={visuallyDisabled ? "muted" : "primary"}
+          variant="label"
+          style={specimen ? [styles.specimenLabel, visuallyDisabled && styles.specimenLabelDisabled] : undefined}
+        >
+          {visibleLabel}
+        </AppText>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  content: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+    justifyContent: "center",
+  },
   specimen: {
     backgroundColor: "rgba(4, 27, 33, 0.54)",
     borderColor: "rgba(165, 237, 248, 0.82)",

@@ -18,16 +18,16 @@ export function serializeClaim({ parent, secret }: ClaimPayload) {
 }
 export function parseClaim(input: string): ClaimPayload {
   // Deliberately no URL normalization, percent decoding, fragments or extra fields.
-  if (input.length > 180 || !input.startsWith("spore://claim?")) throw new SporeFailure("Invalid SPORE QR.");
+  if (input.length > 180 || !input.startsWith("spore://claim?")) throw new SporeFailure("Invalid spore QR.");
   const fields = input.slice(14).split("&");
   const params = new Map<string, string>();
   for (const field of fields) {
     const match = /^(v|p|s)=([^=&?#%]+)$/.exec(field);
-    if (!match || params.has(match[1])) throw new SporeFailure("Invalid SPORE QR.");
+    if (!match || params.has(match[1])) throw new SporeFailure("Invalid spore QR.");
     params.set(match[1], match[2]);
   }
-  if (params.size !== 3) throw new SporeFailure("Invalid SPORE QR.");
-  if (params.get("v") !== "1") throw new SporeFailure("Unsupported SPORE QR version.");
+  if (params.size !== 3) throw new SporeFailure("Invalid spore QR.");
+  if (params.get("v") !== "1") throw new SporeFailure("Unsupported spore QR version.");
   const encoded = params.get("s")!;
   if (!/^[A-Za-z0-9_-]{43}$/.test(encoded)) throw new SporeFailure("Malformed spore secret.");
   const secret = new Uint8Array(Buffer.from(encoded.replace(/-/g, "+").replace(/_/g, "/"), "base64"));
@@ -41,7 +41,7 @@ export function parseClaim(input: string): ClaimPayload {
     return { parent, secret };
   } catch {
     secret.fill(0);
-    throw new SporeFailure("Invalid SPORE QR.");
+    throw new SporeFailure("Invalid spore QR.");
   }
 }
 export function sporeMessage(error: unknown) {

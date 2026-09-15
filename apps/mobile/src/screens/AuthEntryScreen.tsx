@@ -26,6 +26,8 @@ import {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { SporeLoader } from "../components/SporeLoader";
+
 type AuthEntryScreenProps = {
   status: "restoring" | "unauthenticated" | "authenticating";
   error?: string | null;
@@ -161,6 +163,8 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
   const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
   const reduceMotion = useReducedMotion();
   const disabled = status !== "unauthenticated";
+  const authenticating = status === "authenticating";
+  const restoring = status === "restoring";
 
   // The 941 x 1672 mockup's in-device viewport is approximately 741 x 1584
   // at (100, 40). Preserve that crop without the frame. Explicit proportional
@@ -204,7 +208,11 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
         reduceMotion={reduceMotion}
         width={width}
       />
-      {fontsLoaded ? (
+      {restoring ? (
+        <View style={styles.authLoading}>
+          <SporeLoader mode="screen" label="RESTORING SESSION" />
+        </View>
+      ) : fontsLoaded ? (
         <>
           <View style={[styles.lockup, { top: titleTop }]}>
             <Text
@@ -217,7 +225,7 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
                 paddingLeft: 22 * scale,
               }]}
             >
-              SPORE
+              SPOR
             </Text>
             <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.secondary, {
               marginTop: 12 * scale,
@@ -250,9 +258,9 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
             ) : null}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="ENTER SPORE"
+              accessibilityLabel="ENTER SPOR"
               accessibilityState={{ disabled, busy: disabled }}
-              accessibilityValue={{ text: status === "authenticating" ? "Verifying Seeker" : status === "restoring" ? "Restoring session" : "Ready" }}
+              accessibilityValue={{ text: authenticating ? "Verifying Seeker" : "Ready" }}
               disabled={disabled}
               onPress={onEnter}
               style={({ pressed }) => [styles.button, {
@@ -266,17 +274,31 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
                   { offsetX: 0, offsetY: 2 * buttonScale, blurRadius: 8 * buttonScale, spreadDistance: 0, color: "rgba(156, 237, 222, 0.24)", inset: true },
                   { offsetX: 0, offsetY: -1 * buttonScale, blurRadius: 6 * buttonScale, spreadDistance: 0, color: "rgba(111, 224, 207, 0.12)" },
                 ],
-                opacity: disabled ? 0.35 : pressed ? 0.88 : 1,
+                opacity: authenticating ? 0.86 : disabled ? 0.35 : pressed ? 0.88 : 1,
               }]}
             >
-              <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.buttonText, {
-                fontSize: 34 * buttonScale,
-                lineHeight: 46 * buttonScale,
-                letterSpacing: 4.5 * buttonScale,
-                paddingLeft: 4.5 * buttonScale,
-              }]}>
-                ENTER
-              </Text>
+              {authenticating ? (
+                <View style={styles.buttonPendingRow}>
+                  <SporeLoader mode="button" size={Math.max(17, 24 * buttonScale)} />
+                  <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.buttonText, {
+                    fontSize: 24 * buttonScale,
+                    lineHeight: 34 * buttonScale,
+                    letterSpacing: 3.6 * buttonScale,
+                    paddingLeft: 3.6 * buttonScale,
+                  }]}>
+                    VERIFYING
+                  </Text>
+                </View>
+              ) : (
+                <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.buttonText, {
+                  fontSize: 34 * buttonScale,
+                  lineHeight: 46 * buttonScale,
+                  letterSpacing: 4.5 * buttonScale,
+                  paddingLeft: 4.5 * buttonScale,
+                }]}>
+                  ENTER
+                </Text>
+              )}
             </Pressable>
           </View>
         </>
@@ -466,6 +488,12 @@ function LivingParticle({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#020b0e", overflow: "hidden" },
   backgroundCanvas: { position: "absolute", left: 0, top: 0 },
+  authLoading: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
   lockup: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   text: { fontFamily: "Michroma_400Regular", includeFontPadding: false, textAlign: "center" },
   title: { color: "#f4f8f8" },
@@ -479,6 +507,12 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(184, 248, 238, 0.86)",
     borderRightColor: "rgba(176, 243, 232, 0.92)",
     borderBottomColor: "rgba(139, 212, 209, 0.72)",
+  },
+  buttonPendingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
   },
   buttonText: { color: "#f4f8f8" },
   error: { position: "absolute", left: -16, right: -16, color: "#819ea8", fontSize: 9, lineHeight: 16, letterSpacing: 1 },

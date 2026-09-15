@@ -15,6 +15,7 @@
     "tendrils",
     "core",
     "surface",
+    "sensoryNodes",
     "moustache"
   ],
   "shared": {
@@ -24,9 +25,15 @@
     "void-drifter",
     "crystal-bloom",
     "nebula-spine",
-    "silk-ray"
+    "celestial-queen",
+    "pearl-medusa",
+    "prism-spine",
+    "astral-chrysalis",
+    "nova-urchin",
+    "silk-ray",
+    "ribbon-leviathan"
   ],
-  "note": "Bucket order intentionally makes canonical Seeker Zero BODY FORM byte 0x53 resolve to silk-ray under mix8().",
+  "note": "Canonical V2 BODY FORM slot order uses floor((mix8(gene0) * 10) / 256); Seeker Zero gene0 0x53 resolves to silk-ray.",
   "families": {
     "silk-ray": {
       "layers": {
@@ -249,6 +256,342 @@
         [
           0.58,
           0.69
+        ]
+      ]
+    },
+    "pearl-medusa": {
+      "layers": {
+        "body": "./pearl-medusa/body.png",
+        "fins": "./pearl-medusa/fins.png",
+        "core": "./pearl-medusa/core.png",
+        "tendrils": "./pearl-medusa/tendrils.png",
+        "surface": "./pearl-medusa/surface.png",
+        "glow": "./pearl-medusa/glow.png"
+      },
+      "principalAxis": [
+        0.0,
+        1.0
+      ],
+      "moustache": {
+        "center": [
+          0.5088,
+          0.4946
+        ],
+        "width": 0.142,
+        "rotationDeg": 0.0
+      },
+      "sensoryAnchors": [
+        [
+          0.43,
+          0.41
+        ],
+        [
+          0.57,
+          0.41
+        ],
+        [
+          0.39,
+          0.49
+        ],
+        [
+          0.61,
+          0.49
+        ],
+        [
+          0.43,
+          0.58
+        ],
+        [
+          0.57,
+          0.58
+        ],
+        [
+          0.47,
+          0.34
+        ],
+        [
+          0.53,
+          0.34
+        ]
+      ]
+    },
+    "prism-spine": {
+      "layers": {
+        "body": "./prism-spine/body.png",
+        "fins": "./prism-spine/fins.png",
+        "core": "./prism-spine/core.png",
+        "tendrils": "./prism-spine/tendrils.png",
+        "surface": "./prism-spine/surface.png",
+        "glow": "./prism-spine/glow.png"
+      },
+      "principalAxis": [
+        0.0,
+        1.0
+      ],
+      "moustache": {
+        "center": [
+          0.5088,
+          0.4946
+        ],
+        "width": 0.142,
+        "rotationDeg": 0.0
+      },
+      "sensoryAnchors": [
+        [
+          0.43,
+          0.41
+        ],
+        [
+          0.57,
+          0.41
+        ],
+        [
+          0.39,
+          0.49
+        ],
+        [
+          0.61,
+          0.49
+        ],
+        [
+          0.43,
+          0.58
+        ],
+        [
+          0.57,
+          0.58
+        ],
+        [
+          0.47,
+          0.34
+        ],
+        [
+          0.53,
+          0.34
+        ]
+      ]
+    },
+    "astral-chrysalis": {
+      "layers": {
+        "body": "./astral-chrysalis/body.png",
+        "fins": "./astral-chrysalis/fins.png",
+        "core": "./astral-chrysalis/core.png",
+        "tendrils": "./astral-chrysalis/tendrils.png",
+        "surface": "./astral-chrysalis/surface.png",
+        "glow": "./astral-chrysalis/glow.png"
+      },
+      "principalAxis": [
+        0.0,
+        1.0
+      ],
+      "moustache": {
+        "center": [
+          0.5088,
+          0.4946
+        ],
+        "width": 0.142,
+        "rotationDeg": 0.0
+      },
+      "sensoryAnchors": [
+        [
+          0.43,
+          0.41
+        ],
+        [
+          0.57,
+          0.41
+        ],
+        [
+          0.39,
+          0.49
+        ],
+        [
+          0.61,
+          0.49
+        ],
+        [
+          0.43,
+          0.58
+        ],
+        [
+          0.57,
+          0.58
+        ],
+        [
+          0.47,
+          0.34
+        ],
+        [
+          0.53,
+          0.34
+        ]
+      ]
+    },
+    "nova-urchin": {
+      "layers": {
+        "body": "./nova-urchin/body.png",
+        "fins": "./nova-urchin/fins.png",
+        "core": "./nova-urchin/core.png",
+        "tendrils": "./nova-urchin/tendrils.png",
+        "surface": "./nova-urchin/surface.png",
+        "glow": "./nova-urchin/glow.png"
+      },
+      "principalAxis": [
+        0.0,
+        1.0
+      ],
+      "moustache": {
+        "center": [
+          0.5088,
+          0.4946
+        ],
+        "width": 0.142,
+        "rotationDeg": 0.0
+      },
+      "sensoryAnchors": [
+        [
+          0.43,
+          0.41
+        ],
+        [
+          0.57,
+          0.41
+        ],
+        [
+          0.39,
+          0.49
+        ],
+        [
+          0.61,
+          0.49
+        ],
+        [
+          0.43,
+          0.58
+        ],
+        [
+          0.57,
+          0.58
+        ],
+        [
+          0.47,
+          0.34
+        ],
+        [
+          0.53,
+          0.34
+        ]
+      ]
+    },
+    "celestial-queen": {
+      "layers": {
+        "body": "./celestial-queen/body.png",
+        "fins": "./celestial-queen/fins.png",
+        "core": "./celestial-queen/core.png",
+        "tendrils": "./celestial-queen/tendrils.png",
+        "surface": "./celestial-queen/surface.png",
+        "glow": "./celestial-queen/glow.png"
+      },
+      "principalAxis": [
+        0.0,
+        1.0
+      ],
+      "moustache": {
+        "center": [
+          0.5088,
+          0.4946
+        ],
+        "width": 0.142,
+        "rotationDeg": 0.0
+      },
+      "sensoryAnchors": [
+        [
+          0.43,
+          0.41
+        ],
+        [
+          0.57,
+          0.41
+        ],
+        [
+          0.39,
+          0.49
+        ],
+        [
+          0.61,
+          0.49
+        ],
+        [
+          0.43,
+          0.58
+        ],
+        [
+          0.57,
+          0.58
+        ],
+        [
+          0.47,
+          0.34
+        ],
+        [
+          0.53,
+          0.34
+        ]
+      ]
+    },
+    "ribbon-leviathan": {
+      "layers": {
+        "body": "./ribbon-leviathan/body.png",
+        "fins": "./ribbon-leviathan/fins.png",
+        "core": "./ribbon-leviathan/core.png",
+        "tendrils": "./ribbon-leviathan/tendrils.png",
+        "surface": "./ribbon-leviathan/surface.png",
+        "glow": "./ribbon-leviathan/glow.png"
+      },
+      "principalAxis": [
+        0.0,
+        1.0
+      ],
+      "moustache": {
+        "center": [
+          0.5088,
+          0.4946
+        ],
+        "width": 0.142,
+        "rotationDeg": 0.0
+      },
+      "sensoryAnchors": [
+        [
+          0.43,
+          0.41
+        ],
+        [
+          0.57,
+          0.41
+        ],
+        [
+          0.39,
+          0.49
+        ],
+        [
+          0.61,
+          0.49
+        ],
+        [
+          0.43,
+          0.58
+        ],
+        [
+          0.57,
+          0.58
+        ],
+        [
+          0.47,
+          0.34
+        ],
+        [
+          0.53,
+          0.34
         ]
       ]
     }

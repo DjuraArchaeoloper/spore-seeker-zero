@@ -2,8 +2,8 @@ import { Image, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ComponentType } from "react";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { AppText } from "./src/components/AppText";
 import { PostAuthReadabilityVeil } from "./src/components/PostAuthReadabilityVeil";
+import { SporeLoader } from "./src/components/SporeLoader";
 
 import { AuthEntryScreen } from "./src/screens/AuthEntryScreen";
 import { BloodlineScreen } from "./src/screens/BloodlineScreen";
@@ -15,7 +15,7 @@ import {
   SurfaceKey,
 } from "./src/navigation/BottomNavigation";
 
-// Visual preview exists only to render SPORE UI in environments such as Expo Go that do not contain Solana Mobile native modules.
+// Visual preview exists only to render SPOR UI in environments such as Expo Go that do not contain Solana Mobile native modules.
 const VISUAL_PREVIEW = process.env.EXPO_PUBLIC_SPORE_VISUAL_PREVIEW === "true";
 // Camera and wallet flow modules are never evaluated by visual preview.
 const Reproduction = lazy(() => import("./src/spore/Reproduction"));
@@ -131,7 +131,7 @@ function SporeApp() {
     } catch (error) {
       signOutError = error;
       console.warn(
-        "[SPORE AUTH] Logout failed during session revocation.",
+        "[SPOR AUTH] Logout failed during session revocation.",
         error instanceof Error ? error.message : "Unknown logout error.",
       );
     }
@@ -178,7 +178,13 @@ function SporeApp() {
         translucent
       />
       {!VISUAL_PREVIEW && authState.status === "authenticated" ? (
-        <Suspense fallback={<AppText>Reading your Seeker…</AppText>}>
+        <Suspense
+          fallback={
+            <View style={styles.surface}>
+              <SporeLoader mode="screen" label="READING SEEKER" style={styles.fullSurfaceLoader} />
+            </View>
+          }
+        >
           <Reproduction
             identity={authState.identity}
             onSignOut={leaveSpore}
@@ -210,6 +216,10 @@ const styles = StyleSheet.create({
   surface: {
     flex: 1,
     backgroundColor: "transparent",
+  },
+
+  fullSurfaceLoader: {
+    flex: 1,
   },
 
   postAuthBackground: {
