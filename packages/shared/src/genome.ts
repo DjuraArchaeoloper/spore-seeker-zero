@@ -237,7 +237,7 @@ export function phenotypeFromGenome(input: GenomeInput): OrganismPhenotype {
 
 export function deriveSporePhenotype(genome: Uint8Array) {
   if (genome.length !== 16) {
-    throw new Error(`SPOR genome must be exactly 16 bytes; received ${genome.length}`);
+    throw new Error(`SPØR genome must be exactly 16 bytes; received ${genome.length}`);
   }
 
   const g = [...genome];

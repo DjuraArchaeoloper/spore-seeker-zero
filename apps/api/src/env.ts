@@ -4,7 +4,7 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 export const authConfig = {
   nonceTtlMs: FIVE_MINUTES_MS,
   sessionTtlMs: SEVEN_DAYS_MS,
-  statement: "Sign in to SPOR and verify this Seeker."
+  statement: "Sign in to SPØR and verify this Seeker."
 } as const;
 
 type RequiredEnvName =

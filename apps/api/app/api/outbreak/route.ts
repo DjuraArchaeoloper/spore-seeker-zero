@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     return jsonOk(outbreak);
   } catch (error) {
     if (error instanceof OutbreakConfigurationError) {
-      console.error("SPORE outbreak configuration conflict");
+      console.error("SPØR outbreak configuration conflict");
     }
 
     return jsonError(503, "server_misconfigured", "Outbreak is unavailable.");

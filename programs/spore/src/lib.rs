@@ -581,7 +581,7 @@ fn validate_metadata_base_uri(metadata_base_uri: &str) -> Result<()> {
 }
 
 fn format_organism_name(organism_number: u64) -> String {
-    format!("SPORE #{:06}", organism_number)
+    format!("SPØR #{:06}", organism_number)
 }
 
 fn format_organism_uri(metadata_base_uri: &str, organism_number: u64) -> String {

@@ -15,7 +15,7 @@ import {
   SurfaceKey,
 } from "./src/navigation/BottomNavigation";
 
-// Visual preview exists only to render SPOR UI in environments such as Expo Go that do not contain Solana Mobile native modules.
+// Visual preview exists only to render SPØR UI in environments such as Expo Go that do not contain Solana Mobile native modules.
 const VISUAL_PREVIEW = process.env.EXPO_PUBLIC_SPORE_VISUAL_PREVIEW === "true";
 // Camera and wallet flow modules are never evaluated by visual preview.
 const Reproduction = lazy(() => import("./src/spore/Reproduction"));
@@ -131,7 +131,7 @@ function SporeApp() {
     } catch (error) {
       signOutError = error;
       console.warn(
-        "[SPOR AUTH] Logout failed during session revocation.",
+        "[SPØR AUTH] Logout failed during session revocation.",
         error instanceof Error ? error.message : "Unknown logout error.",
       );
     }

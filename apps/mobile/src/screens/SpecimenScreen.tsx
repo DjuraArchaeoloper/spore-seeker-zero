@@ -174,7 +174,7 @@ export function SpecimenScreen({
       });
     } catch (shareFailure) {
       if (__DEV__) {
-        console.warn("[SPOR SHARE] Unable to share organism.", shareFailure);
+        console.warn("[SPØR SHARE] Unable to share organism.", shareFailure);
       }
       setShareError("SHARING UNAVAILABLE");
     } finally {

@@ -21,7 +21,7 @@ export async function sendWalletTransaction(connection: Connection, identity: Au
     const submitted = await transact(async (wallet) => {
       const authorization = await wallet.authorize({
         chain: sporeWalletChain(),
-        identity: { name: "SPOR", uri: process.env.EXPO_PUBLIC_SPORE_API_URL! },
+        identity: { name: "SPØR", uri: process.env.EXPO_PUBLIC_SPORE_API_URL! },
       });
       const owner = new PublicKey(identity.walletAddress);
       if (!authorization.accounts.some((account) => new PublicKey("publicKey" in account ? account.publicKey : Buffer.from(account.address, "base64")).equals(owner))) {
@@ -41,7 +41,7 @@ export async function sendWalletTransaction(connection: Connection, identity: Au
       // Retain only numeric program codes for development; no transaction/log payloads.
       const detail = result.value.err as { InstructionError?: [number, { Custom?: number }] };
       const code = detail.InstructionError?.[1]?.Custom;
-      if (__DEV__ && typeof code === "number") console.warn("SPOR program failure code", code);
+      if (__DEV__ && typeof code === "number") console.warn("SPØR program failure code", code);
       const messages: Record<number, string> = {
         6004: "Your spore is not ready.", 6005: "An offer is still active. Wait for it to expire.",
         6007: "This offer was already claimed or replaced.", 6008: "This spore offer has expired.",
@@ -70,7 +70,7 @@ export async function requestWalletSignIn(
       const authorization = await wallet.authorize({
         chain: signInPayload.chainId,
         identity: {
-          name: "SPOR",
+          name: "SPØR",
           uri: signInPayload.uri,
         },
         sign_in_payload: signInPayload,

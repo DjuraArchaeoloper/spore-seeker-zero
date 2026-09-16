@@ -77,7 +77,7 @@ const NEWBORN_RESOLVE_ATTEMPTS = 6;
 const NEWBORN_RESOLVE_DELAY_MS = 700;
 
 function scanDebug(phase: string, metadata: ScanDebugMetadata = {}) {
-  console.warn("[SPOR SCAN DEBUG]", { phase, ...metadata });
+  console.warn("[SPØR SCAN DEBUG]", { phase, ...metadata });
 }
 
 function scanErrorMetadata(error: unknown) {
@@ -179,7 +179,7 @@ export default function Reproduction({
       return value;
     } catch (error) {
       console.warn(
-        "[SPOR OUTBREAK] State refresh failed.",
+        "[SPØR OUTBREAK] State refresh failed.",
         error instanceof Error ? error.message : "Unknown outbreak error.",
       );
 

@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     }
 
     if (error instanceof OrganismIndexConflictError) {
-      console.error("SPORE organism index conflict", {
+      console.error("SPØR organism index conflict", {
         organismPda: error.organismPda
       });
 
@@ -125,6 +125,6 @@ function normalizePublicKey(value: string) {
   try {
     return new PublicKey(value).toBase58();
   } catch {
-    throw new Error("Invalid SPORE program ID.");
+    throw new Error("Invalid SPØR program ID.");
   }
 }

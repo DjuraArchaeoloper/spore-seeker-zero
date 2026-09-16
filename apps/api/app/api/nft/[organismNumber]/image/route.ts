@@ -54,7 +54,7 @@ function renderSvg(organism: {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img">
   <rect width="1200" height="1200" fill="#05070a"/>
   <rect x="72" y="72" width="1056" height="1056" fill="none" stroke="#253041" stroke-width="2"/>
-  <text x="120" y="180" fill="#eef4ff" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="48" letter-spacing="4">SPORE: SEEKER ZERO</text>
+  <text x="120" y="180" fill="#eef4ff" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="48" letter-spacing="4">SPØR: SEEKER ZERO</text>
   <text x="120" y="500" fill="#aeb8c8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="34">ORGANISM NUMBER ${escapeXml(organism.organismNumber)}</text>
   <text x="120" y="585" fill="#aeb8c8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="34">GENERATION ${escapeXml(String(organism.generation))}</text>
   <text x="120" y="670" fill="#aeb8c8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="34">GENOME ${escapeXml(genome)}</text>

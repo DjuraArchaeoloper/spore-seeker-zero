@@ -44,7 +44,7 @@ pub enum SporeError {
     #[msg("Invalid treasury account.")]
     InvalidTreasury,
 
-    #[msg("Birth fee exceeds the SPORE maximum.")]
+    #[msg("Birth fee exceeds the SPØR maximum.")]
     BirthFeeTooHigh,
 
     #[msg("Invalid metadata base URI.")]

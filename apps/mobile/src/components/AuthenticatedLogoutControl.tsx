@@ -29,7 +29,7 @@ export function AuthenticatedLogoutControl({
 
   return (
     <Pressable
-      accessibilityLabel="Log out of SPOR"
+      accessibilityLabel="Log out of SPØR"
       accessibilityRole="button"
       accessibilityState={{ busy, disabled }}
       disabled={disabled}

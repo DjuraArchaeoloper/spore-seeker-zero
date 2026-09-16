@@ -161,7 +161,7 @@ export async function getOutbreak(token: string) {
 
 function getApiBaseUrl() {
   if (!API_BASE_URL) {
-    throw new Error("SPOR is not configured.");
+    throw new Error("SPØR is not configured.");
   }
 
   return API_BASE_URL.replace(/\/$/, "");

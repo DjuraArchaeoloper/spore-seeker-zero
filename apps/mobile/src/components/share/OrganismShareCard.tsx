@@ -31,7 +31,7 @@ export const OrganismShareCard = forwardRef<View, OrganismShareCardProps>(
       >
         <View style={styles.topLine}>
           <AppText style={styles.brand} variant="metadata">
-            SPOR
+            SPØR
           </AppText>
           <AppText style={styles.origin} variant="metadata">
             SEEKER ZERO

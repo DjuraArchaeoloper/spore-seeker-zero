@@ -331,7 +331,7 @@ async function scoreOutbreakBirth(
   try {
     return await ensureOutbreakContributionsForBirth(document);
   } catch (error) {
-    console.error("SPORE outbreak scoring failed.", {
+    console.error("SPØR outbreak scoring failed.", {
       organismPda: document.organismPda,
       reason: getSafeOutbreakErrorReason(error)
     });

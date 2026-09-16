@@ -225,7 +225,7 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
                 paddingLeft: 22 * scale,
               }]}
             >
-              SPOR
+              SPØR
             </Text>
             <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.secondary, {
               marginTop: 12 * scale,
@@ -258,7 +258,7 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
             ) : null}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="ENTER SPOR"
+              accessibilityLabel="ENTER SPØR"
               accessibilityState={{ disabled, busy: disabled }}
               accessibilityValue={{ text: authenticating ? "Verifying Seeker" : "Ready" }}
               disabled={disabled}

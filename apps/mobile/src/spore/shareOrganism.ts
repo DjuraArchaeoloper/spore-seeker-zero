@@ -83,6 +83,6 @@ export async function shareOrganismCard({ cardRef, generation, organismNumber }:
 
   await Share.share({
     message,
-    title: "SPOR",
+    title: "SPØR",
   });
 }

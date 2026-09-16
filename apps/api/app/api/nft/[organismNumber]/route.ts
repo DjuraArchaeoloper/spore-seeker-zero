@@ -40,7 +40,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     return Response.json(
       {
-        name: `SPORE #${paddedNumber}`,
+        name: `SPØR #${paddedNumber}`,
         description:
           organism.organismNumber === "0"
             ? "Seeker Zero \u2014 The first Seekerborne case."

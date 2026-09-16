@@ -2,7 +2,7 @@
   "name": "spore",
   "version": "0.1.0",
   "private": true,
-  "description": "SPOR: Seeker Zero monorepo.",
+  "description": "SPØR: Seeker Zero monorepo.",
   "workspaces": [
     "apps/mobile",
     "apps/api",

@@ -173,7 +173,7 @@ function getConnection() {
 }
 
 function getProgramPublicKey() {
-  return parsePublicKey(getSporeProgramId(), "SPORE program id");
+  return parsePublicKey(getSporeProgramId(), "SPØR program id");
 }
 
 function parsePublicKey(value: string, label: string): PublicKey {

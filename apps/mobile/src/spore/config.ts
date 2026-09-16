@@ -12,7 +12,7 @@ export function sporeCluster(): SporeCluster {
   const cluster = process.env.EXPO_PUBLIC_SPORE_SOLANA_CLUSTER ?? "mainnet";
 
   if (cluster !== "mainnet" && cluster !== "devnet") {
-    throw new SporeFailure("SPOR Solana cluster is not configured.");
+    throw new SporeFailure("SPØR Solana cluster is not configured.");
   }
 
   return cluster;
@@ -32,6 +32,6 @@ export function sporeProgramId() {
     if (key.equals(SystemProgram.programId)) throw new Error();
     return key;
   } catch {
-    throw new SporeFailure("SPOR program is not configured.");
+    throw new SporeFailure("SPØR program is not configured.");
   }
 }

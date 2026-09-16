@@ -86,7 +86,7 @@ export function SporeLoader({
 
   return (
     <View
-      accessibilityLabel={label ?? "SPOR loading"}
+      accessibilityLabel={label ?? "SPØR loading"}
       accessibilityRole="progressbar"
       accessibilityState={{ busy: true }}
       style={[

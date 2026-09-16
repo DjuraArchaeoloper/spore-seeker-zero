@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "SPOR",
+    "name": "SPØR",
     "slug": "spore-seeker-zero",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -13,7 +13,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow SPOR to scan a spore QR.",
+          "cameraPermission": "Allow SPØR to scan a spore QR.",
           "recordAudioAndroid": false
         }
       ]
