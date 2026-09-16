@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       cluster: getSolanaCluster()
     });
 
+    const cluster = getSolanaCluster();
     let sgt = await verifySeekerGenesisToken(siws.walletAddress);
 
     if (sgt) {
@@ -63,9 +64,39 @@ export async function POST(request: Request) {
     }
 
     if (!sgt) {
+      if (cluster === "devnet") {
+        console.log("[DEVNET TEST SGT AUTH]", {
+          phase: "no_current_valid_sgt",
+          walletAddress: siws.walletAddress
+        });
+        console.log("[DEVNET TEST SGT AUTH]", {
+          phase: "bootstrap_started",
+          walletAddress: siws.walletAddress
+        });
+      }
+
       try {
         sgt = await ensureDevnetTestSgt(siws.walletAddress);
+        if (cluster === "devnet") {
+          console.log("[DEVNET TEST SGT AUTH]", {
+            phase: "bootstrap_succeeded",
+            walletAddress: siws.walletAddress,
+            sgtMint: sgt.mintAddress
+          });
+        }
       } catch (error) {
+        if (cluster === "devnet") {
+          console.warn("[DEVNET TEST SGT AUTH]", {
+            phase: "bootstrap_failed",
+            walletAddress: siws.walletAddress,
+            reason: error instanceof DevnetTestSgtBootstrapDisabledError
+              ? "disabled"
+              : error instanceof Error
+                ? error.name
+                : "unknown"
+          });
+        }
+
         if (!(error instanceof DevnetTestSgtBootstrapDisabledError)) {
           throw error;
         }

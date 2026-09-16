@@ -84,7 +84,27 @@ export async function ensureDevnetTestSgt(walletAddress: string): Promise<SgtVer
     }).lean();
 
     if (assignment && assignment.sgtMint !== mint.publicKey.toBase58()) {
-      throw new DevnetTestSgtBootstrapError();
+      const assignedMint = tryPublicKey(assignment.sgtMint);
+      const assigned = assignedMint ? await verifyDevnetTestSgt(context, wallet, assignedMint) : null;
+
+      if (assigned) {
+        await ensureDevnetSolFunding(context, wallet, assignment).catch((error: unknown) => {
+          console.warn("[DEVNET TEST SGT]", {
+            phase: "funding_failed",
+            wallet: wallet.toBase58(),
+            reason: getSafeErrorReason(error)
+          });
+        });
+
+        return assigned;
+      }
+
+      console.warn("[DEVNET TEST SGT]", {
+        phase: "stale_assignment_ignored",
+        wallet: wallet.toBase58(),
+        staleSgtMint: assignment.sgtMint,
+        currentSgtMint: mint.publicKey.toBase58()
+      });
     }
 
     const verified = await ensureMintedAndVerified(context, wallet, mint);
@@ -501,11 +521,11 @@ async function saveAssignment(wallet: PublicKey, sgtMint: string): Promise<Devne
       },
       {
         $set: {
+          sgtMint,
           updatedAt: now
         },
         $setOnInsert: {
           wallet: wallet.toBase58(),
-          sgtMint,
           createdAt: now
         }
       },
@@ -662,6 +682,14 @@ function normalizePublicKey(value: string) {
     return new PublicKey(value);
   } catch {
     throw new DevnetTestSgtBootstrapDisabledError();
+  }
+}
+
+function tryPublicKey(value: string) {
+  try {
+    return new PublicKey(value);
+  } catch {
+    return null;
   }
 }
 
