@@ -7,7 +7,8 @@ type ErrorCode =
   | "indexing_deferred"
   | "integrity_conflict"
   | "verification_unavailable"
-  | "server_misconfigured";
+  | "server_misconfigured"
+  | "outbreak_scoring_deferred";
 
 const headers = {
   "Cache-Control": "no-store"
