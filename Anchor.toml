@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-spore = "Gw9SGqX7h99txtUHvyLKDLfwst1g1PCzRKhG7juY6PSa"
+spore = "9HvZ7ckadQt38R1KxYPhP759yCCx4MRF8NBquV4HUUXZ"
 
 [programs.localnet]
 spore = "GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me"

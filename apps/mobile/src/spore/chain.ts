@@ -10,7 +10,13 @@ import {
 import type { AuthIdentity } from "../auth/api";
 import { getCurrentIdentity } from "../auth/api";
 import { getStoredSessionToken } from "../auth/session";
-import { sporeGenesisHash, sporeProgramId } from "./config";
+import {
+  assertDevnetGenesisCandidate,
+  isDevnetGenesisCandidate,
+  sporeGenesisHash,
+  sporeMetadataBaseUri,
+  sporeProgramId,
+} from "./config";
 import { commitment, SporeFailure, type ClaimPayload } from "./payload";
 
 export type Organism = {
@@ -28,9 +34,18 @@ export type Organism = {
 
 type PreflightDebugMetadata = Record<string, string | number | boolean | null>;
 type PreflightDebug = (phase: string, metadata?: PreflightDebugMetadata) => void;
+export type DevnetGenesisStatus =
+  | { visible: false }
+  | { visible: true; mode: "fresh" | "seekerZeroRetry" };
+export type DevnetGenesisResult = {
+  organism: Organism | null;
+  slot?: number;
+};
 
 const TOKEN_2022 = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 const CORE = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
+const SPECIES_ACCOUNT_SIZE = 229;
+const SEEKER_ZERO_ORGANISM_NUMBER = 0;
 
 const discriminator = (name: string): Buffer =>
   Buffer.from(sha256(Buffer.from(name)).subarray(0, 8));
@@ -69,6 +84,10 @@ export function programId() {
 
 export function organismPda(mint: PublicKey) {
   return pda("organism", mint);
+}
+
+export function speciesPda() {
+  return pda("species");
 }
 
 function pda(seed: string, mint?: PublicKey) {
@@ -160,6 +179,111 @@ export async function fetchOwnOrganism(
     organismPda(new PublicKey(identity.sgtMint)),
     minContextSlot,
   );
+}
+
+export async function fetchDevnetGenesisStatus(
+  identity: AuthIdentity,
+): Promise<DevnetGenesisStatus> {
+  if (!isDevnetGenesisCandidate(identity.walletAddress)) {
+    return { visible: false };
+  }
+
+  await assertConfiguredNetwork();
+
+  const species = await fetchSpeciesState();
+
+  if (!species) {
+    return { visible: true, mode: "fresh" };
+  }
+
+  const owner = new PublicKey(identity.walletAddress);
+
+  if (
+    !species.seekerZeroOrganism &&
+    species.authority.equals(owner) &&
+    species.nextOrganismNumber === SEEKER_ZERO_ORGANISM_NUMBER &&
+    species.totalOrganisms === 0
+  ) {
+    return { visible: true, mode: "seekerZeroRetry" };
+  }
+
+  return { visible: false };
+}
+
+export async function initializeDevnetGenesis(
+  identity: AuthIdentity,
+): Promise<DevnetGenesisResult> {
+  assertDevnetGenesisCandidate(identity.walletAddress);
+
+  const { owner, mint, tokenAccount } = await currentSigner(identity);
+  const existing = await fetchOrganism(organismPda(mint));
+
+  if (existing) {
+    return { organism: existing };
+  }
+
+  let minContextSlot: number | undefined;
+  let species = await fetchSpeciesState();
+
+  if (!species) {
+    minContextSlot = await send(
+      identity,
+      "initialize_species",
+      encodeInitializeSpeciesArgs(owner, sporeMetadataBaseUri()),
+      [
+        meta(speciesPda(), true),
+        meta(owner, true, true),
+        meta(SystemProgram.programId),
+      ],
+    );
+    species = await fetchSpeciesState(minContextSlot);
+  }
+
+  if (!species) {
+    throw new SporeFailure("Species initialized, but its account is not readable yet.");
+  }
+  if (!species.authority.equals(owner)) {
+    throw new SporeFailure("Devnet Species belongs to another authority.");
+  }
+  if (
+    species.seekerZeroOrganism ||
+    species.nextOrganismNumber !== SEEKER_ZERO_ORGANISM_NUMBER ||
+    species.totalOrganisms !== 0
+  ) {
+    const organism = await fetchOrganism(organismPda(mint), minContextSlot);
+
+    if (organism) {
+      return { organism, slot: minContextSlot };
+    }
+
+    throw new SporeFailure("Devnet Seeker Zero is already initialized.");
+  }
+
+  const coreAsset = pda("core_asset", mint);
+  const coreAssetInfo = await connection().getAccountInfo(coreAsset, "confirmed");
+
+  if (coreAssetInfo && coreAssetInfo.data.length > 0) {
+    throw new SporeFailure("Devnet Seeker Zero Core NFT already exists.");
+  }
+
+  const seekerZeroSlot = await send(
+    identity,
+    "initialize_seeker_zero",
+    new Uint8Array(),
+    [
+      meta(owner, true, true),
+      meta(speciesPda(), true),
+      meta(mint),
+      meta(tokenAccount),
+      meta(organismPda(mint), true),
+      meta(coreAsset, true),
+      meta(CORE),
+      meta(SystemProgram.programId),
+    ],
+  );
+  const organism = await fetchOrganism(organismPda(mint), seekerZeroSlot);
+
+  return { organism, slot: seekerZeroSlot };
 }
 
 export const nowSeconds = () => Math.floor(Date.now() / 1000);
@@ -333,4 +457,103 @@ export async function claimSpore(
     meta(CORE),
     meta(SystemProgram.programId),
   ]);
+}
+
+type SpeciesState = {
+  authority: PublicKey;
+  seekerZeroOrganism: PublicKey | null;
+  nextOrganismNumber: number;
+  totalOrganisms: number;
+};
+
+async function fetchSpeciesState(minContextSlot?: number) {
+  const result = await connection().getAccountInfoAndContext(speciesPda(), {
+    commitment: "confirmed",
+    minContextSlot,
+  });
+
+  return result.value ? decodeSpeciesState(result.value) : null;
+}
+
+function decodeSpeciesState(info: AccountInfo<Buffer>): SpeciesState {
+  const data = checkedData(info, "Species");
+
+  if (data.length !== SPECIES_ACCOUNT_SIZE) {
+    throw new SporeFailure("Invalid canonical Species account.");
+  }
+
+  let offset = 8;
+  const take = (length: number) => {
+    const bytes = Buffer.from(data.subarray(offset, offset + length));
+
+    if (bytes.length !== length) {
+      throw new SporeFailure("Invalid canonical Species account.");
+    }
+
+    offset += length;
+    return bytes;
+  };
+  const authority = new PublicKey(take(32));
+
+  take(32); // treasury
+  take(8); // birth_fee_lamports
+
+  const metadataBaseUriLength = take(4).readUInt32LE(0);
+
+  if (metadataBaseUriLength > 96) {
+    throw new SporeFailure("Invalid canonical Species account.");
+  }
+
+  take(metadataBaseUriLength);
+
+  const nextOrganismNumber = readU64LeAsSafeNumber(
+    take(8),
+    "next_organism_number",
+  );
+  const seekerZeroOption = take(1)[0];
+  let seekerZeroOrganism: PublicKey | null = null;
+
+  if (seekerZeroOption === 1) {
+    seekerZeroOrganism = new PublicKey(take(32));
+  } else if (seekerZeroOption !== 0) {
+    throw new SporeFailure("Invalid canonical Species account.");
+  }
+
+  const totalOrganisms = readU64LeAsSafeNumber(take(8), "total_organisms");
+
+  return {
+    authority,
+    seekerZeroOrganism,
+    nextOrganismNumber,
+    totalOrganisms,
+  };
+}
+
+function encodeInitializeSpeciesArgs(treasury: PublicKey, metadataBaseUri: string) {
+  const metadataBytes = Buffer.from(metadataBaseUri, "utf8");
+  const data = Buffer.alloc(32 + 8 + 4 + metadataBytes.length);
+  let offset = 0;
+
+  treasury.toBuffer().copy(data, offset);
+  offset += 32;
+  data.writeUInt32LE(0, offset);
+  data.writeUInt32LE(0, offset + 4);
+  offset += 8;
+  data.writeUInt32LE(metadataBytes.length, offset);
+  offset += 4;
+  metadataBytes.copy(data, offset);
+
+  return data;
+}
+
+function readU64LeAsSafeNumber(bytes: Buffer, fieldName: string) {
+  const low = bytes.readUInt32LE(0);
+  const high = bytes.readUInt32LE(4);
+  const value = high * 0x100000000 + low;
+
+  if (!Number.isSafeInteger(value)) {
+    throw new SporeFailure(`Invalid canonical Species ${fieldName}.`);
+  }
+
+  return value;
 }

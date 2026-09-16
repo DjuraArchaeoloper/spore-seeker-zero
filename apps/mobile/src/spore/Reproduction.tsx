@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  Alert,
   AppState,
   BackHandler,
   Linking,
@@ -42,8 +43,10 @@ import {
 import {
   claimSpore,
   connection,
+  fetchDevnetGenesisStatus,
   fetchOwnOrganism,
   hasOffer,
+  initializeDevnetGenesis,
   nowSeconds,
   preflightOffer,
   releaseSpore,
@@ -72,6 +75,9 @@ type BirthRevealState =
   | { status: "showingReveal"; payload: BirthRevealPayload }
   | { status: "revealComplete"; payload: BirthRevealPayload };
 type ScanDebugMetadata = Record<string, string | number | boolean | null>;
+type DevnetGenesisControl =
+  | { status: "hidden" }
+  | { status: "fresh" | "retry" | "pending" };
 
 const NEWBORN_RESOLVE_ATTEMPTS = 6;
 const NEWBORN_RESOLVE_DELAY_MS = 700;
@@ -120,6 +126,9 @@ export default function Reproduction({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [signOutPending, setSignOutPending] = useState(false);
+  const [devnetGenesis, setDevnetGenesis] = useState<DevnetGenesisControl>({
+    status: "hidden",
+  });
   const [now, setNow] = useState(nowSeconds);
   const [permission, requestPermission] = useCameraPermissions();
   const secret = useRef<ClaimPayload | null>(null);
@@ -165,6 +174,31 @@ export default function Reproduction({
     if (mounted.current) setOrganism(value);
     return value;
   }, [identity]);
+  const refreshDevnetGenesis = useCallback(async () => {
+    if (organism !== null) {
+      if (mounted.current) setDevnetGenesis({ status: "hidden" });
+      return;
+    }
+
+    try {
+      const status = await fetchDevnetGenesisStatus(identity);
+
+      if (!mounted.current) {
+        return;
+      }
+
+      setDevnetGenesis(
+        status.visible
+          ? {
+              status:
+                status.mode === "fresh" ? "fresh" : "retry",
+            }
+          : { status: "hidden" },
+      );
+    } catch {
+      if (mounted.current) setDevnetGenesis({ status: "hidden" });
+    }
+  }, [identity, organism]);
   const refreshOutbreak = useCallback(async () => {
     try {
       const token = await getStoredSessionToken();
@@ -258,6 +292,9 @@ export default function Reproduction({
       clearReleaseCandidate();
     };
   }, [clearReleaseCandidate, reconcileReleaseCandidate, refresh, refreshOutbreak]);
+  useEffect(() => {
+    void refreshDevnetGenesis();
+  }, [refreshDevnetGenesis]);
 
   async function run(action: () => Promise<void>) {
     if (locked.current) return;
@@ -303,6 +340,83 @@ export default function Reproduction({
 
     throw new SporeFailure("Life is born. Your organism is still emerging.");
   }, [identity]);
+  const runDevnetGenesis = useCallback(async () => {
+    await run(async () => {
+      let completed = false;
+
+      setDevnetGenesis({ status: "pending" });
+
+      try {
+        const result = await initializeDevnetGenesis(identity);
+
+        if (result.slot) {
+          birthSlot.current = result.slot;
+        }
+
+        const seekerZero = result.organism ?? await resolveNewborn();
+
+        if (!mounted.current) {
+          return;
+        }
+
+        completed = true;
+        setBirthReveal({ status: "idle" });
+        setOrganism(seekerZero);
+        setSurface("specimen");
+        setStage("home");
+        setError(null);
+        setDevnetGenesis({ status: "hidden" });
+        void refreshOutbreak();
+      } catch (error) {
+        const seekerZero = await fetchOwnOrganism(identity, birthSlot.current).catch(() => null);
+
+        if (seekerZero && mounted.current) {
+          completed = true;
+          setBirthReveal({ status: "idle" });
+          setOrganism(seekerZero);
+          setSurface("specimen");
+          setStage("home");
+          setError(null);
+          setDevnetGenesis({ status: "hidden" });
+          void refreshOutbreak();
+          return;
+        }
+
+        throw error;
+      } finally {
+        if (!completed) {
+          await refreshDevnetGenesis();
+        }
+      }
+    });
+  }, [identity, refreshDevnetGenesis, refreshOutbreak, resolveNewborn, setSurface]);
+  const confirmDevnetGenesis = useCallback(() => {
+    if (devnetGenesis.status === "pending") {
+      return;
+    }
+
+    const retry = devnetGenesis.status === "retry";
+
+    Alert.alert(
+      "DEVNET GENESIS",
+      retry
+        ? "Species is already initialized for this devnet. Retry Seeker Zero only with this wallet and its Test SGT?"
+        : "This initializes the fresh devnet Species and Seeker Zero with this wallet as authority, treasury, Test SGT owner, and Core NFT owner.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: retry ? "Retry" : "Initialize",
+          style: "destructive",
+          onPress: () => {
+            void runDevnetGenesis();
+          },
+        },
+      ],
+    );
+  }, [devnetGenesis.status, runDevnetGenesis]);
   const beginBirthReveal = useCallback((newborn: Organism, parent: Organism | null) => {
     const payload: BirthRevealPayload = { newborn, parent };
 
@@ -980,6 +1094,29 @@ export default function Reproduction({
                 setStage("scan");
               }}
             />
+            {devnetGenesis.status !== "hidden" ? (
+              <View style={styles.devnetGenesis}>
+                <AppText style={styles.devnetGenesisLabel} variant="metadata">
+                  DEVNET ONLY
+                </AppText>
+                {devnetGenesis.status === "retry" ? (
+                  <AppText style={styles.devnetGenesisText}>
+                    Species exists. Retry Seeker Zero.
+                  </AppText>
+                ) : null}
+                <QuietAction
+                  disabled={busy || devnetGenesis.status === "pending"}
+                  label={
+                    devnetGenesis.status === "pending"
+                      ? "DEVNET GENESIS PENDING"
+                      : devnetGenesis.status === "retry"
+                        ? "RETRY DEVNET GENESIS"
+                        : "DEVNET GENESIS"
+                  }
+                  onPress={confirmDevnetGenesis}
+                />
+              </View>
+            ) : null}
           </View>
         )}
       </Screen>
@@ -1094,6 +1231,23 @@ const styles = StyleSheet.create({
   },
   homeActions: {
     gap: tokens.spacing.sm,
+  },
+  devnetGenesis: {
+    alignItems: "center",
+    gap: tokens.spacing.xs,
+    paddingTop: tokens.spacing.md,
+  },
+  devnetGenesisLabel: {
+    color: tokens.colors.textMuted,
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: "center",
+  },
+  devnetGenesisText: {
+    color: tokens.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
   },
   scanLiveScreen: {
     backgroundColor: "black",
