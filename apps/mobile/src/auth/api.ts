@@ -55,6 +55,35 @@ export type SpeciesResponse = {
   seekerZero: PublicOrganism | null;
 };
 
+export type OutbreakSkrPool = {
+  tokenMint?: string;
+  totalAmount?: string;
+  decimals?: number;
+  label?: string;
+  notes?: string;
+};
+
+export type OutbreakResponse =
+  | {
+      active: false;
+    }
+  | {
+      active: true;
+      season: {
+        seasonId: string;
+        startsAt: string;
+        endsAt: string;
+        scoringVersion: string;
+        skrPool?: OutbreakSkrPool;
+      };
+      user: {
+        points: number;
+      };
+      global: {
+        totalPoints: number;
+      };
+    };
+
 export async function requestSiwsPayload() {
   const response = await sporeFetch("/api/auth/nonce", {
     method: "POST"
@@ -114,6 +143,20 @@ export async function getSpecies() {
   const response = await sporeFetch("/api/species", undefined, "Species is unavailable.");
 
   return (await response.json()) as SpeciesResponse;
+}
+
+export async function getOutbreak(token: string) {
+  const response = await sporeFetch(
+    "/api/outbreak",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    },
+    "Outbreak is unavailable."
+  );
+
+  return (await response.json()) as OutbreakResponse;
 }
 
 function getApiBaseUrl() {

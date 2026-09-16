@@ -50,6 +50,7 @@ type OrganismRendererProps = {
   genome: GenomeInput;
   size?: number;
   animated?: boolean;
+  onStillImageReady?: () => void;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -160,6 +161,7 @@ function OrganismRendererWithMoustache(props: OrganismRendererProps) {
 function OrganismRendererCore({
   animated = true,
   genome,
+  onStillImageReady,
   size = 440,
   style,
   includeMoustache,
@@ -252,6 +254,12 @@ function OrganismRendererCore({
   const swayAmplitudeRad = degToRad(
     IDLE_SWAY_MIN_DEG + (IDLE_SWAY_MAX_DEG - IDLE_SWAY_MIN_DEG) * motionIntensity
   );
+
+  useEffect(() => {
+    if (flattenedImage) {
+      onStillImageReady?.();
+    }
+  }, [flattenedImage, onStillImageReady]);
 
   useEffect(() => {
     cancelAnimation(driftXPhase);

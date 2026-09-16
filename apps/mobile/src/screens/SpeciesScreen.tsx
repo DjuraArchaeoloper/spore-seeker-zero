@@ -4,6 +4,7 @@ import { AppText } from "../components/AppText";
 import { Screen } from "../components/Screen";
 import { SoftTextScrim } from "../components/SoftTextScrim";
 import { SporeLoader } from "../components/SporeLoader";
+import type { OutbreakResponse, OutbreakSkrPool } from "../auth/api";
 import { tokens } from "../design/tokens";
 
 type SpeciesResponse = {
@@ -14,6 +15,7 @@ type SpeciesResponse = {
 
 type SpeciesScreenProps = {
   species?: SpeciesResponse | null;
+  outbreak?: OutbreakResponse | null;
   error?: string | null;
   loading?: boolean;
 };
@@ -43,6 +45,46 @@ const space = {
 
 function formatPopulation(population: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(population);
+}
+
+function formatOutbreakSeasonLabel(seasonId: string) {
+  const cleaned = seasonId.trim().replace(/[_-]+/g, " ");
+
+  if (!cleaned) {
+    return "OUTBREAK";
+  }
+
+  if (/^outbreak\b/i.test(cleaned)) {
+    return cleaned.toUpperCase();
+  }
+
+  if (/^\d+$/.test(cleaned)) {
+    return `OUTBREAK ${cleaned.padStart(2, "0")}`;
+  }
+
+  const numberedSeason = /^(?:season|outbreak)\s*0*(\d+)$/i.exec(cleaned);
+
+  if (numberedSeason) {
+    return `OUTBREAK ${numberedSeason[1].padStart(2, "0")}`;
+  }
+
+  return cleaned.toUpperCase();
+}
+
+function formatPool(pool: OutbreakSkrPool | undefined) {
+  if (!pool) {
+    return null;
+  }
+
+  if (pool.label) {
+    return pool.label.toUpperCase();
+  }
+
+  if (pool.totalAmount || pool.tokenMint) {
+    return "SEASON POOL CONFIGURED";
+  }
+
+  return null;
 }
 
 function readField(organism: unknown, fields: string[]) {
@@ -109,7 +151,7 @@ function formatOrganismGeneration(organism: unknown) {
   return formatGeneration(getGeneration(organism));
 }
 
-export function SpeciesScreen({ species, error, loading = false }: SpeciesScreenProps) {
+export function SpeciesScreen({ species, outbreak, error, loading = false }: SpeciesScreenProps) {
   if (loading) {
     return (
       <Screen eyebrow="GLOBAL STATE" title="Species">
@@ -149,6 +191,8 @@ export function SpeciesScreen({ species, error, loading = false }: SpeciesScreen
   const population = typeof species.population === "number" ? species.population : null;
   const deepestGeneration = typeof species.deepestGeneration === "number" ? species.deepestGeneration : null;
   const seekerZero = species.seekerZero;
+  const activeOutbreak = outbreak?.active ? outbreak : null;
+  const poolLabel = activeOutbreak ? formatPool(activeOutbreak.season.skrPool) : null;
 
   return (
     <Screen eyebrow="GLOBAL STATE" title="Species">
@@ -164,6 +208,19 @@ export function SpeciesScreen({ species, error, loading = false }: SpeciesScreen
           <AppText style={styles.sectionLabel}>DEEPEST GENERATION</AppText>
           <AppText style={styles.generationValue}>{formatGeneration(deepestGeneration)}</AppText>
         </View>
+
+        {activeOutbreak ? (
+          <View style={styles.outbreak}>
+            <AppText style={styles.sectionLabel}>
+              {formatOutbreakSeasonLabel(activeOutbreak.season.seasonId)}
+            </AppText>
+            <AppText style={styles.outbreakStatus}>ACTIVE</AppText>
+            <AppText style={styles.outbreakMeta}>
+              {formatPopulation(activeOutbreak.global.totalPoints)} PTS GENERATED
+            </AppText>
+            {poolLabel ? <AppText style={styles.outbreakPool}>{poolLabel}</AppText> : null}
+          </View>
+        ) : null}
 
         <View style={styles.origin}>
           <AppText style={styles.sectionLabel}>ORIGIN</AppText>
@@ -258,6 +315,31 @@ const styles = StyleSheet.create({
     fontSize: 21,
     fontWeight: "500",
     lineHeight: 27,
+  },
+  outbreak: {
+    gap: space.xs,
+  },
+  outbreakStatus: {
+    color: color.text,
+    fontSize: 18,
+    fontWeight: "500",
+    lineHeight: 24,
+  },
+  outbreakMeta: {
+    ...tokens.postAuth.smallText,
+    color: color.muted,
+    fontSize: 11,
+    letterSpacing: 1,
+    lineHeight: 18,
+    textTransform: "uppercase",
+  },
+  outbreakPool: {
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 11,
+    letterSpacing: 0.9,
+    lineHeight: 18,
+    textTransform: "uppercase",
   },
   origin: {
     gap: space.md,

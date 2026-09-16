@@ -15,10 +15,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { AuthIdentity } from "../auth/api";
 import {
   getBloodline,
+  getOutbreak,
   getSpecies,
   type BloodlineResponse,
+  type OutbreakResponse,
   type SpeciesResponse,
 } from "../auth/api";
+import { getStoredSessionToken } from "../auth/session";
 import { AppText } from "../components/AppText";
 import {
   AuthenticatedLogoutControl,
@@ -136,6 +139,9 @@ export default function Reproduction({
     data?: SpeciesResponse | null;
     error?: string | null;
   }>({});
+  const [outbreak, setOutbreak] = useState<{
+    data?: OutbreakResponse | null;
+  }>({});
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -159,6 +165,31 @@ export default function Reproduction({
     if (mounted.current) setOrganism(value);
     return value;
   }, [identity]);
+  const refreshOutbreak = useCallback(async () => {
+    try {
+      const token = await getStoredSessionToken();
+
+      if (!token) {
+        if (mounted.current) setOutbreak({ data: null });
+        return null;
+      }
+
+      const value = await getOutbreak(token);
+      if (mounted.current) setOutbreak({ data: value });
+      return value;
+    } catch (error) {
+      console.warn(
+        "[SPOR OUTBREAK] State refresh failed.",
+        error instanceof Error ? error.message : "Unknown outbreak error.",
+      );
+
+      if (mounted.current) {
+        setOutbreak((current) => (current.data ? current : { data: null }));
+      }
+
+      return null;
+    }
+  }, []);
   const activateCandidateOffer = useCallback((candidate: ClaimPayload, parent: Organism) => {
     if (!mounted.current) {
       return;
@@ -196,6 +227,7 @@ export default function Reproduction({
   useEffect(() => {
     mounted.current = true;
     void refresh().catch((e) => setError(sporeMessage(e)));
+    void refreshOutbreak();
     const timer = setInterval(() => setNow(nowSeconds()), 1000);
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "active") {
@@ -211,8 +243,10 @@ export default function Reproduction({
             });
         }
 
-        if (!locked.current)
+        if (!locked.current) {
           void refresh().catch((e) => setError(sporeMessage(e)));
+          void refreshOutbreak();
+        }
       }
     });
     return () => {
@@ -223,7 +257,7 @@ export default function Reproduction({
       secret.current = null;
       clearReleaseCandidate();
     };
-  }, [clearReleaseCandidate, reconcileReleaseCandidate, refresh]);
+  }, [clearReleaseCandidate, reconcileReleaseCandidate, refresh, refreshOutbreak]);
 
   async function run(action: () => Promise<void>) {
     if (locked.current) return;
@@ -290,6 +324,7 @@ export default function Reproduction({
     setSurface("specimen");
     setStage("home");
     setError(null);
+    void refreshOutbreak();
 
     setTimeout(() => {
       if (mounted.current) {
@@ -301,7 +336,7 @@ export default function Reproduction({
         );
       }
     }, 0);
-  }, [setSurface]);
+  }, [refreshOutbreak, setSurface]);
   useEffect(() => {
     if (birthReveal.status !== "newbornResolved") {
       return;
@@ -347,7 +382,8 @@ export default function Reproduction({
     setStage("home");
     setError(null);
     void refresh().catch((e) => setError(sporeMessage(e)));
-  }, [refresh, setSurface]);
+    void refreshOutbreak();
+  }, [refresh, refreshOutbreak, setSurface]);
 
   const close = useCallback(() => {
     if (locked.current) return;
@@ -356,7 +392,8 @@ export default function Reproduction({
     setStage("home");
     setError(null);
     void refresh().catch((e) => setError(sporeMessage(e)));
-  }, [clearSecret, refresh]);
+    void refreshOutbreak();
+  }, [clearSecret, refresh, refreshOutbreak]);
   useEffect(() => {
     const back = BackHandler.addEventListener("hardwareBackPress", () => {
       if (locked.current || stage === "recover" || birthReveal.status !== "idle")
@@ -383,9 +420,11 @@ export default function Reproduction({
         );
         const expired = parent.activeSporeExpiresAt <= nowSeconds();
         if (!stillMatches || expired) {
+          const claimed = !stillMatches && !expired;
           clearSecret();
           setStage("home");
           if (expired) setError("This spore offer has expired.");
+          if (claimed) void refreshOutbreak();
         }
       } catch {
         /* Keep the canonical expiry timer working during RPC interruption. */
@@ -408,7 +447,7 @@ export default function Reproduction({
         .removeAccountChangeListener(subscription)
         .catch(() => {});
     };
-  }, [stage, offer, refresh, clearSecret]);
+  }, [stage, offer, refresh, clearSecret, refreshOutbreak]);
   useEffect(() => {
     if (
       (stage === "offer" || stage === "accept" || stage === "home") &&
@@ -445,6 +484,7 @@ export default function Reproduction({
     if (surface !== "species") return;
     let live = true;
     setSpecies({});
+    void refreshOutbreak();
     void getSpecies()
       .then((data) => {
         if (live) setSpecies({ data });
@@ -459,7 +499,7 @@ export default function Reproduction({
     return () => {
       live = false;
     };
-  }, [surface]);
+  }, [refreshOutbreak, surface]);
 
   async function release() {
     await run(async () => {
@@ -886,6 +926,9 @@ export default function Reproduction({
             if (!locked.current) {
               setSurface(next);
               void refresh().catch((e) => setError(sporeMessage(e)));
+              if (next === "specimen" || next === "species") {
+                void refreshOutbreak();
+              }
             }
           }}
         />
@@ -964,6 +1007,7 @@ export default function Reproduction({
       : specimenSporeState === "cooldown"
         ? `SPORE IN ${Math.ceil((organism.nextSporeAt - now) / 60)} MIN`
         : "SPORE READY";
+  const activeOutbreak = outbreak.data && outbreak.data.active ? outbreak.data : null;
   return renderAuthenticatedSurface(
     surface === "specimen" ? (
       <SpecimenScreen
@@ -977,6 +1021,14 @@ export default function Reproduction({
         canRelease={specimenSporeState === "ready" || activeOfferWithoutLocalSecret}
         canViewSpore={localOfferActive}
         releaseLabel={activeOfferWithoutLocalSecret ? "RELEASE NEW SPORE" : "RELEASE SPORE"}
+        outbreak={
+          activeOutbreak
+            ? {
+                points: activeOutbreak.user.points,
+                seasonId: activeOutbreak.season.seasonId,
+              }
+            : null
+        }
         onViewSpore={() => {
           if (!localOfferActive) return;
           setOffer(organism);
@@ -993,6 +1045,7 @@ export default function Reproduction({
       />
     ) : (
       <SpeciesScreen
+        outbreak={activeOutbreak}
         species={species.data}
         error={species.error}
         loading={species.data === undefined && !species.error}

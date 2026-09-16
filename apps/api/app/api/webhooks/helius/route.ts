@@ -29,6 +29,10 @@ export async function POST(request: Request) {
 
     const result = await indexHeliusRawTransactions(payload, sporeProgramId);
 
+    if (result.outbreakFailed > 0) {
+      return jsonError(503, "outbreak_scoring_deferred", "Outbreak scoring will be retried.");
+    }
+
     return jsonOk(result);
   } catch (error) {
     if (error instanceof ParentOrganismMissingError) {

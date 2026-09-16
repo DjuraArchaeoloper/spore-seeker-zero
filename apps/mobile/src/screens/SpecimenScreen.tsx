@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Michroma_400Regular } from "@expo-google-fonts/michroma";
 import { useFonts } from "expo-font";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
@@ -9,7 +9,14 @@ import { AppText } from "../components/AppText";
 import { AUTH_LOGOUT_TOP_RESERVE } from "../components/AuthenticatedLogoutControl";
 import { OrganismRenderer } from "../components/organism/OrganismRenderer";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { QuietAction } from "../components/QuietAction";
+import {
+  ORGANISM_SHARE_CARD_HEIGHT,
+  ORGANISM_SHARE_CARD_WIDTH,
+  OrganismShareCard,
+} from "../components/share/OrganismShareCard";
 import { tokens } from "../design/tokens";
+import { shareOrganismCard } from "../spore/shareOrganism";
 
 // Art direction in logical pixels; the flexible stage absorbs height changes.
 const SPECIMEN_LAYOUT = {
@@ -43,10 +50,42 @@ export function getSpecimenDesignation(organismNumber: string) {
     : { title: "SEEKERBORNE", subtitle: "Descendant of Seeker Zero." };
 }
 
+function formatOutbreakSeasonLabel(seasonId: string) {
+  const cleaned = seasonId.trim().replace(/[_-]+/g, " ");
+
+  if (!cleaned) {
+    return "OUTBREAK";
+  }
+
+  if (/^outbreak\b/i.test(cleaned)) {
+    return cleaned.toUpperCase();
+  }
+
+  if (/^\d+$/.test(cleaned)) {
+    return `OUTBREAK ${cleaned.padStart(2, "0")}`;
+  }
+
+  const numberedSeason = /^(?:season|outbreak)\s*0*(\d+)$/i.exec(cleaned);
+
+  if (numberedSeason) {
+    return `OUTBREAK ${numberedSeason[1].padStart(2, "0")}`;
+  }
+
+  return cleaned.toUpperCase();
+}
+
+function formatPoints(points: number) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(points);
+}
+
 export type SpecimenSporeState = "ready" | "active" | "cooldown";
 
 export type SpecimenScreenProps = {
   organism?: SpecimenOrganism | null;
+  outbreak?: {
+    points: number;
+    seasonId: string;
+  } | null;
   previewOrigin?: boolean;
   onRelease?: () => void;
   onViewSpore?: () => void;
@@ -62,6 +101,7 @@ export type SpecimenScreenProps = {
 // The static origin is only used by visual preview; production supplies a canonical account.
 export function SpecimenScreen({
   organism,
+  outbreak,
   previewOrigin = false,
   onRelease,
   onViewSpore,
@@ -77,6 +117,10 @@ export function SpecimenScreen({
   const insets = useSafeAreaInsets();
   const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const shareCardRef = useRef<View>(null);
+  const [shareCardReadyKey, setShareCardReadyKey] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const compact = height < 740;
   const organismSize = Math.min(
     stageSize.width * SPECIMEN_LAYOUT.creatureScale,
@@ -90,6 +134,9 @@ export function SpecimenScreen({
   );
   const bottomSpace = Math.max(8, compact ? 24 : Math.min(height * SPECIMEN_LAYOUT.footerBottomRatio, 64));
   const specimen = organism ?? (previewOrigin ? canonicalOrigin : null);
+  const shareCardKey = specimen
+    ? `${specimen.organismNumber}:${specimen.generation}:${String(specimen.genome)}`
+    : null;
   const ready = sporeState === "ready";
   const showViewSpore = sporeState === "active" && canViewSpore;
   const actionLabel = busy
@@ -101,6 +148,39 @@ export function SpecimenScreen({
       : releaseLabel;
   const actionDisabled = busy || (showViewSpore ? !canViewSpore : !canRelease);
   const actionPress = showViewSpore ? onViewSpore : onRelease;
+  const shareDisabled = busy || sharing || sharingUnavailable(fontsLoaded, shareCardReadyKey === shareCardKey);
+  const visibleError = shareError ?? error;
+  const markShareCardReady = useCallback(() => {
+    setShareCardReadyKey(shareCardKey);
+  }, [shareCardKey]);
+
+  useEffect(() => {
+    setShareError(null);
+  }, [shareCardKey]);
+
+  async function handleShare() {
+    if (!specimen || shareDisabled) {
+      return;
+    }
+
+    setShareError(null);
+    setSharing(true);
+
+    try {
+      await shareOrganismCard({
+        cardRef: shareCardRef,
+        generation: specimen.generation,
+        organismNumber: specimen.organismNumber,
+      });
+    } catch (shareFailure) {
+      if (__DEV__) {
+        console.warn("[SPOR SHARE] Unable to share organism.", shareFailure);
+      }
+      setShareError("SHARING UNAVAILABLE");
+    } finally {
+      setSharing(false);
+    }
+  }
 
   if (fontError) throw fontError;
 
@@ -122,7 +202,7 @@ export function SpecimenScreen({
           <AppText style={[styles.identifier, styles.emptyLabel]} variant="metadata">
             SPECIMEN UNAVAILABLE
           </AppText>
-          {error ? <AppText style={styles.error}>{error}</AppText> : null}
+          {visibleError ? <AppText style={styles.error}>{visibleError}</AppText> : null}
         </View>
       </View>
     );
@@ -148,6 +228,11 @@ export function SpecimenScreen({
           GEN {specimen.generation} · #
           {specimen.organismNumber.padStart(6, "0")}
         </AppText>
+        {outbreak ? (
+          <AppText maxFontSizeMultiplier={1.2} style={styles.outbreak} variant="metadata">
+            {formatOutbreakSeasonLabel(outbreak.seasonId)} · {formatPoints(outbreak.points)} PTS
+          </AppText>
+        ) : null}
       </View>
 
       <View
@@ -205,11 +290,35 @@ export function SpecimenScreen({
             loadingLabel={actionLabel}
             onPress={actionPress}
           />
-          {error ? <AppText style={styles.error}>{error}</AppText> : null}
+          <QuietAction
+            disabled={shareDisabled}
+            label={sharing ? "SHARING" : "SHARE"}
+            onPress={handleShare}
+          />
+          {visibleError ? <AppText style={styles.error}>{visibleError}</AppText> : null}
         </View>
+      </View>
+
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.shareCardCapture}
+        pointerEvents="none"
+      >
+        <OrganismShareCard
+          ref={shareCardRef}
+          generation={specimen.generation}
+          genome={specimen.genome}
+          onOrganismReady={markShareCardReady}
+          organismNumber={specimen.organismNumber}
+        />
       </View>
     </View>
   );
+}
+
+function sharingUnavailable(fontsLoaded: boolean, shareCardReady: boolean) {
+  return !fontsLoaded || !shareCardReady;
 }
 
 const styles = StyleSheet.create({
@@ -225,6 +334,7 @@ const styles = StyleSheet.create({
   },
   metadata: {
     alignItems: "center",
+    gap: 5,
     paddingHorizontal: tokens.spacing.xl,
     paddingBottom: tokens.spacing.sm,
   },
@@ -245,6 +355,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.8,
     paddingLeft: 1.8,
+  },
+  outbreak: {
+    ...tokens.postAuth.smallText,
+    color: tokens.postAuth.tertiary,
+    fontFamily: "Michroma_400Regular",
+    fontSize: 9,
+    fontWeight: "400",
+    includeFontPadding: false,
+    letterSpacing: 1.7,
+    lineHeight: 13,
+    paddingLeft: 1.7,
+    textAlign: "center",
   },
   organismStage: {
     alignItems: "center",
@@ -327,6 +449,13 @@ const styles = StyleSheet.create({
     width: SPECIMEN_LAYOUT.actionWidth,
     maxWidth: SPECIMEN_LAYOUT.actionMaxWidth,
     gap: 8,
+  },
+  shareCardCapture: {
+    height: ORGANISM_SHARE_CARD_HEIGHT,
+    left: -1000,
+    position: "absolute",
+    top: 0,
+    width: ORGANISM_SHARE_CARD_WIDTH,
   },
   error: {
     ...tokens.postAuth.smallText,

@@ -3,6 +3,10 @@ import crypto from "crypto";
 import { PublicKey } from "@solana/web3.js";
 
 import { OrganismIndexModel, type OrganismIndex } from "../models/OrganismIndex";
+import {
+  ensureOutbreakContributionsForBirth,
+  type OutbreakScoringStatus
+} from "../outbreak/scoring";
 
 const PROGRAM_DATA_PREFIX = "Program data: ";
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -30,6 +34,9 @@ export type HeliusIndexResult = {
   indexed: number;
   duplicates: number;
   ignored: number;
+  outbreakScored: number;
+  outbreakSkipped: number;
+  outbreakFailed: number;
 };
 
 type OrganismBornEvent = {
@@ -46,6 +53,11 @@ type OrganismBornEvent = {
 type CandidateEvent = {
   event: OrganismBornEvent;
   transactionSignature: string;
+};
+
+type IndexOrganismBornResult = {
+  indexStatus: "indexed" | "duplicate";
+  outbreakStatus: OutbreakScoringStatus | "failed";
 };
 
 class IndexingError extends Error {}
@@ -68,7 +80,10 @@ export async function indexHeliusRawTransactions(
   const result: HeliusIndexResult = {
     indexed: 0,
     duplicates: 0,
-    ignored: 0
+    ignored: 0,
+    outbreakScored: 0,
+    outbreakSkipped: 0,
+    outbreakFailed: 0
   };
 
   for (const transaction of transactions) {
@@ -82,10 +97,18 @@ export async function indexHeliusRawTransactions(
     for (const candidate of events) {
       const indexed = await indexOrganismBorn(candidate);
 
-      if (indexed === "duplicate") {
+      if (indexed.indexStatus === "duplicate") {
         result.duplicates += 1;
       } else {
         result.indexed += 1;
+      }
+
+      if (indexed.outbreakStatus === "scored") {
+        result.outbreakScored += 1;
+      } else if (indexed.outbreakStatus === "skipped") {
+        result.outbreakSkipped += 1;
+      } else {
+        result.outbreakFailed += 1;
       }
     }
   }
@@ -246,7 +269,7 @@ function decodeOrganismBornEvent(
   return event;
 }
 
-async function indexOrganismBorn(candidate: CandidateEvent): Promise<"indexed" | "duplicate"> {
+async function indexOrganismBorn(candidate: CandidateEvent): Promise<IndexOrganismBornResult> {
   const ancestorNumbers = await deriveAncestorNumbers(candidate.event);
   const indexedAt = new Date();
   const document = {
@@ -260,12 +283,18 @@ async function indexOrganismBorn(candidate: CandidateEvent): Promise<"indexed" |
 
   if (existing) {
     assertCanonicalMatch(existing, document);
-    return "duplicate";
+    return {
+      indexStatus: "duplicate",
+      outbreakStatus: await scoreOutbreakBirth(existing)
+    };
   }
 
   try {
     await OrganismIndexModel.create(document);
-    return "indexed";
+    return {
+      indexStatus: "indexed",
+      outbreakStatus: await scoreOutbreakBirth(document)
+    };
   } catch (error) {
     if (!isDuplicateKeyError(error)) {
       throw error;
@@ -278,7 +307,36 @@ async function indexOrganismBorn(candidate: CandidateEvent): Promise<"indexed" |
     }
 
     assertCanonicalMatch(duplicate, document);
-    return "duplicate";
+    return {
+      indexStatus: "duplicate",
+      outbreakStatus: await scoreOutbreakBirth(duplicate)
+    };
+  }
+}
+
+async function scoreOutbreakBirth(
+  document: Pick<
+    OrganismIndex,
+    | "organismPda"
+    | "organismNumber"
+    | "sgtMint"
+    | "parentOrganismPda"
+    | "generation"
+    | "genome"
+    | "bornAt"
+    | "coreAsset"
+    | "transactionSignature"
+  >
+): Promise<OutbreakScoringStatus | "failed"> {
+  try {
+    return await ensureOutbreakContributionsForBirth(document);
+  } catch (error) {
+    console.error("SPORE outbreak scoring failed.", {
+      organismPda: document.organismPda,
+      reason: getSafeOutbreakErrorReason(error)
+    });
+
+    return "failed";
   }
 }
 
@@ -409,6 +467,14 @@ function isPlainObject(value: unknown): value is JsonObject {
 
 function isDuplicateKeyError(error: unknown) {
   return isPlainObject(error) && error.code === 11000;
+}
+
+function getSafeOutbreakErrorReason(error: unknown) {
+  if (error instanceof Error) {
+    return error.name || "Error";
+  }
+
+  return "Unknown";
 }
 
 function arraysEqual(left: string[], right: string[]) {
