@@ -224,6 +224,22 @@ export default function Reproduction({
       return null;
     }
   }, []);
+  const refreshSpecies = useCallback(async () => {
+    try {
+      const value = await getSpecies();
+      if (mounted.current) setSpecies({ data: value });
+      return value;
+    } catch (error) {
+      if (mounted.current) {
+        setSpecies({
+          data: null,
+          error: error instanceof Error ? error.message : "Species is unavailable.",
+        });
+      }
+
+      return null;
+    }
+  }, []);
   const activateCandidateOffer = useCallback((candidate: ClaimPayload, parent: Organism) => {
     if (!mounted.current) {
       return;
@@ -340,6 +356,20 @@ export default function Reproduction({
 
     throw new SporeFailure("Life is born. Your organism is still emerging.");
   }, [identity]);
+  const completeDevnetGenesis = useCallback((seekerZero: Organism) => {
+    if (!mounted.current) {
+      return;
+    }
+
+    setBirthReveal({ status: "idle" });
+    setOrganism(seekerZero);
+    setSurface("specimen");
+    setStage("home");
+    setError(null);
+    setDevnetGenesis({ status: "hidden" });
+    void refreshSpecies();
+    void refreshOutbreak();
+  }, [refreshOutbreak, refreshSpecies, setSurface]);
   const runDevnetGenesis = useCallback(async () => {
     await run(async () => {
       let completed = false;
@@ -353,32 +383,21 @@ export default function Reproduction({
           birthSlot.current = result.slot;
         }
 
-        const seekerZero = result.organism ?? await resolveNewborn();
+        const refreshedOrganism = await refresh().catch(() => null);
+        const seekerZero = refreshedOrganism ?? result.organism;
 
-        if (!mounted.current) {
-          return;
+        if (!seekerZero) {
+          throw new SporeFailure("Seeker Zero is confirmed. Refreshing organism.");
         }
 
         completed = true;
-        setBirthReveal({ status: "idle" });
-        setOrganism(seekerZero);
-        setSurface("specimen");
-        setStage("home");
-        setError(null);
-        setDevnetGenesis({ status: "hidden" });
-        void refreshOutbreak();
+        completeDevnetGenesis(seekerZero);
       } catch (error) {
-        const seekerZero = await fetchOwnOrganism(identity, birthSlot.current).catch(() => null);
+        const seekerZero = await refresh().catch(() => null);
 
         if (seekerZero && mounted.current) {
           completed = true;
-          setBirthReveal({ status: "idle" });
-          setOrganism(seekerZero);
-          setSurface("specimen");
-          setStage("home");
-          setError(null);
-          setDevnetGenesis({ status: "hidden" });
-          void refreshOutbreak();
+          completeDevnetGenesis(seekerZero);
           return;
         }
 
@@ -389,7 +408,26 @@ export default function Reproduction({
         }
       }
     });
-  }, [identity, refreshDevnetGenesis, refreshOutbreak, resolveNewborn, setSurface]);
+  }, [completeDevnetGenesis, identity, refresh, refreshDevnetGenesis]);
+  useEffect(() => {
+    if (devnetGenesis.status !== "pending" || busy) {
+      return;
+    }
+
+    let live = true;
+
+    void refresh()
+      .then((seekerZero) => {
+        if (live && seekerZero) {
+          completeDevnetGenesis(seekerZero);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      live = false;
+    };
+  }, [busy, completeDevnetGenesis, devnetGenesis.status, refresh]);
   const confirmDevnetGenesis = useCallback(() => {
     if (devnetGenesis.status === "pending") {
       return;

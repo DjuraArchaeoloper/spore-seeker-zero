@@ -8,11 +8,18 @@ import {
   ImageShader,
   Shader,
   Skia,
-  useImage
+  useImage,
 } from "@shopify/react-native-skia";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { Image as StaticImage, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import {
+  Image as StaticImage,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import {
   cancelAnimation,
   Easing,
@@ -22,7 +29,7 @@ import {
   useSharedValue,
   withRepeat,
   withSequence,
-  withTiming
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -147,17 +154,84 @@ half4 main(float2 xy) {
 `);
 
 const LIVING_PARTICLES = [
-  { left: 0.19, top: 0.30, size: 1.6, blur: 0.7, opacity: 0.18, driftX: 7, driftY: -18, curve: 3, phase: 0.05 },
-  { left: 0.36, top: 0.45, size: 1.3, blur: 0.6, opacity: 0.13, driftX: -6, driftY: -15, curve: 2.4, phase: 0.23 },
-  { left: 0.67, top: 0.36, size: 1.9, blur: 0.8, opacity: 0.15, driftX: 5, driftY: -17, curve: 3.2, phase: 0.41 },
-  { left: 0.79, top: 0.52, size: 1.5, blur: 0.7, opacity: 0.12, driftX: -6, driftY: -14, curve: 2.6, phase: 0.58 },
-  { left: 0.45, top: 0.70, size: 2.7, blur: 1.8, opacity: 0.09, driftX: 9, driftY: -21, curve: 4.4, phase: 0.76 },
-  { left: 0.60, top: 0.80, size: 3.8, blur: 2.5, opacity: 0.07, driftX: -8, driftY: -19, curve: 5.2, phase: 0.90 },
+  {
+    left: 0.19,
+    top: 0.3,
+    size: 1.6,
+    blur: 0.7,
+    opacity: 0.18,
+    driftX: 7,
+    driftY: -18,
+    curve: 3,
+    phase: 0.05,
+  },
+  {
+    left: 0.36,
+    top: 0.45,
+    size: 1.3,
+    blur: 0.6,
+    opacity: 0.13,
+    driftX: -6,
+    driftY: -15,
+    curve: 2.4,
+    phase: 0.23,
+  },
+  {
+    left: 0.67,
+    top: 0.36,
+    size: 1.9,
+    blur: 0.8,
+    opacity: 0.15,
+    driftX: 5,
+    driftY: -17,
+    curve: 3.2,
+    phase: 0.41,
+  },
+  {
+    left: 0.79,
+    top: 0.52,
+    size: 1.5,
+    blur: 0.7,
+    opacity: 0.12,
+    driftX: -6,
+    driftY: -14,
+    curve: 2.6,
+    phase: 0.58,
+  },
+  {
+    left: 0.45,
+    top: 0.7,
+    size: 2.7,
+    blur: 1.8,
+    opacity: 0.09,
+    driftX: 9,
+    driftY: -21,
+    curve: 4.4,
+    phase: 0.76,
+  },
+  {
+    left: 0.6,
+    top: 0.8,
+    size: 3.8,
+    blur: 2.5,
+    opacity: 0.07,
+    driftX: -8,
+    driftY: -19,
+    curve: 5.2,
+    phase: 0.9,
+  },
 ];
 
-export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps) {
+export function AuthEntryScreen({
+  error,
+  onEnter,
+  status,
+}: AuthEntryScreenProps) {
   const window = useWindowDimensions();
-  const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
+  const [viewport, setViewport] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const { width, height } = viewport ?? window;
   const insets = useSafeAreaInsets();
   const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
@@ -174,8 +248,15 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
   const artworkHeight = 1672 * artworkScale;
   const artworkLeft = (width - artworkWidth) / 2;
   const artworkTop = (height - artworkHeight) * (40 / 88);
-  const scale = Math.min((width - insets.left - insets.right) / 741, height / 1584, 0.75);
-  const buttonWidth = Math.min((width - insets.left - insets.right) * 0.75, 420);
+  const scale = Math.min(
+    (width - insets.left - insets.right) / 741,
+    height / 1584,
+    0.75,
+  );
+  const buttonWidth = Math.min(
+    (width - insets.left - insets.right) * 0.75,
+    420,
+  );
   // The reference membrane measures approximately 594 x 110, with 38px corners.
   const buttonScale = buttonWidth / 594;
   const buttonHeight = Math.max(52, 110 * buttonScale);
@@ -218,31 +299,49 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
             <Text
               accessibilityRole="header"
               maxFontSizeMultiplier={1.2}
-              style={[styles.text, styles.title, {
-                fontSize: 78 * scale,
-                lineHeight: 82 * scale,
-                letterSpacing: 22 * scale,
-                paddingLeft: 22 * scale,
-              }]}
+              style={[
+                styles.text,
+                styles.title,
+                {
+                  fontSize: 78 * scale,
+                  lineHeight: 82 * scale,
+                  letterSpacing: 22 * scale,
+                  paddingLeft: 12 * scale,
+                },
+              ]}
             >
               SPØR
             </Text>
-            <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.secondary, {
-              marginTop: 12 * scale,
-              fontSize: 26 * scale,
-              lineHeight: 30 * scale,
-              letterSpacing: 9 * scale,
-              paddingLeft: 9 * scale,
-            }]}>
+            <Text
+              maxFontSizeMultiplier={1.2}
+              style={[
+                styles.text,
+                styles.secondary,
+                {
+                  marginTop: 12 * scale,
+                  fontSize: 26 * scale,
+                  lineHeight: 30 * scale,
+                  letterSpacing: 9 * scale,
+                  paddingLeft: 9 * scale,
+                },
+              ]}
+            >
               SEEKER ZERO
             </Text>
-            <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.secondary, {
-              marginTop: 23 * scale,
-              fontSize: 15 * scale,
-              lineHeight: 24 * scale,
-              letterSpacing: 5 * scale,
-              paddingLeft: 5 * scale,
-            }]}>
+            <Text
+              maxFontSizeMultiplier={1.2}
+              style={[
+                styles.text,
+                styles.secondary,
+                {
+                  marginTop: 23 * scale,
+                  fontSize: 15 * scale,
+                  lineHeight: 24 * scale,
+                  letterSpacing: 5 * scale,
+                  paddingLeft: 5 * scale,
+                },
+              ]}
+            >
               THE SPECIES DOESN'T END HERE.
             </Text>
           </View>
@@ -251,7 +350,11 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
               <Text
                 accessibilityLiveRegion="polite"
                 maxFontSizeMultiplier={1.2}
-                style={[styles.text, styles.error, { bottom: buttonHeight + 16 }]}
+                style={[
+                  styles.text,
+                  styles.error,
+                  { bottom: buttonHeight + 16 },
+                ]}
               >
                 SEEKER VERIFICATION FAILED.
               </Text>
@@ -260,42 +363,97 @@ export function AuthEntryScreen({ error, onEnter, status }: AuthEntryScreenProps
               accessibilityRole="button"
               accessibilityLabel="ENTER SPØR"
               accessibilityState={{ disabled, busy: disabled }}
-              accessibilityValue={{ text: authenticating ? "Verifying Seeker" : "Ready" }}
+              accessibilityValue={{
+                text: authenticating ? "Verifying Seeker" : "Ready",
+              }}
               disabled={disabled}
               onPress={onEnter}
-              style={({ pressed }) => [styles.button, {
-                height: buttonHeight,
-                borderRadius: 38 * buttonScale,
-                borderWidth: 1.5 * buttonScale,
-                // Reference-pixel edge lighting scales with the membrane itself.
-                boxShadow: [
-                  { offsetX: 12 * buttonScale, offsetY: 0, blurRadius: 24 * buttonScale, spreadDistance: -4 * buttonScale, color: "rgba(136, 235, 220, 0.30)", inset: true },
-                  { offsetX: -14 * buttonScale, offsetY: 0, blurRadius: 24 * buttonScale, spreadDistance: -4 * buttonScale, color: "rgba(149, 243, 227, 0.38)", inset: true },
-                  { offsetX: 0, offsetY: 2 * buttonScale, blurRadius: 8 * buttonScale, spreadDistance: 0, color: "rgba(156, 237, 222, 0.24)", inset: true },
-                  { offsetX: 0, offsetY: -1 * buttonScale, blurRadius: 6 * buttonScale, spreadDistance: 0, color: "rgba(111, 224, 207, 0.12)" },
-                ],
-                opacity: authenticating ? 0.86 : disabled ? 0.35 : pressed ? 0.88 : 1,
-              }]}
+              style={({ pressed }) => [
+                styles.button,
+                {
+                  height: buttonHeight,
+                  borderRadius: 38 * buttonScale,
+                  borderWidth: 1.5 * buttonScale,
+                  // Reference-pixel edge lighting scales with the membrane itself.
+                  boxShadow: [
+                    {
+                      offsetX: 12 * buttonScale,
+                      offsetY: 0,
+                      blurRadius: 24 * buttonScale,
+                      spreadDistance: -4 * buttonScale,
+                      color: "rgba(136, 235, 220, 0.30)",
+                      inset: true,
+                    },
+                    {
+                      offsetX: -14 * buttonScale,
+                      offsetY: 0,
+                      blurRadius: 24 * buttonScale,
+                      spreadDistance: -4 * buttonScale,
+                      color: "rgba(149, 243, 227, 0.38)",
+                      inset: true,
+                    },
+                    {
+                      offsetX: 0,
+                      offsetY: 2 * buttonScale,
+                      blurRadius: 8 * buttonScale,
+                      spreadDistance: 0,
+                      color: "rgba(156, 237, 222, 0.24)",
+                      inset: true,
+                    },
+                    {
+                      offsetX: 0,
+                      offsetY: -1 * buttonScale,
+                      blurRadius: 6 * buttonScale,
+                      spreadDistance: 0,
+                      color: "rgba(111, 224, 207, 0.12)",
+                    },
+                  ],
+                  opacity: authenticating
+                    ? 0.86
+                    : disabled
+                      ? 0.35
+                      : pressed
+                        ? 0.88
+                        : 1,
+                },
+              ]}
             >
               {authenticating ? (
                 <View style={styles.buttonPendingRow}>
-                  <SporeLoader mode="button" size={Math.max(17, 24 * buttonScale)} />
-                  <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.buttonText, {
-                    fontSize: 24 * buttonScale,
-                    lineHeight: 34 * buttonScale,
-                    letterSpacing: 3.6 * buttonScale,
-                    paddingLeft: 3.6 * buttonScale,
-                  }]}>
+                  <SporeLoader
+                    mode="button"
+                    size={Math.max(17, 24 * buttonScale)}
+                  />
+                  <Text
+                    maxFontSizeMultiplier={1.2}
+                    style={[
+                      styles.text,
+                      styles.buttonText,
+                      {
+                        fontSize: 24 * buttonScale,
+                        lineHeight: 34 * buttonScale,
+                        letterSpacing: 3.6 * buttonScale,
+                        paddingLeft: 3.6 * buttonScale,
+                      },
+                    ]}
+                  >
                     VERIFYING
                   </Text>
                 </View>
               ) : (
-                <Text maxFontSizeMultiplier={1.2} style={[styles.text, styles.buttonText, {
-                  fontSize: 34 * buttonScale,
-                  lineHeight: 46 * buttonScale,
-                  letterSpacing: 4.5 * buttonScale,
-                  paddingLeft: 4.5 * buttonScale,
-                }]}>
+                <Text
+                  maxFontSizeMultiplier={1.2}
+                  style={[
+                    styles.text,
+                    styles.buttonText,
+                    {
+                      fontSize: 34 * buttonScale,
+                      lineHeight: 46 * buttonScale,
+                      letterSpacing: 4.5 * buttonScale,
+                      paddingLeft: 4.5 * buttonScale,
+                    },
+                  ]}
+                >
                   ENTER
                 </Text>
               )}
@@ -314,7 +472,7 @@ function AuthLivingBackground({
   artworkWidth,
   height,
   reduceMotion,
-  width
+  width,
 }: {
   artworkHeight: number;
   artworkLeft: number;
@@ -326,30 +484,54 @@ function AuthLivingBackground({
 }) {
   const backgroundImage = useImage(AUTH_BACKGROUND_SOURCE);
   const backgroundShader = BACKGROUND_DEFORMATION_SHADER;
-  const upperPhase = useLoopingPhase(UPPER_MEMBRANE_DURATION_MS, reduceMotion, UPPER_MEMBRANE_INITIAL_PHASE);
-  const lowerPhase = useLoopingPhase(LOWER_MEMBRANE_DURATION_MS, reduceMotion, LOWER_MEMBRANE_INITIAL_PHASE);
-  const refractPhase = useLoopingPhase(REFRACTION_DURATION_MS, reduceMotion, REFRACTION_INITIAL_PHASE);
-  const upperLightPhase = useLoopingPhase(UPPER_LIGHT_DURATION_MS, reduceMotion, UPPER_LIGHT_INITIAL_PHASE);
-  const lowerLightPhase = useLoopingPhase(LOWER_LIGHT_DURATION_MS, reduceMotion, LOWER_LIGHT_INITIAL_PHASE);
-  const detailLightPhase = useLoopingPhase(DETAIL_LIGHT_DURATION_MS, reduceMotion, DETAIL_LIGHT_INITIAL_PHASE);
-  const particlePhase = useLoopingPhase(PARTICLE_DRIFT_DURATION_MS, reduceMotion, PARTICLE_DRIFT_INITIAL_PHASE);
-  const shaderUniforms = useDerivedValue(() => ({
-    resolution: [width, height],
-    imageRect: [artworkLeft, artworkTop, artworkWidth, artworkHeight],
-    upperPhase: upperPhase.value,
-    lowerPhase: lowerPhase.value,
-    refractPhase: refractPhase.value,
-    upperLightPhase: upperLightPhase.value,
-    lowerLightPhase: lowerLightPhase.value,
-    detailLightPhase: detailLightPhase.value,
-  }), [
-    artworkHeight,
-    artworkLeft,
-    artworkTop,
-    artworkWidth,
-    height,
-    width,
-  ]);
+  const upperPhase = useLoopingPhase(
+    UPPER_MEMBRANE_DURATION_MS,
+    reduceMotion,
+    UPPER_MEMBRANE_INITIAL_PHASE,
+  );
+  const lowerPhase = useLoopingPhase(
+    LOWER_MEMBRANE_DURATION_MS,
+    reduceMotion,
+    LOWER_MEMBRANE_INITIAL_PHASE,
+  );
+  const refractPhase = useLoopingPhase(
+    REFRACTION_DURATION_MS,
+    reduceMotion,
+    REFRACTION_INITIAL_PHASE,
+  );
+  const upperLightPhase = useLoopingPhase(
+    UPPER_LIGHT_DURATION_MS,
+    reduceMotion,
+    UPPER_LIGHT_INITIAL_PHASE,
+  );
+  const lowerLightPhase = useLoopingPhase(
+    LOWER_LIGHT_DURATION_MS,
+    reduceMotion,
+    LOWER_LIGHT_INITIAL_PHASE,
+  );
+  const detailLightPhase = useLoopingPhase(
+    DETAIL_LIGHT_DURATION_MS,
+    reduceMotion,
+    DETAIL_LIGHT_INITIAL_PHASE,
+  );
+  const particlePhase = useLoopingPhase(
+    PARTICLE_DRIFT_DURATION_MS,
+    reduceMotion,
+    PARTICLE_DRIFT_INITIAL_PHASE,
+  );
+  const shaderUniforms = useDerivedValue(
+    () => ({
+      resolution: [width, height],
+      imageRect: [artworkLeft, artworkTop, artworkWidth, artworkHeight],
+      upperPhase: upperPhase.value,
+      lowerPhase: lowerPhase.value,
+      refractPhase: refractPhase.value,
+      upperLightPhase: upperLightPhase.value,
+      lowerLightPhase: lowerLightPhase.value,
+      detailLightPhase: detailLightPhase.value,
+    }),
+    [artworkHeight, artworkLeft, artworkTop, artworkWidth, height, width],
+  );
 
   if (!backgroundImage || !backgroundShader) {
     return (
@@ -370,7 +552,10 @@ function AuthLivingBackground({
   }
 
   return (
-    <Canvas pointerEvents="none" style={[styles.backgroundCanvas, { height, width }]}>
+    <Canvas
+      pointerEvents="none"
+      style={[styles.backgroundCanvas, { height, width }]}
+    >
       <Fill color="#020b0e" />
       <Fill>
         <Shader source={backgroundShader} uniforms={shaderUniforms}>
@@ -400,7 +585,11 @@ function AuthLivingBackground({
   );
 }
 
-function useLoopingPhase(durationMs: number, reduceMotion: boolean, initialPhase: number) {
+function useLoopingPhase(
+  durationMs: number,
+  reduceMotion: boolean,
+  initialPhase: number,
+) {
   const phase = useSharedValue(initialPhase);
 
   useEffect(() => {
@@ -414,7 +603,10 @@ function useLoopingPhase(durationMs: number, reduceMotion: boolean, initialPhase
 
     phase.value = startPhase;
     phase.value = withSequence(
-      withTiming(1, { duration: durationMs * (1 - startPhase), easing: Easing.linear }),
+      withTiming(1, {
+        duration: durationMs * (1 - startPhase),
+        easing: Easing.linear,
+      }),
       withTiming(0, { duration: 1, easing: Easing.linear }),
       withRepeat(
         withSequence(
@@ -438,7 +630,7 @@ function LivingParticle({
   particle,
   phase,
   reduceMotion,
-  width
+  width,
 }: {
   height: number;
   particle: (typeof LIVING_PARTICLES)[number];
@@ -446,7 +638,17 @@ function LivingParticle({
   reduceMotion: boolean;
   width: number;
 }) {
-  const { blur, curve, driftX, driftY, left, opacity, phase: phaseOffset, size, top } = particle;
+  const {
+    blur,
+    curve,
+    driftX,
+    driftY,
+    left,
+    opacity,
+    phase: phaseOffset,
+    size,
+    top,
+  } = particle;
   const viewportScale = Math.min(Math.max(width / 390, 0.9), 1.16);
   const radius = size * viewportScale;
   const cx = useDerivedValue(() => {
@@ -455,7 +657,11 @@ function LivingParticle({
     }
 
     const wave = (phase.value + phaseOffset) * TWO_PI;
-    return width * left + Math.sin(wave) * driftX + Math.cos(wave + Math.PI * 0.31) * curve;
+    return (
+      width * left +
+      Math.sin(wave) * driftX +
+      Math.cos(wave + Math.PI * 0.31) * curve
+    );
   }, [curve, driftX, left, phaseOffset, reduceMotion, width]);
   const cy = useDerivedValue(() => {
     if (reduceMotion) {
@@ -463,7 +669,11 @@ function LivingParticle({
     }
 
     const wave = (phase.value + phaseOffset) * TWO_PI;
-    return height * top + Math.cos(wave + Math.PI * 0.18) * driftY + Math.sin(wave + Math.PI * 0.62) * curve;
+    return (
+      height * top +
+      Math.cos(wave + Math.PI * 0.18) * driftY +
+      Math.sin(wave + Math.PI * 0.62) * curve
+    );
   }, [curve, driftY, height, phaseOffset, reduceMotion, top]);
   const particleOpacity = useDerivedValue(() => {
     if (reduceMotion) {
@@ -480,7 +690,12 @@ function LivingParticle({
       <Circle color="rgba(93, 241, 225, 0.34)" cx={cx} cy={cy} r={radius}>
         <BlurMask blur={blur * viewportScale} style="normal" />
       </Circle>
-      <Circle color="rgba(218, 255, 252, 0.68)" cx={cx} cy={cy} r={radius * 0.28} />
+      <Circle
+        color="rgba(218, 255, 252, 0.68)"
+        cx={cx}
+        cy={cy}
+        r={radius * 0.28}
+      />
     </Group>
   );
 }
@@ -495,7 +710,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   lockup: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-  text: { fontFamily: "Michroma_400Regular", includeFontPadding: false, textAlign: "center" },
+  text: {
+    fontFamily: "Michroma_400Regular",
+    includeFontPadding: false,
+    textAlign: "center",
+  },
   title: { color: "#f4f8f8" },
   secondary: { color: "#819ea8" },
   action: { position: "absolute", alignSelf: "center" },
@@ -515,5 +734,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: "#f4f8f8" },
-  error: { position: "absolute", left: -16, right: -16, color: "#819ea8", fontSize: 9, lineHeight: 16, letterSpacing: 1 },
+  error: {
+    position: "absolute",
+    left: -16,
+    right: -16,
+    color: "#819ea8",
+    fontSize: 9,
+    lineHeight: 16,
+    letterSpacing: 1,
+  },
 });

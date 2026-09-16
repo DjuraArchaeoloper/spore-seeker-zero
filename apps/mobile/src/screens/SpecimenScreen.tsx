@@ -124,7 +124,7 @@ export function SpecimenScreen({
   const compact = height < 740;
   const organismSize = Math.min(
     stageSize.width * SPECIMEN_LAYOUT.creatureScale,
-    Math.max(0, stageSize.height - 8),
+    // Math.max(0, stageSize.height - 8),
     SPECIMEN_LAYOUT.creatureMaxSize,
   );
   const horizontalScale = Math.min((width - insets.left - insets.right) / 390, 1.15);

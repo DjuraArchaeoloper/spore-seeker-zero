@@ -57,15 +57,15 @@ export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavig
 const styles = StyleSheet.create({
   navigation: {
     flexDirection: "row",
-    minHeight: 72,
+    minHeight: 67,
     paddingHorizontal: tokens.spacing.xl,
-    paddingTop: 8,
+    // paddingTop: 8,
   },
   // One shared tray: preserve the approved geometry across tab switches.
   tray: {
     flexDirection: "row",
     flex: 1,
-    minHeight: 50,
+    minHeight: 45,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: "rgba(135, 221, 234, 0.45)",
@@ -77,9 +77,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
-    minHeight: 50,
-    paddingTop: 4,
-    gap: 0,
+    // minHeight: 20,
+    // paddingTop: 4,
+    // gap: 0,
   },
   label: {
     ...tokens.postAuth.smallText,
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     paddingLeft: 1,
     color: tokens.postAuth.secondary,
-    lineHeight: 16,
+    // lineHeight: 16,
     textTransform: "uppercase",
   },
   labelActive: {
