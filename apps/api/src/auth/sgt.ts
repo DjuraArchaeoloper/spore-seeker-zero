@@ -95,9 +95,20 @@ export async function verifySeekerGenesisToken(
       walletAddress: normalizedWalletAddress,
       cluster
     });
+    console.log("[SGT DEBUG]", {
+      phase: "sgt_lookup_complete",
+      walletAddress: normalizedWalletAddress,
+      cluster,
+      expectedMintAddress,
+      candidateCount: 0,
+      verified: false,
+      mintAddress: null
+    });
 
     return null;
   }
+
+  let checkedCandidateCount = 0;
 
   for (let index = 0; index < candidateMints.length; index += MINT_ACCOUNT_BATCH_SIZE) {
     const batch = candidateMints.slice(index, index + MINT_ACCOUNT_BATCH_SIZE);
@@ -116,13 +127,37 @@ export async function verifySeekerGenesisToken(
         continue;
       }
 
-      if (isVerifiedSgtMint(mintAddress, accountInfo)) {
+      checkedCandidateCount += 1;
+
+      if (safeIsVerifiedSgtMint(mintAddress, accountInfo)) {
+        console.log("[SGT DEBUG]", {
+          phase: "sgt_lookup_complete",
+          walletAddress: normalizedWalletAddress,
+          cluster,
+          expectedMintAddress,
+          candidateCount: candidateMintAddresses.length,
+          checkedCandidateCount,
+          verified: true,
+          mintAddress: mintAddress.toBase58()
+        });
+
         return {
           mintAddress: mintAddress.toBase58()
         };
       }
     }
   }
+
+  console.log("[SGT DEBUG]", {
+    phase: "sgt_lookup_complete",
+    walletAddress: normalizedWalletAddress,
+    cluster,
+    expectedMintAddress,
+    candidateCount: candidateMintAddresses.length,
+    checkedCandidateCount,
+    verified: false,
+    mintAddress: null
+  });
 
   return null;
 }
@@ -256,6 +291,20 @@ function getTokenAccountsPage(value: HeliusTokenAccountsValue | undefined) {
 
 function isInitializedTokenAccountState(state: string) {
   return state === "initialized" || state === "frozen";
+}
+
+function safeIsVerifiedSgtMint(mintAddress: PublicKey, accountInfo: Parameters<typeof unpackMint>[1]) {
+  try {
+    return isVerifiedSgtMint(mintAddress, accountInfo);
+  } catch (error) {
+    console.log("[SGT ERROR DEBUG]", {
+      phase: "candidate_verify_error",
+      candidateMintAddress: mintAddress.toBase58(),
+      errorMessage: getSafeErrorMessage(error)
+    });
+
+    return false;
+  }
 }
 
 function isVerifiedSgtMint(mintAddress: PublicKey, accountInfo: Parameters<typeof unpackMint>[1]) {
