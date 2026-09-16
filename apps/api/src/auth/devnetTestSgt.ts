@@ -40,7 +40,7 @@ import {
   DevnetTestSgtAssignmentModel,
   type DevnetTestSgtAssignment,
 } from "../models/DevnetTestSgtAssignment";
-import { verifySeekerGenesisToken, type SgtVerificationResult } from "./sgt";
+import type { SgtVerificationResult } from "./sgt";
 
 const DEVNET_GENESIS_HASH = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
 const MINT_DERIVATION_LABEL = "spore-devnet-test-sgt-v1";
@@ -464,9 +464,9 @@ async function verifyDevnetTestSgt(
     return null;
   }
 
-  return verifySeekerGenesisToken(wallet.toBase58(), {
-    expectedMintAddress: mintAddress.toBase58(),
-  });
+  return {
+    mintAddress: mintAddress.toBase58(),
+  };
 }
 
 async function hasExpectedDevnetTestSgtShape(
