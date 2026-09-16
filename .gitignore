@@ -16,3 +16,5 @@ test-ledger/
 
 *.log
 .DS_Store
+
+apps/mobile/android

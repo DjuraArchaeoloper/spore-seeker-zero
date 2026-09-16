@@ -4,7 +4,7 @@
     "slug": "spore-seeker-zero",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/spor-icon-v2.png",
     "platforms": [
       "android"
     ],
@@ -22,7 +22,7 @@
     "android": {
       "package": "com.spor.seekerzero",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/spor-adaptive-icon-v2.png",
         "backgroundColor": "#050607"
       },
       "permissions": [
