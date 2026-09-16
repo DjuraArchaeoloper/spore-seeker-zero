@@ -6,7 +6,7 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
-  sendAndConfirmTransaction
+  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
   ExtensionType,
@@ -26,7 +26,7 @@ import {
   getMintLen,
   getTokenGroupMemberState,
   getTokenGroupState,
-  unpackMint
+  unpackMint,
 } from "@solana/spl-token";
 
 import {
@@ -34,11 +34,11 @@ import {
   getHeliusRpcUrl,
   getSgtVerificationConfig,
   getSolanaCluster,
-  getSporeProgramId
+  getSporeProgramId,
 } from "../env";
 import {
   DevnetTestSgtAssignmentModel,
-  type DevnetTestSgtAssignment
+  type DevnetTestSgtAssignment,
 } from "../models/DevnetTestSgtAssignment";
 import { verifySeekerGenesisToken, type SgtVerificationResult } from "./sgt";
 
@@ -49,7 +49,7 @@ const CONFIRM_OPTIONS = {
   commitment: "confirmed" as const,
   preflightCommitment: "confirmed" as const,
   skipPreflight: false,
-  maxRetries: 5
+  maxRetries: 5,
 };
 
 type BootstrapContext = {
@@ -74,27 +74,33 @@ export class DevnetTestSgtBootstrapError extends Error {
   }
 }
 
-export async function ensureDevnetTestSgt(walletAddress: string): Promise<SgtVerificationResult> {
+export async function ensureDevnetTestSgt(
+  walletAddress: string,
+): Promise<SgtVerificationResult> {
   try {
     const context = await getBootstrapContext();
     const wallet = normalizePublicKey(walletAddress);
     const mint = deriveTestSgtMint(context, wallet);
     const assignment = await DevnetTestSgtAssignmentModel.findOne({
-      wallet: wallet.toBase58()
+      wallet: wallet.toBase58(),
     }).lean();
 
     if (assignment && assignment.sgtMint !== mint.publicKey.toBase58()) {
       const assignedMint = tryPublicKey(assignment.sgtMint);
-      const assigned = assignedMint ? await verifyDevnetTestSgt(context, wallet, assignedMint) : null;
+      const assigned = assignedMint
+        ? await verifyDevnetTestSgt(context, wallet, assignedMint)
+        : null;
 
       if (assigned) {
-        await ensureDevnetSolFunding(context, wallet, assignment).catch((error: unknown) => {
-          console.warn("[DEVNET TEST SGT]", {
-            phase: "funding_failed",
-            wallet: wallet.toBase58(),
-            reason: getSafeErrorReason(error)
-          });
-        });
+        await ensureDevnetSolFunding(context, wallet, assignment).catch(
+          (error: unknown) => {
+            console.warn("[DEVNET TEST SGT]", {
+              phase: "funding_failed",
+              wallet: wallet.toBase58(),
+              reason: getSafeErrorReason(error),
+            });
+          },
+        );
 
         return assigned;
       }
@@ -103,20 +109,22 @@ export async function ensureDevnetTestSgt(walletAddress: string): Promise<SgtVer
         phase: "stale_assignment_ignored",
         wallet: wallet.toBase58(),
         staleSgtMint: assignment.sgtMint,
-        currentSgtMint: mint.publicKey.toBase58()
+        currentSgtMint: mint.publicKey.toBase58(),
       });
     }
 
     const verified = await ensureMintedAndVerified(context, wallet, mint);
     const saved = await saveAssignment(wallet, verified.mintAddress);
 
-    await ensureDevnetSolFunding(context, wallet, saved).catch((error: unknown) => {
-      console.warn("[DEVNET TEST SGT]", {
-        phase: "funding_failed",
-        wallet: wallet.toBase58(),
-        reason: getSafeErrorReason(error)
-      });
-    });
+    await ensureDevnetSolFunding(context, wallet, saved).catch(
+      (error: unknown) => {
+        console.warn("[DEVNET TEST SGT]", {
+          phase: "funding_failed",
+          wallet: wallet.toBase58(),
+          reason: getSafeErrorReason(error),
+        });
+      },
+    );
 
     return verified;
   } catch (error) {
@@ -129,18 +137,21 @@ export async function ensureDevnetTestSgt(walletAddress: string): Promise<SgtVer
 
     console.warn("[DEVNET TEST SGT]", {
       phase: "bootstrap_failed",
-      reason: getSafeErrorReason(error)
+      reason: getSafeErrorReason(error),
     });
 
     throw new DevnetTestSgtBootstrapError();
   }
 }
 
-export async function fundAssignedDevnetTestSgt(walletAddress: string, sgtMint: string) {
+export async function fundAssignedDevnetTestSgt(
+  walletAddress: string,
+  sgtMint: string,
+) {
   const wallet = normalizePublicKey(walletAddress);
   const assignment = await DevnetTestSgtAssignmentModel.findOne({
     wallet: wallet.toBase58(),
-    sgtMint
+    sgtMint,
   }).lean();
 
   if (!assignment) {
@@ -164,7 +175,7 @@ export async function fundAssignedDevnetTestSgt(walletAddress: string, sgtMint: 
     console.warn("[DEVNET TEST SGT]", {
       phase: "assigned_funding_failed",
       wallet: wallet.toBase58(),
-      reason: getSafeErrorReason(error)
+      reason: getSafeErrorReason(error),
     });
   }
 }
@@ -206,7 +217,11 @@ async function getBootstrapContext(): Promise<BootstrapContext> {
       throw new DevnetTestSgtBootstrapDisabledError();
     }
 
-    await assertDevnetGroupAuthority(connection, groupAddress, sponsor.publicKey);
+    await assertDevnetGroupAuthority(
+      connection,
+      groupAddress,
+      sponsor.publicKey,
+    );
 
     return {
       connection,
@@ -215,7 +230,7 @@ async function getBootstrapContext(): Promise<BootstrapContext> {
       metadataAddress,
       groupAddress,
       sponsor,
-      testerFundingTargetLamports: bootstrap.testerFundingTargetLamports
+      testerFundingTargetLamports: bootstrap.testerFundingTargetLamports,
     };
   } catch (error) {
     if (error instanceof DevnetTestSgtBootstrapDisabledError) {
@@ -229,7 +244,7 @@ async function getBootstrapContext(): Promise<BootstrapContext> {
 async function assertDevnetGroupAuthority(
   connection: Connection,
   groupAddress: PublicKey,
-  expectedUpdateAuthority: PublicKey
+  expectedUpdateAuthority: PublicKey,
 ) {
   const groupInfo = await connection.getAccountInfo(groupAddress, "confirmed");
 
@@ -248,7 +263,7 @@ async function assertDevnetGroupAuthority(
 async function ensureMintedAndVerified(
   context: BootstrapContext,
   wallet: PublicKey,
-  mint: Keypair
+  mint: Keypair,
 ): Promise<SgtVerificationResult> {
   const existing = await verifyDevnetTestSgt(context, wallet, mint.publicKey);
 
@@ -270,7 +285,10 @@ async function ensureMintedAndVerified(
 }
 
 async function ensureMintAccount(context: BootstrapContext, mint: Keypair) {
-  const existing = await context.connection.getAccountInfo(mint.publicKey, "confirmed");
+  const existing = await context.connection.getAccountInfo(
+    mint.publicKey,
+    "confirmed",
+  );
 
   if (existing) {
     if (!existing.owner.equals(TOKEN_2022_PROGRAM_ID)) {
@@ -280,35 +298,41 @@ async function ensureMintAccount(context: BootstrapContext, mint: Keypair) {
     return;
   }
 
-  const mintLength = getMintLen([ExtensionType.MetadataPointer, ExtensionType.GroupMemberPointer]);
-  const lamports = await context.connection.getMinimumBalanceForRentExemption(mintLength, "confirmed");
+  const mintLength = getMintLen([
+    ExtensionType.MetadataPointer,
+    ExtensionType.GroupMemberPointer,
+  ]);
+  const lamports = await context.connection.getMinimumBalanceForRentExemption(
+    mintLength,
+    "confirmed",
+  );
   const transaction = new Transaction().add(
     SystemProgram.createAccount({
       fromPubkey: context.sponsor.publicKey,
       newAccountPubkey: mint.publicKey,
       space: mintLength,
       lamports,
-      programId: TOKEN_2022_PROGRAM_ID
+      programId: TOKEN_2022_PROGRAM_ID,
     }),
     createInitializeMetadataPointerInstruction(
       mint.publicKey,
       context.mintAuthority.publicKey,
       context.metadataAddress,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_2022_PROGRAM_ID,
     ),
     createInitializeGroupMemberPointerInstruction(
       mint.publicKey,
       context.mintAuthority.publicKey,
       mint.publicKey,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_2022_PROGRAM_ID,
     ),
     createInitializeMintInstruction(
       mint.publicKey,
       0,
       context.mintAuthority.publicKey,
       null,
-      TOKEN_2022_PROGRAM_ID
-    )
+      TOKEN_2022_PROGRAM_ID,
+    ),
   );
 
   try {
@@ -316,10 +340,13 @@ async function ensureMintAccount(context: BootstrapContext, mint: Keypair) {
       context.connection,
       transaction,
       uniqueSigners([context.sponsor, mint]),
-      CONFIRM_OPTIONS
+      CONFIRM_OPTIONS,
     );
   } catch (error) {
-    const recovered = await context.connection.getAccountInfo(mint.publicKey, "confirmed");
+    const recovered = await context.connection.getAccountInfo(
+      mint.publicKey,
+      "confirmed",
+    );
 
     if (!recovered?.owner.equals(TOKEN_2022_PROGRAM_ID)) {
       throw error;
@@ -327,20 +354,23 @@ async function ensureMintAccount(context: BootstrapContext, mint: Keypair) {
   }
 }
 
-async function ensureGroupMembership(context: BootstrapContext, mintAddress: PublicKey) {
+async function ensureGroupMembership(
+  context: BootstrapContext,
+  mintAddress: PublicKey,
+) {
   if (await hasExpectedGroupMembership(context, mintAddress)) {
     return;
   }
 
   const lamports = await context.connection.getMinimumBalanceForRentExemption(
     TOKEN_GROUP_MEMBER_SIZE,
-    "confirmed"
+    "confirmed",
   );
   const transaction = new Transaction().add(
     SystemProgram.transfer({
       fromPubkey: context.sponsor.publicKey,
       toPubkey: mintAddress,
-      lamports
+      lamports,
     }),
     createInitializeMemberInstruction({
       programId: TOKEN_2022_PROGRAM_ID,
@@ -348,8 +378,8 @@ async function ensureGroupMembership(context: BootstrapContext, mintAddress: Pub
       memberMint: mintAddress,
       memberMintAuthority: context.mintAuthority.publicKey,
       group: context.groupAddress,
-      groupUpdateAuthority: context.sponsor.publicKey
-    })
+      groupUpdateAuthority: context.sponsor.publicKey,
+    }),
   );
 
   try {
@@ -357,7 +387,7 @@ async function ensureGroupMembership(context: BootstrapContext, mintAddress: Pub
       context.connection,
       transaction,
       uniqueSigners([context.sponsor, context.mintAuthority]),
-      CONFIRM_OPTIONS
+      CONFIRM_OPTIONS,
     );
   } catch (error) {
     if (!(await hasExpectedGroupMembership(context, mintAddress))) {
@@ -366,14 +396,23 @@ async function ensureGroupMembership(context: BootstrapContext, mintAddress: Pub
   }
 }
 
-async function ensureRecipientToken(context: BootstrapContext, wallet: PublicKey, mintAddress: PublicKey) {
+async function ensureRecipientToken(
+  context: BootstrapContext,
+  wallet: PublicKey,
+  mintAddress: PublicKey,
+) {
   if (await hasExpectedRecipientToken(context, wallet, mintAddress)) {
     return;
   }
 
-  const mint = await getMint(context.connection, mintAddress, "confirmed", TOKEN_2022_PROGRAM_ID);
+  const mint = await getMint(
+    context.connection,
+    mintAddress,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID,
+  );
 
-  if (mint.decimals !== 0 || mint.supply !== 0n) {
+  if (mint.decimals !== 0 || mint.supply !== BigInt(0)) {
     throw new DevnetTestSgtBootstrapError();
   }
 
@@ -381,7 +420,7 @@ async function ensureRecipientToken(context: BootstrapContext, wallet: PublicKey
     mintAddress,
     wallet,
     false,
-    TOKEN_2022_PROGRAM_ID
+    TOKEN_2022_PROGRAM_ID,
   );
   const transaction = new Transaction().add(
     createAssociatedTokenAccountIdempotentInstruction(
@@ -389,17 +428,17 @@ async function ensureRecipientToken(context: BootstrapContext, wallet: PublicKey
       recipientTokenAccount,
       wallet,
       mintAddress,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_2022_PROGRAM_ID,
     ),
     createMintToCheckedInstruction(
       mintAddress,
       recipientTokenAccount,
       context.mintAuthority.publicKey,
-      1n,
+      BigInt(1),
       0,
       [],
-      TOKEN_2022_PROGRAM_ID
-    )
+      TOKEN_2022_PROGRAM_ID,
+    ),
   );
 
   try {
@@ -407,7 +446,7 @@ async function ensureRecipientToken(context: BootstrapContext, wallet: PublicKey
       context.connection,
       transaction,
       uniqueSigners([context.sponsor, context.mintAuthority]),
-      CONFIRM_OPTIONS
+      CONFIRM_OPTIONS,
     );
   } catch (error) {
     if (!(await hasExpectedRecipientToken(context, wallet, mintAddress))) {
@@ -419,24 +458,27 @@ async function ensureRecipientToken(context: BootstrapContext, wallet: PublicKey
 async function verifyDevnetTestSgt(
   context: BootstrapContext,
   wallet: PublicKey,
-  mintAddress: PublicKey
+  mintAddress: PublicKey,
 ): Promise<SgtVerificationResult | null> {
   if (!(await hasExpectedDevnetTestSgtShape(context, wallet, mintAddress))) {
     return null;
   }
 
   return verifySeekerGenesisToken(wallet.toBase58(), {
-    expectedMintAddress: mintAddress.toBase58()
+    expectedMintAddress: mintAddress.toBase58(),
   });
 }
 
 async function hasExpectedDevnetTestSgtShape(
   context: BootstrapContext,
   wallet: PublicKey,
-  mintAddress: PublicKey
+  mintAddress: PublicKey,
 ) {
   try {
-    const mintInfo = await context.connection.getAccountInfo(mintAddress, "confirmed");
+    const mintInfo = await context.connection.getAccountInfo(
+      mintAddress,
+      "confirmed",
+    );
 
     if (!mintInfo || !mintInfo.owner.equals(TOKEN_2022_PROGRAM_ID)) {
       return false;
@@ -449,9 +491,12 @@ async function hasExpectedDevnetTestSgtShape(
 
     if (
       mint.mintAuthority?.equals(context.mintAuthority.publicKey) !== true ||
-      metadataPointer?.authority?.equals(context.mintAuthority.publicKey) !== true ||
-      metadataPointer?.metadataAddress?.equals(context.metadataAddress) !== true ||
-      groupMemberPointer?.authority?.equals(context.mintAuthority.publicKey) !== true ||
+      metadataPointer?.authority?.equals(context.mintAuthority.publicKey) !==
+        true ||
+      metadataPointer?.metadataAddress?.equals(context.metadataAddress) !==
+        true ||
+      groupMemberPointer?.authority?.equals(context.mintAuthority.publicKey) !==
+        true ||
       groupMemberPointer?.memberAddress?.equals(mintAddress) !== true ||
       tokenGroupMember?.mint?.equals(mintAddress) !== true ||
       tokenGroupMember?.group?.equals(context.groupAddress) !== true
@@ -465,9 +510,15 @@ async function hasExpectedDevnetTestSgtShape(
   }
 }
 
-async function hasExpectedGroupMembership(context: BootstrapContext, mintAddress: PublicKey) {
+async function hasExpectedGroupMembership(
+  context: BootstrapContext,
+  mintAddress: PublicKey,
+) {
   try {
-    const mintInfo = await context.connection.getAccountInfo(mintAddress, "confirmed");
+    const mintInfo = await context.connection.getAccountInfo(
+      mintAddress,
+      "confirmed",
+    );
 
     if (!mintInfo || !mintInfo.owner.equals(TOKEN_2022_PROGRAM_ID)) {
       return false;
@@ -476,63 +527,78 @@ async function hasExpectedGroupMembership(context: BootstrapContext, mintAddress
     const mint = unpackMint(mintAddress, mintInfo, TOKEN_2022_PROGRAM_ID);
     const groupMember = getTokenGroupMemberState(mint);
 
-    return groupMember?.mint?.equals(mintAddress) === true && groupMember.group?.equals(context.groupAddress) === true;
+    return (
+      groupMember?.mint?.equals(mintAddress) === true &&
+      groupMember.group?.equals(context.groupAddress) === true
+    );
   } catch {
     return false;
   }
 }
 
-async function hasExpectedRecipientToken(context: BootstrapContext, wallet: PublicKey, mintAddress: PublicKey) {
+async function hasExpectedRecipientToken(
+  context: BootstrapContext,
+  wallet: PublicKey,
+  mintAddress: PublicKey,
+) {
   try {
-    const mint = await getMint(context.connection, mintAddress, "confirmed", TOKEN_2022_PROGRAM_ID);
+    const mint = await getMint(
+      context.connection,
+      mintAddress,
+      "confirmed",
+      TOKEN_2022_PROGRAM_ID,
+    );
     const recipientTokenAccount = getAssociatedTokenAddressSync(
       mintAddress,
       wallet,
       false,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_2022_PROGRAM_ID,
     );
     const tokenAccount = await getAccount(
       context.connection,
       recipientTokenAccount,
       "confirmed",
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_2022_PROGRAM_ID,
     );
 
     return (
       mint.decimals === 0 &&
-      mint.supply === 1n &&
+      mint.supply === BigInt(1) &&
       tokenAccount.isInitialized &&
       tokenAccount.owner.equals(wallet) &&
       tokenAccount.mint.equals(mintAddress) &&
-      tokenAccount.amount === 1n
+      tokenAccount.amount === BigInt(1)
     );
   } catch {
     return false;
   }
 }
 
-async function saveAssignment(wallet: PublicKey, sgtMint: string): Promise<DevnetTestSgtAssignment> {
+async function saveAssignment(
+  wallet: PublicKey,
+  sgtMint: string,
+): Promise<DevnetTestSgtAssignment> {
   const now = new Date();
 
   try {
     const assignment = await DevnetTestSgtAssignmentModel.findOneAndUpdate(
       {
-        wallet: wallet.toBase58()
+        wallet: wallet.toBase58(),
       },
       {
         $set: {
           sgtMint,
-          updatedAt: now
+          updatedAt: now,
         },
         $setOnInsert: {
           wallet: wallet.toBase58(),
-          createdAt: now
-        }
+          createdAt: now,
+        },
       },
       {
         new: true,
-        upsert: true
-      }
+        upsert: true,
+      },
     ).lean();
 
     if (!assignment || assignment.sgtMint !== sgtMint) {
@@ -546,7 +612,7 @@ async function saveAssignment(wallet: PublicKey, sgtMint: string): Promise<Devne
     }
 
     const assignment = await DevnetTestSgtAssignmentModel.findOne({
-      wallet: wallet.toBase58()
+      wallet: wallet.toBase58(),
     }).lean();
 
     if (!assignment || assignment.sgtMint !== sgtMint) {
@@ -560,7 +626,7 @@ async function saveAssignment(wallet: PublicKey, sgtMint: string): Promise<Devne
 async function ensureDevnetSolFunding(
   context: BootstrapContext,
   wallet: PublicKey,
-  assignment: Pick<DevnetTestSgtAssignment, "wallet" | "fundedAt">
+  assignment: Pick<DevnetTestSgtAssignment, "wallet" | "fundedAt">,
 ) {
   if (assignment.fundedAt || context.testerFundingTargetLamports <= 0) {
     return;
@@ -578,17 +644,20 @@ async function ensureDevnetSolFunding(
     {
       wallet: assignment.wallet,
       fundedAt: null,
-      $or: [{ fundingReservedAt: null }, { fundingReservedAt: { $lt: staleReservation } }]
+      $or: [
+        { fundingReservedAt: null },
+        { fundingReservedAt: { $lt: staleReservation } },
+      ],
     },
     {
       $set: {
         fundingReservedAt: now,
-        updatedAt: now
-      }
+        updatedAt: now,
+      },
     },
     {
-      new: true
-    }
+      new: true,
+    },
   ).lean();
 
   if (!reserved) {
@@ -602,41 +671,46 @@ async function ensureDevnetSolFunding(
       SystemProgram.transfer({
         fromPubkey: context.sponsor.publicKey,
         toPubkey: wallet,
-        lamports
-      })
+        lamports,
+      }),
     );
 
-    await sendAndConfirmTransaction(context.connection, transaction, [context.sponsor], CONFIRM_OPTIONS);
+    await sendAndConfirmTransaction(
+      context.connection,
+      transaction,
+      [context.sponsor],
+      CONFIRM_OPTIONS,
+    );
 
     await DevnetTestSgtAssignmentModel.updateOne(
       {
         wallet: assignment.wallet,
-        fundedAt: null
+        fundedAt: null,
       },
       {
         $set: {
           fundedAt: new Date(),
           fundedLamports: lamports,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
         $unset: {
-          fundingReservedAt: ""
-        }
-      }
+          fundingReservedAt: "",
+        },
+      },
     );
   } catch (error) {
     await DevnetTestSgtAssignmentModel.updateOne(
       {
-        wallet: assignment.wallet
+        wallet: assignment.wallet,
       },
       {
         $set: {
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
         $unset: {
-          fundingReservedAt: ""
-        }
-      }
+          fundingReservedAt: "",
+        },
+      },
     );
 
     throw error;
@@ -661,7 +735,9 @@ function keypairFromSecret(secret: string) {
   let bytes: unknown;
 
   try {
-    bytes = secret.startsWith("[") ? JSON.parse(secret) : Array.from(Buffer.from(secret, "base64"));
+    bytes = secret.startsWith("[")
+      ? JSON.parse(secret)
+      : Array.from(Buffer.from(secret, "base64"));
   } catch {
     throw new DevnetTestSgtBootstrapDisabledError();
   }
@@ -669,7 +745,9 @@ function keypairFromSecret(secret: string) {
   if (
     !Array.isArray(bytes) ||
     bytes.length !== 64 ||
-    !bytes.every((value) => Number.isInteger(value) && value >= 0 && value <= 255)
+    !bytes.every(
+      (value) => Number.isInteger(value) && value >= 0 && value <= 255,
+    )
   ) {
     throw new DevnetTestSgtBootstrapDisabledError();
   }
@@ -704,7 +782,11 @@ function uniqueSigners(signers: Keypair[]) {
 }
 
 function isDuplicateKeyError(error: unknown) {
-  return typeof error === "object" && error !== null && (error as { code?: unknown }).code === 11000;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === 11000
+  );
 }
 
 function getSafeErrorReason(error: unknown) {
