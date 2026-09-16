@@ -4,7 +4,7 @@
     "slug": "spore-seeker-zero",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/spor-android-icon-1024.png",
+    "icon": "./assets/spor-android-icon-1024-v5.png",
     "platforms": [
       "android"
     ],
@@ -21,10 +21,10 @@
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.spor.seekerzero",
-      "icon": "./assets/spor-android-icon-1024.png",
+      "icon": "./assets/spor-android-icon-1024-v5.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/spor-android-adaptive-foreground.png",
-        "backgroundImage": "./assets/spor-android-adaptive-background.png"
+        "foregroundImage": "./assets/spor-android-adaptive-foreground-v5.png",
+        "backgroundImage": "./assets/spor-android-adaptive-background-v5.png"
       },
       "permissions": [
         "android.permission.CAMERA"
