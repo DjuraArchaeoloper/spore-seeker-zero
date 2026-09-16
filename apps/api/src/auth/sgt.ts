@@ -47,26 +47,39 @@ export type SgtVerificationResult = {
   mintAddress: string;
 };
 
+type SgtVerificationOptions = {
+  expectedMintAddress?: string;
+};
+
 export class SgtVerificationUnavailableError extends Error {
   constructor() {
     super("SGT verification is unavailable.");
   }
 }
 
-export async function verifySeekerGenesisToken(walletAddress: string): Promise<SgtVerificationResult | null> {
+export async function verifySeekerGenesisToken(
+  walletAddress: string,
+  options: SgtVerificationOptions = {}
+): Promise<SgtVerificationResult | null> {
   const walletPublicKey = new PublicKey(walletAddress);
   const normalizedWalletAddress = walletPublicKey.toBase58();
   const cluster = getSolanaCluster();
+  const expectedMintAddress = options.expectedMintAddress
+    ? new PublicKey(options.expectedMintAddress).toBase58()
+    : null;
 
   console.log("[SGT DEBUG]", {
     phase: "lookup_start",
     walletAddress: normalizedWalletAddress,
-    cluster
+    cluster,
+    expectedMintAddress
   });
 
   const heliusRpcUrl = getHeliusRpcUrl();
   const connection = new Connection(heliusRpcUrl, "confirmed");
-  const candidateMints = await getToken2022MintsForWallet(heliusRpcUrl, normalizedWalletAddress);
+  const candidateMints = (await getToken2022MintsForWallet(heliusRpcUrl, normalizedWalletAddress)).filter(
+    (mint) => !expectedMintAddress || mint.toBase58() === expectedMintAddress
+  );
   const candidateMintAddresses = candidateMints.map((mint) => mint.toBase58());
 
   console.log("[SGT DEBUG]", {

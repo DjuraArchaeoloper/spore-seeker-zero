@@ -14,9 +14,12 @@ type RequiredEnvName =
   | "SIWS_URI"
   | "SPORE_PROGRAM_ID"
   | "HELIUS_WEBHOOK_AUTH"
+  | "SPORE_DEVNET_APPROVED_PROGRAM_ID"
   | "SPORE_DEVNET_TEST_SGT_MINT_AUTHORITY"
   | "SPORE_DEVNET_TEST_SGT_METADATA_ADDRESS"
-  | "SPORE_DEVNET_TEST_SGT_GROUP_ADDRESS";
+  | "SPORE_DEVNET_TEST_SGT_GROUP_ADDRESS"
+  | "SPORE_DEVNET_TEST_SGT_MINT_AUTHORITY_SECRET"
+  | "SPORE_DEVNET_SPONSOR_SECRET";
 
 export type SolanaCluster = "mainnet" | "devnet";
 
@@ -28,6 +31,12 @@ export function getRequiredEnv(name: RequiredEnvName) {
   }
 
   return value;
+}
+
+function getOptionalEnv(name: string) {
+  const value = process.env[name]?.trim();
+
+  return value ? value : null;
 }
 
 export function getSiwsConfig() {
@@ -76,4 +85,42 @@ export function getSgtVerificationConfig() {
     metadataAddress: "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te",
     groupAddress: "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te"
   };
+}
+
+export function getDevnetTestSgtBootstrapConfig() {
+  const enabled = getOptionalEnv("SPORE_DEVNET_TEST_SGT_BOOTSTRAP_ENABLED") === "true";
+
+  if (!enabled) {
+    return {
+      enabled: false
+    } as const;
+  }
+
+  return {
+    enabled: true,
+    approvedProgramId: getRequiredEnv("SPORE_DEVNET_APPROVED_PROGRAM_ID"),
+    mintAuthoritySecret: getRequiredEnv("SPORE_DEVNET_TEST_SGT_MINT_AUTHORITY_SECRET"),
+    sponsorSecret: getRequiredEnv("SPORE_DEVNET_SPONSOR_SECRET"),
+    testerFundingTargetLamports: getDevnetTesterFundingTargetLamports()
+  } as const;
+}
+
+function getDevnetTesterFundingTargetLamports() {
+  const value = getOptionalEnv("SPORE_DEVNET_TESTER_FUNDING_TARGET_LAMPORTS");
+
+  if (!value) {
+    return 100_000_000;
+  }
+
+  if (!/^[0-9]+$/.test(value)) {
+    throw new Error("SPORE_DEVNET_TESTER_FUNDING_TARGET_LAMPORTS must be an integer lamport amount.");
+  }
+
+  const lamports = Number(value);
+
+  if (!Number.isSafeInteger(lamports) || lamports < 0) {
+    throw new Error("SPORE_DEVNET_TESTER_FUNDING_TARGET_LAMPORTS must be a safe non-negative integer.");
+  }
+
+  return lamports;
 }

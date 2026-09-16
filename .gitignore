@@ -13,6 +13,7 @@ coverage/
 target/
 .anchor/
 test-ledger/
+scripts/devnet/.generated/
 
 *.log
 .DS_Store

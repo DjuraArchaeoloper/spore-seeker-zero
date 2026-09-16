@@ -22,6 +22,9 @@ use mpl_core::{
 use sgt::verify_seeker_genesis_token;
 use state::{Organism, Species};
 
+#[cfg(feature = "devnet-test-sgt")]
+include!(concat!(env!("OUT_DIR"), "/devnet_program_id.rs"));
+#[cfg(not(feature = "devnet-test-sgt"))]
 declare_id!("GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me");
 
 #[program]

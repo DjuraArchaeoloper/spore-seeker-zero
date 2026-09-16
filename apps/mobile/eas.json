@@ -8,11 +8,11 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SPORE_API_URL": "https://spore-seeker-zero-api.vercel.app/",
+        "EXPO_PUBLIC_SPORE_API_URL": "<DEVNET_API_URL>",
         "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
         "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "devnet",
         "EXPO_PUBLIC_SPORE_RPC_URL": "https://api.devnet.solana.com",
-        "EXPO_PUBLIC_SPORE_PROGRAM_ID": "GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me"
+        "EXPO_PUBLIC_SPORE_PROGRAM_ID": "Gw9SGqX7h99txtUHvyLKDLfwst1g1PCzRKhG7juY6PSa"
       }
     },
     "preview": {
@@ -21,11 +21,11 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_SPORE_API_URL": "https://spore-seeker-zero-api.vercel.app/",
+        "EXPO_PUBLIC_SPORE_API_URL": "<DEVNET_API_URL>",
         "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
         "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "devnet",
         "EXPO_PUBLIC_SPORE_RPC_URL": "https://api.devnet.solana.com",
-        "EXPO_PUBLIC_SPORE_PROGRAM_ID": "GVKoapVqZCBNWkuHopCZSFDqBGimxHWuHsFeoEcVd4Me"
+        "EXPO_PUBLIC_SPORE_PROGRAM_ID": "Gw9SGqX7h99txtUHvyLKDLfwst1g1PCzRKhG7juY6PSa"
       }
     },
     "dapp-store": {

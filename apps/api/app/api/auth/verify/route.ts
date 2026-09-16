@@ -5,6 +5,12 @@ import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { createSession } from "../../../../src/auth/session";
 import { createSiwsPayload, getVerifyBody, verifySiwsPayload } from "../../../../src/auth/siws";
 import { SgtVerificationUnavailableError, verifySeekerGenesisToken } from "../../../../src/auth/sgt";
+import {
+  DevnetTestSgtBootstrapDisabledError,
+  DevnetTestSgtBootstrapError,
+  ensureDevnetTestSgt,
+  fundAssignedDevnetTestSgt
+} from "../../../../src/auth/devnetTestSgt";
 import { AuthNonceModel } from "../../../../src/models/AuthNonce";
 import { SeekerIdentityModel } from "../../../../src/models/SeekerIdentity";
 
@@ -50,7 +56,21 @@ export async function POST(request: Request) {
       cluster: getSolanaCluster()
     });
 
-    const sgt = await verifySeekerGenesisToken(siws.walletAddress);
+    let sgt = await verifySeekerGenesisToken(siws.walletAddress);
+
+    if (sgt) {
+      await fundAssignedDevnetTestSgt(siws.walletAddress, sgt.mintAddress);
+    }
+
+    if (!sgt) {
+      try {
+        sgt = await ensureDevnetTestSgt(siws.walletAddress);
+      } catch (error) {
+        if (!(error instanceof DevnetTestSgtBootstrapDisabledError)) {
+          throw error;
+        }
+      }
+    }
 
     if (!sgt) {
       return jsonError(403, "not_seeker", "Seeker verification failed.");
@@ -110,6 +130,10 @@ export async function POST(request: Request) {
     }
 
     if (error instanceof SgtVerificationUnavailableError) {
+      return jsonError(503, "verification_unavailable", "Seeker verification is temporarily unavailable.");
+    }
+
+    if (error instanceof DevnetTestSgtBootstrapError) {
       return jsonError(503, "verification_unavailable", "Seeker verification is temporarily unavailable.");
     }
 
