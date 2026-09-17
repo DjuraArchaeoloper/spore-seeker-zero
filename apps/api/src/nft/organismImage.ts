@@ -17,6 +17,8 @@ import {
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const IMAGE_BACKGROUND = "#05070a";
 const FILTER_EXTENT = SPORE_NFT_IMAGE_SIZE * 1.5;
+const CARD_FONT_FAMILY = "SporeCardMichroma";
+const CARD_FONT_FILE = "Michroma_400Regular.ttf";
 const CARD_TEXT = {
   primary: "#f7fbfb",
   secondary: "#b8ced3",
@@ -89,9 +91,18 @@ function renderOrganismSvg({
 }) {
   const size = SPORE_NFT_IMAGE_SIZE;
   const card = createCardIdentity(identity, genomeHex);
+  const cardFontDataUri = getSharedFontDataUri(CARD_FONT_FILE);
 
   return `<svg xmlns="${SVG_NAMESPACE}" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img">
   <defs>
+    <style><![CDATA[
+      @font-face {
+        font-family: '${CARD_FONT_FAMILY}';
+        src: url("${cardFontDataUri}") format('truetype');
+        font-style: normal;
+        font-weight: 400;
+      }
+    ]]></style>
     <radialGradient id="cardAura" cx="50%" cy="42%" r="62%">
       <stop offset="0%" stop-color="#173a3c" stop-opacity="0.36"/>
       <stop offset="48%" stop-color="#081318" stop-opacity="0.18"/>
@@ -361,11 +372,11 @@ function formatGenome(genomeHex: string) {
 }
 
 function displayFont() {
-  return "Michroma, Avenir Next, Trebuchet MS, Arial, sans-serif";
+  return CARD_FONT_FAMILY;
 }
 
 function monoFont() {
-  return "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  return CARD_FONT_FAMILY;
 }
 
 function imageLayer({
@@ -470,12 +481,39 @@ function getSharedAssetDataUri(relativePath: string) {
   return dataUri;
 }
 
+function getSharedFontDataUri(fileName: string) {
+  const resolvedPath = resolveSharedFontPath(fileName);
+  const cached = dataUriCache.get(resolvedPath);
+
+  if (cached) {
+    return cached;
+  }
+
+  const encoded = readFileSync(resolvedPath).toString("base64");
+  const dataUri = `data:font/truetype;base64,${encoded}`;
+
+  dataUriCache.set(resolvedPath, dataUri);
+
+  return dataUri;
+}
+
 function resolveSharedAssetPath(relativePath: string) {
   const root = resolveSharedAssetRoot();
   const resolvedPath = path.resolve(root, relativePath);
 
   if (!resolvedPath.startsWith(root + path.sep)) {
     throw new Error("Invalid organism asset path.");
+  }
+
+  return resolvedPath;
+}
+
+function resolveSharedFontPath(fileName: string) {
+  const root = resolveSharedFontRoot();
+  const resolvedPath = path.resolve(root, fileName);
+
+  if (!resolvedPath.startsWith(root + path.sep)) {
+    throw new Error("Invalid NFT font path.");
   }
 
   return resolvedPath;
@@ -490,6 +528,20 @@ function resolveSharedAssetRoot() {
 
   if (!root) {
     throw new Error("Shared organism assets are unavailable.");
+  }
+
+  return root;
+}
+
+function resolveSharedFontRoot() {
+  const candidates = [
+    path.resolve(process.cwd(), "../../packages/shared/assets/fonts"),
+    path.resolve(process.cwd(), "packages/shared/assets/fonts")
+  ];
+  const root = candidates.find((candidate) => existsSync(candidate));
+
+  if (!root) {
+    throw new Error("Shared NFT fonts are unavailable.");
   }
 
   return root;
