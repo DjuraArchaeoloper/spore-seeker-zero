@@ -1,43 +1,46 @@
 /**
- * SPORE Creature Asset Registry — shape reference.
+ * SPORE Creature Asset Registry — mobile adapter shape reference.
  *
- * Metro requires static image paths. The runtime registry must use literal
- * require("./family/body.png") paths, not dynamic template strings.
+ * Shared art metadata lives in packages/shared/src/organismArt.ts.
+ * Metro still requires static image paths, so the mobile adapter must use
+ * literal require("../../../../packages/shared/assets/organisms/family/body.png")
+ * paths, not dynamic template strings.
  *
  * Adding art should mean:
- * 1. add a standardized family folder with the six biological PNGs
- * 2. add one CreatureFamilyDefinition entry
- * 3. intentionally update the genome body-form mapping only when approved
+ * 1. add one shared family folder with the six biological PNGs
+ * 2. add one shared CreatureFamilyArtDefinition entry
+ * 3. add mobile static require() asset IDs that point at packages/shared
+ * 4. intentionally update the genome body-form mapping only when approved
  */
 
-import type { CreatureFamily } from "@spore/shared";
+import type { CreatureFamily, CreatureFamilyArtDefinition } from "@spore/shared";
 
 export type CreatureLayer = "body" | "fins" | "core" | "tendrils" | "surface" | "glow";
 type CreatureAssetSource = number;
-type PointPair = readonly [number, number];
 
-export type CreatureLayerAssets = Record<CreatureLayer, CreatureAssetSource>;
+export type CreatureLayerAssets = Readonly<Record<CreatureLayer, CreatureAssetSource>>;
 
-export type CreatureFamilyDefinition = {
-  id: CreatureFamily;
+export type CreatureFamilyDefinition = CreatureFamilyArtDefinition & {
   assets: CreatureLayerAssets;
-  moustache: {
-    center: PointPair;
-    width: number;
-    rotationDeg: number;
-  };
-  sensoryAnchors: readonly PointPair[];
 };
 
 export const EXAMPLE_CREATURE_FAMILY = {
   id: "silk-ray",
+  layers: {
+    body: "silk-ray/body.png",
+    fins: "silk-ray/fins.png",
+    core: "silk-ray/core.png",
+    tendrils: "silk-ray/tendrils.png",
+    surface: "silk-ray/surface.png",
+    glow: "silk-ray/glow.png",
+  },
   assets: {
-    body: require("./silk-ray/body.png"),
-    fins: require("./silk-ray/fins.png"),
-    core: require("./silk-ray/core.png"),
-    tendrils: require("./silk-ray/tendrils.png"),
-    surface: require("./silk-ray/surface.png"),
-    glow: require("./silk-ray/glow.png")
+    body: require("../../../../packages/shared/assets/organisms/silk-ray/body.png"),
+    fins: require("../../../../packages/shared/assets/organisms/silk-ray/fins.png"),
+    core: require("../../../../packages/shared/assets/organisms/silk-ray/core.png"),
+    tendrils: require("../../../../packages/shared/assets/organisms/silk-ray/tendrils.png"),
+    surface: require("../../../../packages/shared/assets/organisms/silk-ray/surface.png"),
+    glow: require("../../../../packages/shared/assets/organisms/silk-ray/glow.png")
   },
   moustache: {
     center: [0.5078, 0.4902],

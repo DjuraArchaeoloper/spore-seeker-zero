@@ -19,7 +19,7 @@
     "moustache"
   ],
   "shared": {
-    "moustache": "./shared/moustache_01.png"
+    "moustache": "../../../../packages/shared/assets/organisms/shared/moustache_01.png"
   },
   "bodyFamilyBuckets": [
     "void-drifter",
@@ -37,16 +37,16 @@
   "families": {
     "silk-ray": {
       "layers": {
-        "body": "./silk-ray/body.png",
-        "fins": "./silk-ray/fins.png",
-        "core": "./silk-ray/core.png",
-        "tendrils": "./silk-ray/tendrils.png",
-        "surface": "./silk-ray/surface.png",
-        "glow": "./silk-ray/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/silk-ray/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/silk-ray/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/silk-ray/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/silk-ray/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/silk-ray/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/silk-ray/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -54,7 +54,7 @@
           0.4902
         ],
         "width": 0.142,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [
@@ -93,16 +93,16 @@
     },
     "void-drifter": {
       "layers": {
-        "body": "./void-drifter/body.png",
-        "fins": "./void-drifter/fins.png",
-        "core": "./void-drifter/core.png",
-        "tendrils": "./void-drifter/tendrils.png",
-        "surface": "./void-drifter/surface.png",
-        "glow": "./void-drifter/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/void-drifter/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/void-drifter/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/void-drifter/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/void-drifter/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/void-drifter/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/void-drifter/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -110,7 +110,7 @@
           0.516
         ],
         "width": 0.148,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [
@@ -149,16 +149,16 @@
     },
     "crystal-bloom": {
       "layers": {
-        "body": "./crystal-bloom/body.png",
-        "fins": "./crystal-bloom/fins.png",
-        "core": "./crystal-bloom/core.png",
-        "tendrils": "./crystal-bloom/tendrils.png",
-        "surface": "./crystal-bloom/surface.png",
-        "glow": "./crystal-bloom/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/crystal-bloom/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/crystal-bloom/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/crystal-bloom/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/crystal-bloom/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/crystal-bloom/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/crystal-bloom/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -166,7 +166,7 @@
           0.4946
         ],
         "width": 0.142,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [
@@ -205,12 +205,12 @@
     },
     "nebula-spine": {
       "layers": {
-        "body": "./nebula-spine/body.png",
-        "fins": "./nebula-spine/fins.png",
-        "core": "./nebula-spine/core.png",
-        "tendrils": "./nebula-spine/tendrils.png",
-        "surface": "./nebula-spine/surface.png",
-        "glow": "./nebula-spine/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/nebula-spine/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/nebula-spine/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/nebula-spine/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/nebula-spine/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/nebula-spine/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/nebula-spine/glow.png"
       },
       "principalAxis": [
         0.44484,
@@ -222,7 +222,7 @@
           0.458
         ],
         "width": 0.145,
-        "rotationDeg": -5.0
+        "rotationDeg": -5
       },
       "sensoryAnchors": [
         [
@@ -261,16 +261,16 @@
     },
     "pearl-medusa": {
       "layers": {
-        "body": "./pearl-medusa/body.png",
-        "fins": "./pearl-medusa/fins.png",
-        "core": "./pearl-medusa/core.png",
-        "tendrils": "./pearl-medusa/tendrils.png",
-        "surface": "./pearl-medusa/surface.png",
-        "glow": "./pearl-medusa/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/pearl-medusa/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/pearl-medusa/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/pearl-medusa/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/pearl-medusa/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/pearl-medusa/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/pearl-medusa/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -278,7 +278,7 @@
           0.4946
         ],
         "width": 0.142,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [
@@ -317,16 +317,16 @@
     },
     "prism-spine": {
       "layers": {
-        "body": "./prism-spine/body.png",
-        "fins": "./prism-spine/fins.png",
-        "core": "./prism-spine/core.png",
-        "tendrils": "./prism-spine/tendrils.png",
-        "surface": "./prism-spine/surface.png",
-        "glow": "./prism-spine/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/prism-spine/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/prism-spine/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/prism-spine/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/prism-spine/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/prism-spine/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/prism-spine/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -334,7 +334,7 @@
           0.4946
         ],
         "width": 0.142,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [
@@ -373,16 +373,16 @@
     },
     "astral-chrysalis": {
       "layers": {
-        "body": "./astral-chrysalis/body.png",
-        "fins": "./astral-chrysalis/fins.png",
-        "core": "./astral-chrysalis/core.png",
-        "tendrils": "./astral-chrysalis/tendrils.png",
-        "surface": "./astral-chrysalis/surface.png",
-        "glow": "./astral-chrysalis/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/astral-chrysalis/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/astral-chrysalis/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/astral-chrysalis/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/astral-chrysalis/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/astral-chrysalis/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/astral-chrysalis/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -390,7 +390,7 @@
           0.4946
         ],
         "width": 0.142,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [
@@ -429,16 +429,16 @@
     },
     "nova-urchin": {
       "layers": {
-        "body": "./nova-urchin/body.png",
-        "fins": "./nova-urchin/fins.png",
-        "core": "./nova-urchin/core.png",
-        "tendrils": "./nova-urchin/tendrils.png",
-        "surface": "./nova-urchin/surface.png",
-        "glow": "./nova-urchin/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/nova-urchin/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/nova-urchin/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/nova-urchin/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/nova-urchin/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/nova-urchin/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/nova-urchin/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -446,7 +446,7 @@
           0.4946
         ],
         "width": 0.142,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [
@@ -485,16 +485,16 @@
     },
     "celestial-queen": {
       "layers": {
-        "body": "./celestial-queen/body.png",
-        "fins": "./celestial-queen/fins.png",
-        "core": "./celestial-queen/core.png",
-        "tendrils": "./celestial-queen/tendrils.png",
-        "surface": "./celestial-queen/surface.png",
-        "glow": "./celestial-queen/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/celestial-queen/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/celestial-queen/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/celestial-queen/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/celestial-queen/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/celestial-queen/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/celestial-queen/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -502,7 +502,7 @@
           0.4946
         ],
         "width": 0.142,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [
@@ -541,16 +541,16 @@
     },
     "ribbon-leviathan": {
       "layers": {
-        "body": "./ribbon-leviathan/body.png",
-        "fins": "./ribbon-leviathan/fins.png",
-        "core": "./ribbon-leviathan/core.png",
-        "tendrils": "./ribbon-leviathan/tendrils.png",
-        "surface": "./ribbon-leviathan/surface.png",
-        "glow": "./ribbon-leviathan/glow.png"
+        "body": "../../../../packages/shared/assets/organisms/ribbon-leviathan/body.png",
+        "fins": "../../../../packages/shared/assets/organisms/ribbon-leviathan/fins.png",
+        "core": "../../../../packages/shared/assets/organisms/ribbon-leviathan/core.png",
+        "tendrils": "../../../../packages/shared/assets/organisms/ribbon-leviathan/tendrils.png",
+        "surface": "../../../../packages/shared/assets/organisms/ribbon-leviathan/surface.png",
+        "glow": "../../../../packages/shared/assets/organisms/ribbon-leviathan/glow.png"
       },
       "principalAxis": [
-        0.0,
-        1.0
+        0,
+        1
       ],
       "moustache": {
         "center": [
@@ -558,7 +558,7 @@
           0.4946
         ],
         "width": 0.142,
-        "rotationDeg": 0.0
+        "rotationDeg": 0
       },
       "sensoryAnchors": [
         [

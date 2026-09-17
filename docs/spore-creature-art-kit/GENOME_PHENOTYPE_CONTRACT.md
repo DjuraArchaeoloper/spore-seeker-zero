@@ -1,6 +1,9 @@
 # SPORE — Genome → Phenotype Contract v1
 
-This is the visual source of truth for the 16-byte SPORE genome.
+This documents the visual contract for the 16-byte SPORE genome.
+
+The live source of truth is `packages/shared/src/genome.ts`. Do not create or maintain
+a second genome-to-phenotype implementation in docs or app code.
 
 **Genome remains canonical. Phenotype is always derived and must never be persisted.**
 The same 16 bytes must always render the same organism.
@@ -19,18 +22,24 @@ The mixing step is deterministic and makes nearby byte values less likely to loo
 
 ## Body-family mapping
 
-`familyBucket = mix8(genome[0]) >> 6`
+`familySlot = floor((mix8(genome[0]) * 10) / 256)`
 
-| Bucket | Family |
+| Slot | Family |
 |---|---|
 | 0 | Void Drifter |
 | 1 | Crystal Bloom |
 | 2 | Nebula Spine |
-| 3 | Silk Ray |
+| 3 | Celestial Queen |
+| 4 | Pearl Medusa |
+| 5 | Prism Spine |
+| 6 | Astral Chrysalis |
+| 7 | Nova Urchin |
+| 8 | Silk Ray |
+| 9 | Ribbon Leviathan |
 
-This order is intentional: the canonical Seeker Zero BODY FORM byte is `0x53`; it resolves to bucket 3 and therefore **Silk Ray**.
+This order is intentional: the canonical Seeker Zero BODY FORM byte is `0x53`; it resolves to slot 8 and therefore **Silk Ray**.
 
-This mapping must stay explicit. Do not derive it from the runtime art registry, an array length, or the number of available asset folders. Adding creature family #5, #6, or #15 must not silently remap existing genomes. The final initial mapping can be intentionally locked when the full family set is approved, but adding art is not itself a genome-mapping change.
+This mapping must stay explicit. Do not derive it from the runtime art registry, an array length, or the number of available asset folders. Adding or replacing art is not itself a genome-mapping change.
 
 ## 16 locked genes
 
@@ -53,7 +62,7 @@ This mapping must stay explicit. Do not derive it from the runtime art registry,
 | 14 | MOTION / PULSE | Pulse period/amplitude, fin wave and tendril drift |
 | 15 | ASYMMETRY | Opposed left/right scale/rotation + tiny core offset |
 
-The exact formulas are implemented in `phenotype-reference.ts` beside this file.
+The exact formulas are implemented only in `packages/shared/src/genome.ts`.
 
 ## Parent/child rule
 
@@ -65,21 +74,16 @@ BODY FORM is intentionally the largest possible mutation because it selects the 
 
 ## Runtime family registry
 
-Runtime family data lives in `apps/mobile/assets/organisms/registry.ts`.
+Shared family data lives in `packages/shared/src/organismArt.ts`.
+The mobile registry at `apps/mobile/assets/organisms/registry.ts` is only a Metro
+adapter that maps shared family definitions to static `require()` asset IDs.
 
 Each family uses one explicit definition:
 
 ```ts
 type CreatureFamilyDefinition = {
   id: CreatureFamily;
-  assets: {
-    body: number;
-    fins: number;
-    core: number;
-    tendrils: number;
-    surface: number;
-    glow: number;
-  };
+  layers: Record<CreatureLayer, string>;
   moustache: {
     center: readonly [number, number];
     width: number;
@@ -89,22 +93,26 @@ type CreatureFamilyDefinition = {
 };
 ```
 
-The renderer consumes this definition and should not contain ordinary per-family branches such as `if family === "silk-ray"`. Family-specific asset paths, moustache placement, and sensory anchors belong in the registry.
+The renderer consumes this definition and should not contain ordinary per-family branches such as `if family === "silk-ray"`. Family-specific asset paths, moustache placement, and sensory anchors belong in shared art metadata.
 
-Metro requires static image paths, so every asset path in `registry.ts` must be written as a literal `require("./family/file.png")`. Do not replace these with dynamic `require()` paths.
+Metro requires static image paths, so the mobile adapter must keep literal `require("../../../../packages/shared/assets/organisms/family/file.png")` calls. Do not replace those with dynamic `require()` paths.
 
-The shared moustache remains `apps/mobile/assets/organisms/shared/moustache_01.png`. Families provide moustache anchor metadata only; they do not need their own moustache artwork.
+The shared moustache lives at `packages/shared/assets/organisms/shared/moustache_01.png`. Families provide moustache anchor metadata only; they do not need their own moustache artwork.
 
 ## Family folder contract
 
-Runtime mobile assets live under:
+Shared runtime assets live under:
 
-`apps/mobile/assets/organisms/`
+`packages/shared/assets/organisms/`
+
+Mobile bundles those shared files through static requires in:
+
+`apps/mobile/assets/organisms/registry.ts`
 
 Every runtime biological family folder must contain exactly these six required biological layers:
 
 ```text
-apps/mobile/assets/organisms/<family-id>/
+packages/shared/assets/organisms/<family-id>/
   body.png
   fins.png
   core.png
@@ -208,12 +216,13 @@ Each family must be inspected as a full composite before approval. The final com
 
 To add a new family:
 
-1. Add a standardized runtime folder under `apps/mobile/assets/organisms/<family-id>/`.
+1. Add a standardized runtime folder under `packages/shared/assets/organisms/<family-id>/`.
 2. Add the six required runtime PNGs.
 3. Add matching source masters under `docs/spore-creature-art-kit/source-2048/<family-id>/`.
-4. Add one `CreatureFamilyDefinition` entry in `apps/mobile/assets/organisms/registry.ts`.
-5. Update the explicit body-form mapping in `packages/shared/src/genome.ts` only when the new genome bucket assignment is intentionally approved.
+4. Add one `CreatureFamilyArtDefinition` entry in `packages/shared/src/organismArt.ts`.
+5. Add static mobile `require()` asset IDs for the shared PNGs in `apps/mobile/assets/organisms/registry.ts`.
+6. Update the explicit body-form mapping in `packages/shared/src/genome.ts` only when the new genome slot assignment is intentionally approved.
 
-To replace an existing family, keep the same family id and filenames, replace the six runtime PNGs and source masters, and update only the registry metadata that the renderer actually uses, such as sensory anchors or moustache placement.
+To replace an existing family, keep the same family id and filenames, replace the six runtime PNGs and source masters, and update only the shared metadata that the renderer actually uses, such as sensory anchors or moustache placement.
 
 Adding or replacing art that follows this contract should not require renderer changes.

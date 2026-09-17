@@ -17,7 +17,7 @@ The 2048×2048 source art stays under `docs/` so it is not accidentally bundled 
 ## What you do
 
 1. Extract this ZIP at the root of the SPORE monorepo.
-2. Confirm you now have `apps/mobile/assets/organisms/`.
+2. Confirm runtime PNGs live under `packages/shared/assets/organisms/`.
 3. Open Codex at the repository root.
 4. Paste the contents of `PASTE_THIS_INTO_CODEX.md`.
 5. Let Codex make source changes only; do not ask it to invent creature artwork.
@@ -25,9 +25,7 @@ The 2048×2048 source art stays under `docs/` so it is not accidentally bundled 
 ## Runtime tree
 
 ```text
-apps/mobile/assets/organisms/
-├── registry.json
-├── registry.ts.example
+packages/shared/assets/organisms/
 ├── shared/
 │   └── moustache_01.png
 ├── silk-ray/
@@ -41,6 +39,8 @@ apps/mobile/assets/organisms/
 ├── crystal-bloom/
 └── nebula-spine/
 ```
+
+Mobile keeps only a Metro adapter at `apps/mobile/assets/organisms/registry.ts` with literal static `require()` calls pointing at the shared PNGs.
 
 Each family folder has the same six layer names.
 

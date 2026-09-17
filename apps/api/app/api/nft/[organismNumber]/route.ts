@@ -37,6 +37,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     const origin = new URL(request.url).origin;
     const paddedNumber = organism.organismNumber.padStart(6, "0");
+    const image = `${origin}/api/nft/${organism.organismNumber}/image`;
 
     return Response.json(
       {
@@ -45,7 +46,7 @@ export async function GET(request: Request, context: RouteContext) {
           organism.organismNumber === "0"
             ? "Seeker Zero \u2014 The first Seekerborne case."
             : "Seekerborne \u2014 Descendant of Seeker Zero.",
-        image: `${origin}/api/nft/${organism.organismNumber}/image`,
+        image,
         attributes: [
           {
             trait_type: "Generation",
@@ -65,7 +66,13 @@ export async function GET(request: Request, context: RouteContext) {
           }
         ],
         properties: {
-          category: "image"
+          category: "image",
+          files: [
+            {
+              type: "image/png",
+              uri: image
+            }
+          ]
         }
       },
       {

@@ -16,14 +16,24 @@ Build the smallest production-quality implementation required to render the orga
 
 Runtime assets are under:
 
-`apps/mobile/assets/organisms/`
+`packages/shared/assets/organisms/`
 
-There are four approved anatomy families:
+Mobile keeps static Metro asset IDs in:
 
-- `silk-ray`
+`apps/mobile/assets/organisms/registry.ts`
+
+There are ten live anatomy families:
+
 - `void-drifter`
 - `crystal-bloom`
 - `nebula-spine`
+- `celestial-queen`
+- `pearl-medusa`
+- `prism-spine`
+- `astral-chrysalis`
+- `nova-urchin`
+- `silk-ray`
+- `ribbon-leviathan`
 
 Each family contains:
 
@@ -36,14 +46,16 @@ Each family contains:
 
 Shared cosmetic:
 
-`apps/mobile/assets/organisms/shared/moustache_01.png`
+`packages/shared/assets/organisms/shared/moustache_01.png`
 
 Metadata:
 
+- `packages/shared/src/organismArt.ts`
+- `packages/shared/src/organismRenderPlan.ts`
 - `apps/mobile/assets/organisms/registry.ts`
 - `apps/mobile/assets/organisms/registry.ts.example`
 
-`registry.ts` is the mobile runtime source of truth. Each family has one `CreatureFamilyDefinition` containing its id, six biological assets, sensory anchors, and moustache placement. Do not build runtime logic from `registry.json`.
+`packages/shared/src/genome.ts` is the only genome-to-phenotype source of truth. Shared art metadata, canonical PNG assets, and platform-neutral render-plan math live in `packages/shared`. `registry.ts` is a mobile-only Metro adapter that maps shared family definitions to static `require()` asset IDs. Do not build runtime logic from `registry.json`.
 
 The mobile runtime files are 1024×1024 transparent PNGs with a shared registration canvas.
 
@@ -55,7 +67,7 @@ DO NOT import those into the mobile runtime.
 Read and implement exactly:
 
 - `docs/spore-creature-art-kit/GENOME_PHENOTYPE_CONTRACT.md`
-- `docs/spore-creature-art-kit/phenotype-reference.ts`
+- `packages/shared/src/genome.ts`
 
 Do not invent a second mapping.
 
@@ -111,14 +123,14 @@ Apply the phenotype contract with Skia transforms, opacity, color filters and im
 
 ### Important implementation behavior
 
-- BODY FORM selects the family using the exact bucket mapping in the contract.
+- BODY FORM selects the family using the exact ten-slot mapping in the shared contract.
 - BODY PROPORTION scales the biological stack coherently.
 - MEMBRANE SHAPE may render the fin layer as left/right clipped halves so opposing rotation is possible.
 - MEMBRANE DENSITY changes transparency, not anatomy.
 - PIGMENT should use restrained hue/saturation filtering. Do not create crypto-neon rainbow creatures.
 - BIOLUMINESCENCE controls the glow layer and luminous core intensity.
 - NUCLEUS transforms the core layer only.
-- SENSORY NODES should be tiny restrained Skia circles using the fixed family anchors in `registry.json`. Render the first `count` anchors. No per-frame randomness.
+- SENSORY NODES should be tiny restrained accents using the fixed family anchors in shared art metadata. Render the first `count` anchors. No per-frame randomness.
 - APPENDAGE FAMILY and APPENDAGE EXPRESSION transform/mix the existing fins and tendrils. Do not generate replacement procedural anatomy.
 - SURFACE PATTERN may redraw the surface layer according to the four exact modes in the contract.
 - INTERNAL FILAMENTS should reuse a restrained internal detail pass; do not generate a giant procedural web.
@@ -145,7 +157,7 @@ The moustache:
 - has no settings screen
 - must be globally removable by changing the one constant
 
-Use each family's moustache placement data from `registry.ts`.
+Use each family's moustache placement data from shared art metadata.
 Keep it tiny and immaculate.
 
 ## Parent/child resemblance
@@ -207,7 +219,7 @@ Do not cover the creature with debug labels.
 
 The runtime images are intentionally 1024px, not the 2048px art-source files.
 
-Avoid loading all four families' decoded images simultaneously if the existing architecture allows loading only the selected family.
+Avoid loading all ten families' decoded images simultaneously if the existing architecture allows loading only the selected family.
 
 Do not add a caching framework or new dependency unless the existing renderer genuinely requires it.
 
