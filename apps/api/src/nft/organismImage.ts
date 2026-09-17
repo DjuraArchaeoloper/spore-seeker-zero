@@ -17,9 +17,20 @@ import {
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const IMAGE_BACKGROUND = "#05070a";
 const FILTER_EXTENT = SPORE_NFT_IMAGE_SIZE * 1.5;
+const CARD_TEXT = {
+  primary: "#f7fbfb",
+  secondary: "#b8ced3",
+  tertiary: "#87a1a8",
+  accent: "#b5eee2"
+} as const;
 const dataUriCache = new Map<string, string>();
 
-export async function renderOrganismPng(genomeHex: string) {
+export type NftOrganismImageIdentity = {
+  generation: number;
+  organismNumber: string;
+};
+
+export async function renderOrganismPng(genomeHex: string, identity: NftOrganismImageIdentity) {
   const genome = parseGenomeHex(genomeHex);
   const model = createOrganismRenderModel(genome, SPORE_NFT_IMAGE_SIZE);
   const assets = {
@@ -41,6 +52,8 @@ export async function renderOrganismPng(genomeHex: string) {
   const svg = renderOrganismSvg({
     assets,
     colors: model.colorPlan,
+    genomeHex,
+    identity,
     moustacheAspect,
     plan: model.plan,
     presenceGlow: model.presenceGlow,
@@ -54,6 +67,8 @@ export async function renderOrganismPng(genomeHex: string) {
 function renderOrganismSvg({
   assets,
   colors,
+  genomeHex,
+  identity,
   moustacheAspect,
   plan,
   presenceGlow,
@@ -64,6 +79,8 @@ function renderOrganismSvg({
     moustache: string | null;
   };
   colors: OrganismColorPlan;
+  genomeHex: string;
+  identity: NftOrganismImageIdentity;
   moustacheAspect: number;
   plan: OrganismRenderPlan;
   presenceGlow: PresenceGlowPlan;
@@ -71,9 +88,20 @@ function renderOrganismSvg({
   surfaceMode: SurfaceMode;
 }) {
   const size = SPORE_NFT_IMAGE_SIZE;
+  const card = createCardIdentity(identity, genomeHex);
 
   return `<svg xmlns="${SVG_NAMESPACE}" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img">
   <defs>
+    <radialGradient id="cardAura" cx="50%" cy="42%" r="62%">
+      <stop offset="0%" stop-color="#173a3c" stop-opacity="0.36"/>
+      <stop offset="48%" stop-color="#081318" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="${IMAGE_BACKGROUND}" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lowerQuiet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#020607" stop-opacity="0"/>
+      <stop offset="58%" stop-color="#020607" stop-opacity="0.46"/>
+      <stop offset="100%" stop-color="#020607" stop-opacity="0.86"/>
+    </linearGradient>
     ${colorFilter("color", colors.colorMatrix)}
     ${colorFilter("glow", colors.glowMatrix)}
     ${colorFilter("core", colors.coreMatrix)}
@@ -87,7 +115,55 @@ function renderOrganismSvg({
       .join("\n    ")}
   </defs>
   <rect width="${size}" height="${size}" fill="${IMAGE_BACKGROUND}"/>
-  ${presenceGlowSvg(presenceGlow)}
+  <rect width="${size}" height="${size}" fill="url(#cardAura)"/>
+  <circle cx="600" cy="500" r="430" fill="${CARD_TEXT.accent}" opacity="0.025" filter="url(#presenceAtmosphere)"/>
+  <g transform="translate(600 532) scale(0.84) translate(-600 -600)">
+    ${organismArtworkSvg({
+      assets,
+      colors,
+      moustacheAspect,
+      plan,
+      presenceGlow,
+      showMoustache,
+      size,
+      surfaceMode
+    })}
+  </g>
+  <rect x="0" y="820" width="${size}" height="380" fill="url(#lowerQuiet)"/>
+  <rect x="54" y="54" width="1092" height="1092" fill="none" stroke="${CARD_TEXT.accent}" stroke-opacity="0.18" stroke-width="1"/>
+  <path d="M84 146 H168" stroke="${CARD_TEXT.accent}" stroke-opacity="0.32" stroke-width="1"/>
+  <text x="84" y="111" fill="${CARD_TEXT.primary}" font-family="${displayFont()}" font-size="34" letter-spacing="8">SPØR</text>
+  <text x="86" y="179" fill="${CARD_TEXT.tertiary}" font-family="${displayFont()}" font-size="13" letter-spacing="3.8">SPECIMEN BIRTH RECORD</text>
+  <text x="84" y="990" fill="${CARD_TEXT.primary}" font-family="${displayFont()}" font-size="45" letter-spacing="1.2">${card.displayName}</text>
+  <text x="86" y="1037" fill="${CARD_TEXT.secondary}" font-family="${displayFont()}" font-size="17" letter-spacing="4">${card.organismLabel}</text>
+  <text x="86" y="1074" fill="${CARD_TEXT.tertiary}" font-family="${displayFont()}" font-size="14" letter-spacing="3.6">${card.generationLabel}</text>
+  <text x="86" y="1124" fill="${CARD_TEXT.tertiary}" font-family="${monoFont()}" font-size="13" letter-spacing="2.2">GENOME</text>
+  <text x="204" y="1124" fill="${CARD_TEXT.secondary}" font-family="${monoFont()}" font-size="16" letter-spacing="1.8">${card.genome}</text>
+</svg>`;
+}
+
+function organismArtworkSvg({
+  assets,
+  colors,
+  moustacheAspect,
+  plan,
+  presenceGlow,
+  showMoustache,
+  size,
+  surfaceMode
+}: {
+  assets: Record<"body" | "core" | "fins" | "glow" | "surface" | "tendrils", string> & {
+    moustache: string | null;
+  };
+  colors: OrganismColorPlan;
+  moustacheAspect: number;
+  plan: OrganismRenderPlan;
+  presenceGlow: PresenceGlowPlan;
+  showMoustache: boolean;
+  size: number;
+  surfaceMode: SurfaceMode;
+}) {
+  return `${presenceGlowSvg(presenceGlow)}
   <g ${transformAttribute(plan.biologicalTransform, plan.center)}>
     ${imageLayer({
       blendMode: "screen",
@@ -141,8 +217,7 @@ function renderOrganismSvg({
     ${surfaceSvg({ href: assets.surface, plan, size, surfaceMode })}
     ${sensoryNodesSvg(plan.sensoryNodes, colors.nodeColor)}
     ${showMoustache && assets.moustache ? moustacheSvg(assets.moustache, plan, moustacheAspect) : ""}
-  </g>
-</svg>`;
+  </g>`;
 }
 
 function presenceGlowSvg(plan: PresenceGlowPlan) {
@@ -257,6 +332,40 @@ function moustacheSvg(href: string, plan: OrganismRenderPlan, aspect: number) {
       height
     )}" preserveAspectRatio="none"/>
   </g>`;
+}
+
+function createCardIdentity(identity: NftOrganismImageIdentity, genomeHex: string) {
+  const organismNumber = formatOrganismNumber(identity.organismNumber);
+  const generation = Number.isFinite(identity.generation)
+    ? Math.max(0, Math.trunc(identity.generation))
+    : 0;
+  const isSeekerZero = /^0+$/.test(identity.organismNumber);
+
+  return {
+    displayName: escapeXml(isSeekerZero ? "Seeker Zero" : "Seekerborne"),
+    generationLabel: escapeXml(`GENERATION ${generation}`),
+    genome: escapeXml(formatGenome(genomeHex)),
+    organismLabel: escapeXml(`ORGANISM #${organismNumber}`)
+  };
+}
+
+function formatOrganismNumber(organismNumber: string) {
+  return (organismNumber.replace(/^0+/, "") || "0").padStart(6, "0");
+}
+
+function formatGenome(genomeHex: string) {
+  return genomeHex
+    .toUpperCase()
+    .match(/.{1,8}/g)
+    ?.join(" ") ?? genomeHex.toUpperCase();
+}
+
+function displayFont() {
+  return "Michroma, Avenir Next, Trebuchet MS, Arial, sans-serif";
+}
+
+function monoFont() {
+  return "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 }
 
 function imageLayer({
@@ -396,4 +505,21 @@ function format(value: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function escapeXml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&apos;";
+    }
+  });
 }

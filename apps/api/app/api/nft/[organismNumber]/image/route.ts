@@ -37,7 +37,10 @@ export async function GET(_request: Request, context: RouteContext) {
       return jsonError(404, "not_found", "Organism not found.");
     }
 
-    const image = await renderOrganismPng(organism.genome);
+    const image = await renderOrganismPng(organism.genome, {
+      generation: organism.generation,
+      organismNumber: organism.organismNumber
+    });
 
     return new Response(new Uint8Array(image), {
       headers
