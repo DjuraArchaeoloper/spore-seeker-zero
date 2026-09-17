@@ -99,7 +99,11 @@ export function SporeLoader({
       {label ? (
         <AppText
           maxFontSizeMultiplier={1.2}
-          style={[styles.label, mode === "button" && styles.buttonLabel]}
+          style={[
+            styles.label,
+            mode === "screen" && styles.screenLabel,
+            mode === "button" && styles.buttonLabel,
+          ]}
           variant="metadata"
         >
           {label}
@@ -602,6 +606,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: "left",
     textTransform: "uppercase",
+  },
+  screenLabel: {
+    flexShrink: 0,
+    textAlign: "center",
+    textTransform: "none",
   },
   buttonLabel: {
     color: tokens.postAuth.primary,
