@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import * as opentype from "opentype.js";
 import sharp from "sharp";
 import {
   createOrganismRenderModel,
@@ -17,7 +18,6 @@ import {
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const IMAGE_BACKGROUND = "#05070a";
 const FILTER_EXTENT = SPORE_NFT_IMAGE_SIZE * 1.5;
-const CARD_FONT_FAMILY = "SporeCardMichroma";
 const CARD_FONT_FILE = "Michroma_400Regular.ttf";
 const CARD_TEXT = {
   primary: "#f7fbfb",
@@ -26,6 +26,7 @@ const CARD_TEXT = {
   accent: "#b5eee2"
 } as const;
 const dataUriCache = new Map<string, string>();
+let cardFontCache: opentype.Font | null = null;
 
 export type NftOrganismImageIdentity = {
   generation: number;
@@ -91,18 +92,9 @@ function renderOrganismSvg({
 }) {
   const size = SPORE_NFT_IMAGE_SIZE;
   const card = createCardIdentity(identity, genomeHex);
-  const cardFontDataUri = getSharedFontDataUri(CARD_FONT_FILE);
 
   return `<svg xmlns="${SVG_NAMESPACE}" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img">
   <defs>
-    <style><![CDATA[
-      @font-face {
-        font-family: '${CARD_FONT_FAMILY}';
-        src: url("${cardFontDataUri}") format('truetype');
-        font-style: normal;
-        font-weight: 400;
-      }
-    ]]></style>
     <radialGradient id="cardAura" cx="50%" cy="42%" r="62%">
       <stop offset="0%" stop-color="#173a3c" stop-opacity="0.36"/>
       <stop offset="48%" stop-color="#081318" stop-opacity="0.18"/>
@@ -143,13 +135,34 @@ function renderOrganismSvg({
   <rect x="0" y="820" width="${size}" height="380" fill="url(#lowerQuiet)"/>
   <rect x="54" y="54" width="1092" height="1092" fill="none" stroke="${CARD_TEXT.accent}" stroke-opacity="0.18" stroke-width="1"/>
   <path d="M84 146 H168" stroke="${CARD_TEXT.accent}" stroke-opacity="0.32" stroke-width="1"/>
-  <text x="84" y="111" fill="${CARD_TEXT.primary}" font-family="${displayFont()}" font-size="34" letter-spacing="8">SPØR</text>
-  <text x="86" y="179" fill="${CARD_TEXT.tertiary}" font-family="${displayFont()}" font-size="13" letter-spacing="3.8">SPECIMEN BIRTH RECORD</text>
-  <text x="84" y="990" fill="${CARD_TEXT.primary}" font-family="${displayFont()}" font-size="45" letter-spacing="1.2">${card.displayName}</text>
-  <text x="86" y="1037" fill="${CARD_TEXT.secondary}" font-family="${displayFont()}" font-size="17" letter-spacing="4">${card.organismLabel}</text>
-  <text x="86" y="1074" fill="${CARD_TEXT.tertiary}" font-family="${displayFont()}" font-size="14" letter-spacing="3.6">${card.generationLabel}</text>
-  <text x="86" y="1124" fill="${CARD_TEXT.tertiary}" font-family="${monoFont()}" font-size="13" letter-spacing="2.2">GENOME</text>
-  <text x="204" y="1124" fill="${CARD_TEXT.secondary}" font-family="${monoFont()}" font-size="16" letter-spacing="1.8">${card.genome}</text>
+  ${textPathSvg({ fill: CARD_TEXT.primary, fontSize: 34, letterSpacing: 8, text: "SPØR", x: 84, y: 111 })}
+  ${textPathSvg({
+    fill: CARD_TEXT.tertiary,
+    fontSize: 13,
+    letterSpacing: 3.8,
+    text: "SPECIMEN BIRTH RECORD",
+    x: 86,
+    y: 179
+  })}
+  ${textPathSvg({ fill: CARD_TEXT.primary, fontSize: 45, letterSpacing: 1.2, text: card.displayName, x: 84, y: 990 })}
+  ${textPathSvg({
+    fill: CARD_TEXT.secondary,
+    fontSize: 17,
+    letterSpacing: 4,
+    text: card.organismLabel,
+    x: 86,
+    y: 1037
+  })}
+  ${textPathSvg({
+    fill: CARD_TEXT.tertiary,
+    fontSize: 14,
+    letterSpacing: 3.6,
+    text: card.generationLabel,
+    x: 86,
+    y: 1074
+  })}
+  ${textPathSvg({ fill: CARD_TEXT.tertiary, fontSize: 13, letterSpacing: 2.2, text: "GENOME", x: 86, y: 1124 })}
+  ${textPathSvg({ fill: CARD_TEXT.secondary, fontSize: 16, letterSpacing: 1.8, text: card.genome, x: 204, y: 1124 })}
 </svg>`;
 }
 
@@ -353,10 +366,10 @@ function createCardIdentity(identity: NftOrganismImageIdentity, genomeHex: strin
   const isSeekerZero = /^0+$/.test(identity.organismNumber);
 
   return {
-    displayName: escapeXml(isSeekerZero ? "Seeker Zero" : "Seekerborne"),
-    generationLabel: escapeXml(`GENERATION ${generation}`),
-    genome: escapeXml(formatGenome(genomeHex)),
-    organismLabel: escapeXml(`ORGANISM #${organismNumber}`)
+    displayName: isSeekerZero ? "Seeker Zero" : "Seekerborne",
+    generationLabel: `GENERATION ${generation}`,
+    genome: formatGenome(genomeHex),
+    organismLabel: `ORGANISM #${organismNumber}`
   };
 }
 
@@ -369,14 +382,6 @@ function formatGenome(genomeHex: string) {
     .toUpperCase()
     .match(/.{1,8}/g)
     ?.join(" ") ?? genomeHex.toUpperCase();
-}
-
-function displayFont() {
-  return CARD_FONT_FAMILY;
-}
-
-function monoFont() {
-  return CARD_FONT_FAMILY;
 }
 
 function imageLayer({
@@ -481,22 +486,6 @@ function getSharedAssetDataUri(relativePath: string) {
   return dataUri;
 }
 
-function getSharedFontDataUri(fileName: string) {
-  const resolvedPath = resolveSharedFontPath(fileName);
-  const cached = dataUriCache.get(resolvedPath);
-
-  if (cached) {
-    return cached;
-  }
-
-  const encoded = readFileSync(resolvedPath).toString("base64");
-  const dataUri = `data:font/truetype;base64,${encoded}`;
-
-  dataUriCache.set(resolvedPath, dataUri);
-
-  return dataUri;
-}
-
 function resolveSharedAssetPath(relativePath: string) {
   const root = resolveSharedAssetRoot();
   const resolvedPath = path.resolve(root, relativePath);
@@ -559,19 +548,62 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function escapeXml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => {
-    switch (character) {
-      case "&":
-        return "&amp;";
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case '"':
-        return "&quot;";
-      default:
-        return "&apos;";
+function textPathSvg({
+  fill,
+  fontSize,
+  letterSpacing,
+  text,
+  x,
+  y
+}: {
+  fill: string;
+  fontSize: number;
+  letterSpacing: number;
+  text: string;
+  x: number;
+  y: number;
+}) {
+  return `<path fill="${fill}" d="${textPathData(text, x, y, fontSize, letterSpacing)}"/>`;
+}
+
+function textPathData(text: string, x: number, y: number, fontSize: number, letterSpacing: number) {
+  const font = getCardFont();
+  let cursorX = x;
+  const paths: string[] = [];
+
+  for (const character of Array.from(text)) {
+    const glyph = font.charToGlyph(character);
+    assertGlyphSupported(character, glyph);
+
+    const pathData = glyph.getPath(cursorX, y, fontSize).toPathData(2);
+    if (pathData) {
+      paths.push(pathData);
     }
-  });
+
+    cursorX += glyphAdvance(glyph, font, fontSize) + letterSpacing;
+  }
+
+  return paths.join(" ");
+}
+
+function getCardFont() {
+  if (cardFontCache) {
+    return cardFontCache;
+  }
+
+  const fontBuffer = readFileSync(resolveSharedFontPath(CARD_FONT_FILE));
+  const fontData = fontBuffer.buffer.slice(fontBuffer.byteOffset, fontBuffer.byteOffset + fontBuffer.byteLength);
+  cardFontCache = opentype.parse(fontData as ArrayBuffer);
+
+  return cardFontCache;
+}
+
+function assertGlyphSupported(character: string, glyph: opentype.Glyph) {
+  if (glyph.name === ".notdef" || (glyph.unicode === undefined && character !== " ")) {
+    throw new Error(`NFT card font does not support glyph ${JSON.stringify(character)}.`);
+  }
+}
+
+function glyphAdvance(glyph: opentype.Glyph, font: opentype.Font, fontSize: number) {
+  return ((glyph.advanceWidth ?? font.unitsPerEm * 0.5) / font.unitsPerEm) * fontSize;
 }
