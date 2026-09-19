@@ -2,6 +2,7 @@ import crypto from "crypto";
 
 import { PublicKey } from "@solana/web3.js";
 
+import { ensureDescendantCountersForBirth } from "./descendantCounters";
 import { OrganismIndexModel, type OrganismIndex } from "../models/OrganismIndex";
 import {
   ensureOutbreakContributionsForBirth,
@@ -283,6 +284,7 @@ async function indexOrganismBorn(candidate: CandidateEvent): Promise<IndexOrgani
 
   if (existing) {
     assertCanonicalMatch(existing, document);
+    await ensureDescendantCountersForBirth(existing);
     return {
       indexStatus: "duplicate",
       outbreakStatus: await scoreOutbreakBirth(existing)
@@ -291,6 +293,7 @@ async function indexOrganismBorn(candidate: CandidateEvent): Promise<IndexOrgani
 
   try {
     await OrganismIndexModel.create(document);
+    await ensureDescendantCountersForBirth(document);
     return {
       indexStatus: "indexed",
       outbreakStatus: await scoreOutbreakBirth(document)
@@ -307,6 +310,7 @@ async function indexOrganismBorn(candidate: CandidateEvent): Promise<IndexOrgani
     }
 
     assertCanonicalMatch(duplicate, document);
+    await ensureDescendantCountersForBirth(duplicate);
     return {
       indexStatus: "duplicate",
       outbreakStatus: await scoreOutbreakBirth(duplicate)

@@ -1,12 +1,10 @@
 import { connectToDatabase } from "../../../../src/db/mongoose";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { OrganismIndexModel } from "../../../../src/models/OrganismIndex";
+import { normalizeOrganismNumber } from "../../../../src/organisms/identifiers";
 import { toPublicOrganism } from "../../../../src/organisms/responses";
 
 export const runtime = "nodejs";
-
-const DECIMAL_DIGITS = /^[0-9]+$/;
-const MAX_U64_DECIMAL = "18446744073709551615";
 
 type RouteContext = {
   params: Promise<{
@@ -78,21 +76,4 @@ async function loadAncestors(ancestorNumbers: string[]) {
 
 function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined;
-}
-
-function normalizeOrganismNumber(value: string) {
-  if (!DECIMAL_DIGITS.test(value)) {
-    return null;
-  }
-
-  const normalized = value.replace(/^0+/, "") || "0";
-
-  if (
-    normalized.length > MAX_U64_DECIMAL.length ||
-    (normalized.length === MAX_U64_DECIMAL.length && normalized > MAX_U64_DECIMAL)
-  ) {
-    return null;
-  }
-
-  return normalized;
 }

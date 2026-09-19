@@ -18,8 +18,12 @@ import {
   getBloodline,
   getOutbreak,
   getSpecies,
+  getSpeciesLeaderboard,
+  getSpeciesMap,
   type BloodlineResponse,
   type OutbreakResponse,
+  type SpeciesLeaderboardResponse,
+  type SpeciesMapResponse,
   type SpeciesResponse,
 } from "../auth/api";
 import { getStoredSessionToken } from "../auth/session";
@@ -41,7 +45,7 @@ import {
   type SurfaceKey,
 } from "../navigation/BottomNavigation";
 import {
-  claimSpore,
+  claimSporeWithSignature,
   connection,
   fetchDevnetGenesisStatus,
   fetchOwnOrganism,
@@ -65,6 +69,7 @@ import {
   BirthRevealStage,
   type BirthRevealPayload,
 } from "./BirthRevealStage";
+import { submitOptionalBirthLocation } from "./birthLocation";
 
 type Stage = "home" | "scan" | "accept" | "offer" | "recover";
 type BirthRevealState =
@@ -138,6 +143,7 @@ export default function Reproduction({
   const scanned = useRef(false);
   const mounted = useRef(true);
   const birthSlot = useRef<number | undefined>(undefined);
+  const pendingClaimSignature = useRef<string | null>(null);
   const pendingClaimParent = useRef<Organism | null>(null);
   const [offer, setOffer] = useState<Organism | null>(null);
   const [bloodline, setBloodline] = useState<{
@@ -146,6 +152,14 @@ export default function Reproduction({
   }>({});
   const [species, setSpecies] = useState<{
     data?: SpeciesResponse | null;
+    error?: string | null;
+  }>({});
+  const [speciesMap, setSpeciesMap] = useState<{
+    data?: SpeciesMapResponse | null;
+    error?: string | null;
+  }>({});
+  const [speciesLeaderboard, setSpeciesLeaderboard] = useState<{
+    data?: SpeciesLeaderboardResponse | null;
     error?: string | null;
   }>({});
   const [outbreak, setOutbreak] = useState<{
@@ -455,8 +469,16 @@ export default function Reproduction({
       ],
     );
   }, [devnetGenesis.status, runDevnetGenesis]);
-  const beginBirthReveal = useCallback((newborn: Organism, parent: Organism | null) => {
-    const payload: BirthRevealPayload = { newborn, parent };
+  const beginBirthReveal = useCallback((
+    newborn: Organism,
+    parent: Organism | null,
+    birthTransactionSignature?: string | null,
+  ) => {
+    const payload: BirthRevealPayload = {
+      birthTransactionSignature: birthTransactionSignature ?? null,
+      newborn,
+      parent,
+    };
 
     if (!mounted.current) {
       return;
@@ -477,6 +499,11 @@ export default function Reproduction({
     setStage("home");
     setError(null);
     void refreshOutbreak();
+    void submitOptionalBirthLocation({
+      newborn: payload.newborn,
+      transactionSignature: payload.birthTransactionSignature,
+    });
+    pendingClaimSignature.current = null;
 
     setTimeout(() => {
       if (mounted.current) {
@@ -636,6 +663,8 @@ export default function Reproduction({
     if (surface !== "species") return;
     let live = true;
     setSpecies({});
+    setSpeciesMap({});
+    setSpeciesLeaderboard({});
     void refreshOutbreak();
     void getSpecies()
       .then((data) => {
@@ -646,6 +675,28 @@ export default function Reproduction({
           setSpecies({
             data: null,
             error: e instanceof Error ? e.message : "Species is unavailable.",
+          });
+      });
+    void getSpeciesMap()
+      .then((data) => {
+        if (live) setSpeciesMap({ data });
+      })
+      .catch((e: unknown) => {
+        if (live)
+          setSpeciesMap({
+            data: null,
+            error: e instanceof Error ? e.message : "Species map is unavailable.",
+          });
+      });
+    void getSpeciesLeaderboard(10)
+      .then((data) => {
+        if (live) setSpeciesLeaderboard({ data });
+      })
+      .catch((e: unknown) => {
+        if (live)
+          setSpeciesLeaderboard({
+            data: null,
+            error: e instanceof Error ? e.message : "Species leaderboard is unavailable.",
           });
       });
     return () => {
@@ -798,12 +849,13 @@ export default function Reproduction({
   }
   async function readBirth() {
     const parent = pendingClaimParent.current;
+    const transactionSignature = pendingClaimSignature.current;
 
     setBirthReveal({ status: "awaitingNewborn", parent });
 
     try {
       const child = await resolveNewborn();
-      beginBirthReveal(child, parent);
+      beginBirthReveal(child, parent, transactionSignature);
     } catch {
       if (mounted.current) {
         setBirthReveal({ status: "idle" });
@@ -820,9 +872,13 @@ export default function Reproduction({
       if (!payload) throw new SporeFailure("Scan a fresh spore offer.");
       const parent = offer;
       pendingClaimParent.current = parent;
+      pendingClaimSignature.current = null;
       setBirthReveal({ status: "submittingClaim", parent });
       try {
-        birthSlot.current = await claimSpore(identity, payload);
+        const claim = await claimSporeWithSignature(identity, payload);
+
+        birthSlot.current = claim.slot;
+        pendingClaimSignature.current = claim.transactionSignature;
       } catch (e) {
         // A wallet/RPC timeout may happen after landing. Reconcile before another signature.
         clearSecret();
@@ -830,10 +886,11 @@ export default function Reproduction({
         setBirthReveal({ status: "idle" });
         const child = await resolveNewborn(2).catch(() => null);
         if (child) {
-          beginBirthReveal(child, parent);
+          beginBirthReveal(child, parent, null);
           return;
         }
         pendingClaimParent.current = null;
+        pendingClaimSignature.current = null;
         throw e;
       }
       clearSecret();
@@ -841,7 +898,7 @@ export default function Reproduction({
       setBirthReveal({ status: "awaitingNewborn", parent });
       try {
         const child = await resolveNewborn();
-        beginBirthReveal(child, parent);
+        beginBirthReveal(child, parent, pendingClaimSignature.current);
       } catch {
         if (mounted.current) {
           setBirthReveal({ status: "idle" });
@@ -868,6 +925,7 @@ export default function Reproduction({
   if (birthReveal.status === "showingReveal") {
     return (
       <BirthRevealStage
+        birthTransactionSignature={birthReveal.payload.birthTransactionSignature}
         newborn={birthReveal.payload.newborn}
         onComplete={completeBirthReveal}
         parent={birthReveal.payload.parent}
@@ -1222,6 +1280,12 @@ export default function Reproduction({
       <SpeciesScreen
         outbreak={activeOutbreak}
         species={species.data}
+        speciesMap={speciesMap.data}
+        speciesMapError={speciesMap.error}
+        speciesMapLoading={speciesMap.data === undefined && !speciesMap.error}
+        leaderboard={speciesLeaderboard.data}
+        leaderboardError={speciesLeaderboard.error}
+        leaderboardLoading={speciesLeaderboard.data === undefined && !speciesLeaderboard.error}
         error={species.error}
         loading={species.data === undefined && !species.error}
       />

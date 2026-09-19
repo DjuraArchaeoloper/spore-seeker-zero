@@ -591,16 +591,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: tokens.spacing.sm,
-    maxWidth: "100%",
   },
   screenContainer: {
     gap: tokens.spacing.md,
     minHeight: 128,
-    width: "100%",
   },
   label: {
     ...tokens.postAuth.smallText,
-    flexShrink: 1,
+    flexShrink: 0,
     color: tokens.postAuth.secondary,
     fontSize: 10,
     lineHeight: 16,
@@ -608,7 +606,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   screenLabel: {
-    flexShrink: 0,
     textAlign: "center",
     textTransform: "none",
   },

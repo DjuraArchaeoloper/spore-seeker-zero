@@ -16,6 +16,14 @@
           "cameraPermission": "Allow SPØR to scan a spore QR.",
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "locationWhenInUsePermission": "Allow SPØR to mark the approximate place where life was born."
+        }
       ]
     ],
     "userInterfaceStyle": "automatic",
@@ -27,7 +35,14 @@
         "backgroundImage": "./assets/spor-android-adaptive-background-v5.png"
       },
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "extra": {

@@ -5,6 +5,7 @@ import { PublicKey } from "@solana/web3.js";
 import { connectToDatabase } from "../../../../src/db/mongoose";
 import { getHeliusWebhookAuth, getSporeProgramId } from "../../../../src/env";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
+import { DescendantCounterConflictError } from "../../../../src/indexing/descendantCounters";
 import {
   indexHeliusRawTransactions,
   OrganismIndexConflictError,
@@ -45,6 +46,14 @@ export async function POST(request: Request) {
       });
 
       return jsonError(409, "integrity_conflict", "Organism index conflict.");
+    }
+
+    if (error instanceof DescendantCounterConflictError) {
+      console.error("SPØR descendant counter conflict", {
+        childOrganismNumber: error.childOrganismNumber
+      });
+
+      return jsonError(409, "integrity_conflict", "Descendant counter conflict.");
     }
 
     if (error instanceof WebhookPayloadError) {

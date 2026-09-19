@@ -289,177 +289,179 @@ export function AuthEntryScreen({
         reduceMotion={reduceMotion}
         width={width}
       />
-      {restoring ? (
-        <View style={styles.authLoading}>
-          <SporeLoader mode="screen" label="RESTORING SESSION" />
-        </View>
-      ) : fontsLoaded ? (
-        <>
-          <View style={[styles.lockup, { top: titleTop }]}>
-            <Text
-              accessibilityRole="header"
-              maxFontSizeMultiplier={1.2}
-              style={[
-                styles.text,
-                styles.title,
-                {
-                  fontSize: 78 * scale,
-                  lineHeight: 82 * scale,
-                  letterSpacing: 22 * scale,
-                  paddingLeft: 12 * scale,
-                },
-              ]}
-            >
-              SPØR
-            </Text>
-            <Text
-              maxFontSizeMultiplier={1.2}
-              style={[
-                styles.text,
-                styles.secondary,
-                {
-                  marginTop: 12 * scale,
-                  fontSize: 26 * scale,
-                  lineHeight: 30 * scale,
-                  letterSpacing: 9 * scale,
-                  paddingLeft: 9 * scale,
-                },
-              ]}
-            >
-              SEEKER ZERO
-            </Text>
-            <Text
-              maxFontSizeMultiplier={1.2}
-              style={[
-                styles.text,
-                styles.secondary,
-                {
-                  marginTop: 23 * scale,
-                  fontSize: 15 * scale,
-                  lineHeight: 24 * scale,
-                  letterSpacing: 5 * scale,
-                  paddingLeft: 5 * scale,
-                },
-              ]}
-            >
-              THE SPECIES DOESN'T END HERE.
-            </Text>
+      {fontsLoaded ? (
+        restoring ? (
+          <View style={styles.authLoading}>
+            <SporeLoader mode="screen" label="RESTORING SESSION" />
           </View>
-          <View style={[styles.action, { top: actionTop, width: buttonWidth }]}>
-            {error ? (
+        ) : (
+          <>
+            <View style={[styles.lockup, { top: titleTop }]}>
               <Text
-                accessibilityLiveRegion="polite"
+                accessibilityRole="header"
                 maxFontSizeMultiplier={1.2}
                 style={[
                   styles.text,
-                  styles.error,
-                  { bottom: buttonHeight + 16 },
+                  styles.title,
+                  {
+                    fontSize: 78 * scale,
+                    lineHeight: 82 * scale,
+                    letterSpacing: 22 * scale,
+                    paddingLeft: 12 * scale,
+                  },
                 ]}
               >
-                SEEKER VERIFICATION FAILED.
+                SPØR
               </Text>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="ENTER SPØR"
-              accessibilityState={{ disabled, busy: disabled }}
-              accessibilityValue={{
-                text: authenticating ? "Verifying Seeker" : "Ready",
-              }}
-              disabled={disabled}
-              onPress={onEnter}
-              style={({ pressed }) => [
-                styles.button,
-                {
-                  height: buttonHeight,
-                  borderRadius: 38 * buttonScale,
-                  borderWidth: 1.5 * buttonScale,
-                  // Reference-pixel edge lighting scales with the membrane itself.
-                  boxShadow: [
-                    {
-                      offsetX: 12 * buttonScale,
-                      offsetY: 0,
-                      blurRadius: 24 * buttonScale,
-                      spreadDistance: -4 * buttonScale,
-                      color: "rgba(136, 235, 220, 0.30)",
-                      inset: true,
-                    },
-                    {
-                      offsetX: -14 * buttonScale,
-                      offsetY: 0,
-                      blurRadius: 24 * buttonScale,
-                      spreadDistance: -4 * buttonScale,
-                      color: "rgba(149, 243, 227, 0.38)",
-                      inset: true,
-                    },
-                    {
-                      offsetX: 0,
-                      offsetY: 2 * buttonScale,
-                      blurRadius: 8 * buttonScale,
-                      spreadDistance: 0,
-                      color: "rgba(156, 237, 222, 0.24)",
-                      inset: true,
-                    },
-                    {
-                      offsetX: 0,
-                      offsetY: -1 * buttonScale,
-                      blurRadius: 6 * buttonScale,
-                      spreadDistance: 0,
-                      color: "rgba(111, 224, 207, 0.12)",
-                    },
-                  ],
-                  opacity: authenticating
-                    ? 0.86
-                    : disabled
-                      ? 0.35
-                      : pressed
-                        ? 0.88
-                        : 1,
-                },
-              ]}
-            >
-              {authenticating ? (
-                <View style={styles.buttonPendingRow}>
-                  <SporeLoader
-                    mode="button"
-                    size={Math.max(17, 24 * buttonScale)}
-                  />
+              <Text
+                maxFontSizeMultiplier={1.2}
+                style={[
+                  styles.text,
+                  styles.secondary,
+                  {
+                    marginTop: 12 * scale,
+                    fontSize: 26 * scale,
+                    lineHeight: 30 * scale,
+                    letterSpacing: 9 * scale,
+                    paddingLeft: 9 * scale,
+                  },
+                ]}
+              >
+                SEEKER ZERO
+              </Text>
+              <Text
+                maxFontSizeMultiplier={1.2}
+                style={[
+                  styles.text,
+                  styles.secondary,
+                  {
+                    marginTop: 23 * scale,
+                    fontSize: 15 * scale,
+                    lineHeight: 24 * scale,
+                    letterSpacing: 5 * scale,
+                    paddingLeft: 5 * scale,
+                  },
+                ]}
+              >
+                THE SPECIES DOESN'T END HERE.
+              </Text>
+            </View>
+            <View style={[styles.action, { top: actionTop, width: buttonWidth }]}>
+              {error ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  maxFontSizeMultiplier={1.2}
+                  style={[
+                    styles.text,
+                    styles.error,
+                    { bottom: buttonHeight + 16 },
+                  ]}
+                >
+                  SEEKER VERIFICATION FAILED.
+                </Text>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="ENTER SPØR"
+                accessibilityState={{ disabled, busy: disabled }}
+                accessibilityValue={{
+                  text: authenticating ? "Verifying Seeker" : "Ready",
+                }}
+                disabled={disabled}
+                onPress={onEnter}
+                style={({ pressed }) => [
+                  styles.button,
+                  {
+                    height: buttonHeight,
+                    borderRadius: 38 * buttonScale,
+                    borderWidth: 1.5 * buttonScale,
+                    // Reference-pixel edge lighting scales with the membrane itself.
+                    boxShadow: [
+                      {
+                        offsetX: 12 * buttonScale,
+                        offsetY: 0,
+                        blurRadius: 24 * buttonScale,
+                        spreadDistance: -4 * buttonScale,
+                        color: "rgba(136, 235, 220, 0.30)",
+                        inset: true,
+                      },
+                      {
+                        offsetX: -14 * buttonScale,
+                        offsetY: 0,
+                        blurRadius: 24 * buttonScale,
+                        spreadDistance: -4 * buttonScale,
+                        color: "rgba(149, 243, 227, 0.38)",
+                        inset: true,
+                      },
+                      {
+                        offsetX: 0,
+                        offsetY: 2 * buttonScale,
+                        blurRadius: 8 * buttonScale,
+                        spreadDistance: 0,
+                        color: "rgba(156, 237, 222, 0.24)",
+                        inset: true,
+                      },
+                      {
+                        offsetX: 0,
+                        offsetY: -1 * buttonScale,
+                        blurRadius: 6 * buttonScale,
+                        spreadDistance: 0,
+                        color: "rgba(111, 224, 207, 0.12)",
+                      },
+                    ],
+                    opacity: authenticating
+                      ? 0.86
+                      : disabled
+                        ? 0.35
+                        : pressed
+                          ? 0.88
+                          : 1,
+                  },
+                ]}
+              >
+                {authenticating ? (
+                  <View style={styles.buttonPendingRow}>
+                    <SporeLoader
+                      mode="button"
+                      size={Math.max(17, 24 * buttonScale)}
+                    />
+                    <Text
+                      maxFontSizeMultiplier={1.2}
+                      style={[
+                        styles.text,
+                        styles.buttonText,
+                        {
+                          fontSize: 24 * buttonScale,
+                          lineHeight: 34 * buttonScale,
+                          letterSpacing: 3.6 * buttonScale,
+                          paddingLeft: 3.6 * buttonScale,
+                        },
+                      ]}
+                    >
+                      VERIFYING
+                    </Text>
+                  </View>
+                ) : (
                   <Text
                     maxFontSizeMultiplier={1.2}
                     style={[
                       styles.text,
                       styles.buttonText,
                       {
-                        fontSize: 24 * buttonScale,
-                        lineHeight: 34 * buttonScale,
-                        letterSpacing: 3.6 * buttonScale,
-                        paddingLeft: 3.6 * buttonScale,
+                        fontSize: 34 * buttonScale,
+                        lineHeight: 46 * buttonScale,
+                        letterSpacing: 4.5 * buttonScale,
+                        paddingLeft: 4.5 * buttonScale,
                       },
                     ]}
                   >
-                    VERIFYING
+                    ENTER
                   </Text>
-                </View>
-              ) : (
-                <Text
-                  maxFontSizeMultiplier={1.2}
-                  style={[
-                    styles.text,
-                    styles.buttonText,
-                    {
-                      fontSize: 34 * buttonScale,
-                      lineHeight: 46 * buttonScale,
-                      letterSpacing: 4.5 * buttonScale,
-                      paddingLeft: 4.5 * buttonScale,
-                    },
-                  ]}
-                >
-                  ENTER
-                </Text>
-              )}
-            </Pressable>
-          </View>
-        </>
+                )}
+              </Pressable>
+            </View>
+          </>
+        )
       ) : null}
     </View>
   );

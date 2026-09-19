@@ -41,6 +41,10 @@ export type DevnetGenesisResult = {
   organism: Organism | null;
   slot?: number;
 };
+export type ClaimSporeResult = {
+  slot: number;
+  transactionSignature: string;
+};
 
 const TOKEN_2022 = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 const CORE = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
@@ -434,6 +438,15 @@ export async function claimSpore(
   identity: AuthIdentity,
   payload: ClaimPayload,
 ) {
+  const result = await claimSporeWithSignature(identity, payload);
+
+  return result.slot;
+}
+
+export async function claimSporeWithSignature(
+  identity: AuthIdentity,
+  payload: ClaimPayload,
+): Promise<ClaimSporeResult> {
   const { owner, mint, tokenAccount } = await currentSigner(identity);
   if (await fetchOwnOrganism(identity))
     throw new SporeFailure("This Seeker already owns an organism.");
@@ -445,7 +458,7 @@ export async function claimSpore(
   if (data.length !== 229)
     throw new SporeFailure("Invalid canonical Species account.");
   const treasury = new PublicKey(data.subarray(40, 72));
-  return send(identity, "claim_spore", payload.secret, [
+  const result = await sendWithSignature(identity, "claim_spore", payload.secret, [
     meta(species, true),
     meta(payload.parent, true),
     meta(owner, true, true),
@@ -457,6 +470,30 @@ export async function claimSpore(
     meta(CORE),
     meta(SystemProgram.programId),
   ]);
+
+  return {
+    slot: result.slot,
+    transactionSignature: result.signature,
+  };
+}
+
+async function sendWithSignature(
+  identity: AuthIdentity,
+  name: string,
+  bytes: Uint8Array,
+  keys: ReturnType<typeof meta>[],
+) {
+  const { sendWalletTransactionWithSignature } = await import("../auth/wallet");
+  const instruction = new TransactionInstruction({
+    programId: programId(),
+    keys,
+    data: Buffer.concat([discriminator(`global:${name}`), Buffer.from(bytes)]),
+  });
+  try {
+    return await sendWalletTransactionWithSignature(connection(), identity, instruction);
+  } finally {
+    instruction.data.fill(0);
+  }
 }
 
 type SpeciesState = {

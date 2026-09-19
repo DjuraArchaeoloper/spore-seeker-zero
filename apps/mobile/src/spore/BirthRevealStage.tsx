@@ -80,6 +80,7 @@ type LifeformTrack = {
 type NewbornTrack = Omit<LifeformTrack, "family" | "layerOpacity">;
 
 export type BirthRevealPayload = {
+  birthTransactionSignature?: string | null;
   newborn: Organism;
   parent: Organism | null;
 };
@@ -253,6 +254,7 @@ export function BirthRevealPendingStage({
 }
 
 export function BirthRevealStage({
+  birthTransactionSignature,
   newborn,
   parent,
   onComplete,
@@ -304,7 +306,7 @@ export function BirthRevealStage({
     }, mixingDuration);
 
     const timer = setTimeout(() => {
-      onComplete({ newborn, parent });
+      onComplete({ birthTransactionSignature, newborn, parent });
     }, mixingDuration + finalRevealDuration + 80);
 
     return () => {
@@ -315,6 +317,7 @@ export function BirthRevealStage({
     };
   }, [
     birthProgress,
+    birthTransactionSignature,
     finalRevealDuration,
     mixingDuration,
     mixingProgress,

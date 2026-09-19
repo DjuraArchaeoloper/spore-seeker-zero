@@ -55,6 +55,43 @@ export type SpeciesResponse = {
   seekerZero: PublicOrganism | null;
 };
 
+export type SpeciesMapRegion = {
+  key: string;
+  label: string;
+  countryCode: string | null;
+  latitude: number;
+  longitude: number;
+  births: number;
+};
+
+export type SpeciesMapResponse = {
+  populationWithLocation: number;
+  minimumRegionBirths: number;
+  regions: SpeciesMapRegion[];
+};
+
+export type SpeciesLeaderboardEntry = {
+  organismNumber: string;
+  generation: number;
+  totalDescendants: number;
+};
+
+export type SpeciesLeaderboardResponse = {
+  limit: number;
+  leaders: SpeciesLeaderboardEntry[];
+};
+
+export type BirthLocationSubmission = {
+  organismNumber: string;
+  transactionSignature: string;
+  latitude: number;
+  longitude: number;
+  countryCode?: string | null;
+  countryName?: string | null;
+  regionLabel?: string | null;
+  cityLabel?: string | null;
+};
+
 export type OutbreakSkrPool = {
   tokenMint?: string;
   totalAmount?: string;
@@ -143,6 +180,37 @@ export async function getSpecies() {
   const response = await sporeFetch("/api/species", undefined, "Species is unavailable.");
 
   return (await response.json()) as SpeciesResponse;
+}
+
+export async function getSpeciesMap() {
+  const response = await sporeFetch("/api/species/map", undefined, "Species map is unavailable.");
+
+  return (await response.json()) as SpeciesMapResponse;
+}
+
+export async function getSpeciesLeaderboard(limit = 10) {
+  const response = await sporeFetch(
+    `/api/species/leaderboard?limit=${encodeURIComponent(String(limit))}`,
+    undefined,
+    "Species leaderboard is unavailable.",
+  );
+
+  return (await response.json()) as SpeciesLeaderboardResponse;
+}
+
+export async function submitBirthLocation(token: string, location: BirthLocationSubmission) {
+  await sporeFetch(
+    "/api/species/birth-location",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(location),
+    },
+    "Birth location is unavailable.",
+  );
 }
 
 export async function getOutbreak(token: string) {

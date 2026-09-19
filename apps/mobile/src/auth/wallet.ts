@@ -13,7 +13,18 @@ import {
 import { sporeWalletChain } from "../spore/config";
 import { SporeFailure } from "../spore/payload";
 
+export type ConfirmedWalletTransaction = {
+  signature: string;
+  slot: number;
+};
+
 export async function sendWalletTransaction(connection: Connection, identity: AuthIdentity, instruction: TransactionInstruction) {
+  const result = await sendWalletTransactionWithSignature(connection, identity, instruction);
+
+  return result.slot;
+}
+
+export async function sendWalletTransactionWithSignature(connection: Connection, identity: AuthIdentity, instruction: TransactionInstruction): Promise<ConfirmedWalletTransaction> {
   if (process.env.EXPO_PUBLIC_SPORE_VISUAL_PREVIEW === "true") throw new SporeFailure("Reproduction is unavailable in visual preview.");
   const { transact } = await import("@solana-mobile/mobile-wallet-adapter-protocol-web3js");
   let signature: string | undefined;
@@ -49,7 +60,10 @@ export async function sendWalletTransaction(connection: Connection, identity: Au
       };
       throw new SporeFailure(messages[code ?? -1] ?? "The transaction failed. Refresh and try again.");
     }
-    return result.context.slot;
+    return {
+      signature: submitted.signature,
+      slot: result.context.slot,
+    };
   } catch (error) {
     if (error instanceof SporeFailure) throw error;
     const code = (error as { code?: unknown } | null)?.code;

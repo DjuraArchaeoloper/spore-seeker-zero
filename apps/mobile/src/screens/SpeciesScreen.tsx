@@ -1,20 +1,27 @@
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
+import type {
+  OutbreakResponse,
+  OutbreakSkrPool,
+  SpeciesLeaderboardResponse,
+  SpeciesMapResponse,
+  SpeciesResponse,
+} from "../auth/api";
 import { AppText } from "../components/AppText";
 import { Screen } from "../components/Screen";
 import { SoftTextScrim } from "../components/SoftTextScrim";
 import { SporeLoader } from "../components/SporeLoader";
-import type { OutbreakResponse, OutbreakSkrPool } from "../auth/api";
+import { WorldInfectionMap } from "../components/species/WorldInfectionMap";
 import { tokens } from "../design/tokens";
-
-type SpeciesResponse = {
-  population?: number | null;
-  deepestGeneration?: number | null;
-  seekerZero?: unknown | null;
-};
 
 type SpeciesScreenProps = {
   species?: SpeciesResponse | null;
+  speciesMap?: SpeciesMapResponse | null;
+  speciesMapError?: string | null;
+  speciesMapLoading?: boolean;
+  leaderboard?: SpeciesLeaderboardResponse | null;
+  leaderboardError?: string | null;
+  leaderboardLoading?: boolean;
   outbreak?: OutbreakResponse | null;
   error?: string | null;
   loading?: boolean;
@@ -45,6 +52,14 @@ const space = {
 
 function formatPopulation(population: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(population);
+}
+
+function formatOrganismNumberValue(organismNumber: string) {
+  return `#${organismNumber.padStart(6, "0")}`;
+}
+
+function formatDescendantLabel(totalDescendants: number) {
+  return totalDescendants === 1 ? "DESCENDANT" : "DESCENDANTS";
 }
 
 function formatOutbreakSeasonLabel(seasonId: string) {
@@ -151,7 +166,18 @@ function formatOrganismGeneration(organism: unknown) {
   return formatGeneration(getGeneration(organism));
 }
 
-export function SpeciesScreen({ species, outbreak, error, loading = false }: SpeciesScreenProps) {
+export function SpeciesScreen({
+  species,
+  speciesMap,
+  speciesMapError,
+  speciesMapLoading = false,
+  leaderboard,
+  leaderboardError,
+  leaderboardLoading = false,
+  outbreak,
+  error,
+  loading = false,
+}: SpeciesScreenProps) {
   if (loading) {
     return (
       <Screen eyebrow="GLOBAL STATE" title="Species">
@@ -163,7 +189,7 @@ export function SpeciesScreen({ species, outbreak, error, loading = false }: Spe
   if (error) {
     return (
       <Screen eyebrow="GLOBAL STATE" title="Species">
-        <View style={styles.content}>
+        <View style={styles.stateContent}>
           <View style={styles.state}>
             <SoftTextScrim style={styles.stateScrim} variant="state" />
             <AppText style={styles.stateLabel}>SPECIES UNAVAILABLE</AppText>
@@ -177,7 +203,7 @@ export function SpeciesScreen({ species, outbreak, error, loading = false }: Spe
   if (!species) {
     return (
       <Screen eyebrow="GLOBAL STATE" title="Species">
-        <View style={styles.content}>
+        <View style={styles.stateContent}>
           <View style={styles.state}>
             <SoftTextScrim style={styles.stateScrim} variant="state" />
             <AppText style={styles.stateLabel}>NO SPECIES DATA</AppText>
@@ -196,17 +222,47 @@ export function SpeciesScreen({ species, outbreak, error, loading = false }: Spe
 
   return (
     <Screen eyebrow="GLOBAL STATE" title="Species">
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        style={styles.scroller}
+      >
         <View style={styles.population}>
           <AppText adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.populationNumber}>
             {population === null ? "-" : formatPopulation(population)}
           </AppText>
-          <AppText style={styles.populationLabel}>POPULATION</AppText>
+          <AppText style={styles.populationLabel}>GLOBAL POPULATION</AppText>
         </View>
 
-        <View style={styles.generation}>
-          <AppText style={styles.sectionLabel}>DEEPEST GENERATION</AppText>
-          <AppText style={styles.generationValue}>{formatGeneration(deepestGeneration)}</AppText>
+        <View style={styles.section}>
+          <AppText style={styles.sectionLabel}>WORLD INFECTION MAP</AppText>
+          <WorldInfectionMap
+            error={speciesMapError}
+            loading={speciesMapLoading}
+            regions={speciesMap?.regions}
+          />
+        </View>
+
+        <View style={styles.globalStats}>
+          <View style={styles.generation}>
+            <AppText style={styles.sectionLabel}>DEEPEST GENERATION</AppText>
+            <AppText style={styles.generationValue}>{formatGeneration(deepestGeneration)}</AppText>
+          </View>
+
+          <View style={styles.origin}>
+            <AppText style={styles.sectionLabel}>ORIGIN</AppText>
+            {seekerZero ? (
+              <View style={styles.originRecord}>
+                <AppText style={styles.originName}>SEEKER ZERO</AppText>
+                <AppText style={styles.originMeta}>
+                  {formatOrganismNumber(seekerZero)} · {formatOrganismGeneration(seekerZero)}
+                </AppText>
+                <AppText style={styles.originLine}>THE FIRST SEEKERBORNE CASE.</AppText>
+              </View>
+            ) : (
+              <AppText style={styles.originUnavailable}>ORIGIN RECORD UNAVAILABLE.</AppText>
+            )}
+          </View>
         </View>
 
         {activeOutbreak ? (
@@ -222,29 +278,76 @@ export function SpeciesScreen({ species, outbreak, error, loading = false }: Spe
           </View>
         ) : null}
 
-        <View style={styles.origin}>
-          <AppText style={styles.sectionLabel}>ORIGIN</AppText>
-          {seekerZero ? (
-            <View style={styles.originRecord}>
-              <AppText style={styles.originName}>SEEKER ZERO</AppText>
-              <AppText style={styles.originMeta}>
-                {formatOrganismNumber(seekerZero)} · {formatOrganismGeneration(seekerZero)}
-              </AppText>
-              <AppText style={styles.originLine}>THE FIRST SEEKERBORNE CASE.</AppText>
-            </View>
-          ) : (
-            <AppText style={styles.originUnavailable}>ORIGIN RECORD UNAVAILABLE.</AppText>
-          )}
-        </View>
-      </View>
+        <MostContagious
+          error={leaderboardError}
+          leaderboard={leaderboard}
+          loading={leaderboardLoading}
+        />
+      </ScrollView>
     </Screen>
   );
 }
 
+function MostContagious({
+  error,
+  leaderboard,
+  loading,
+}: {
+  error?: string | null;
+  leaderboard?: SpeciesLeaderboardResponse | null;
+  loading?: boolean;
+}) {
+  const leaders = leaderboard?.leaders ?? [];
+
+  return (
+    <View style={styles.leaderboard}>
+      <AppText style={styles.sectionLabel}>MOST CONTAGIOUS</AppText>
+      {loading ? (
+        <AppText style={styles.leaderboardState}>READING LINEAGE SPREAD</AppText>
+      ) : error ? (
+        <AppText style={styles.leaderboardState}>CONTAGION INDEX UNAVAILABLE</AppText>
+      ) : leaders.length === 0 ? (
+        <AppText style={styles.leaderboardState}>NO LINEAGE HAS SURFACED YET.</AppText>
+      ) : (
+        <View style={styles.leaderboardRows}>
+          {leaders.map((leader, index) => (
+            <View key={leader.organismNumber} style={styles.leaderboardRow}>
+              <AppText style={styles.rank}>{String(index + 1).padStart(2, "0")}</AppText>
+              <View style={styles.leaderIdentity}>
+                <AppText style={styles.leaderNumber}>
+                  {formatOrganismNumberValue(leader.organismNumber)}
+                </AppText>
+                <AppText style={styles.leaderGeneration}>
+                  GEN {leader.generation}
+                </AppText>
+              </View>
+              <View style={styles.descendants}>
+                <AppText style={styles.descendantNumber}>
+                  {formatPopulation(leader.totalDescendants)}
+                </AppText>
+                <AppText style={styles.descendantLabel}>
+                  {formatDescendantLabel(leader.totalDescendants)}
+                </AppText>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  content: {
+  scroller: {
     flex: 1,
-    gap: space.xxxl,
+  },
+  content: {
+    gap: space.xxl,
+    paddingBottom: space.xxxl * 2,
+    paddingTop: space.lg,
+  },
+  stateContent: {
+    flex: 1,
     justifyContent: "center",
     paddingBottom: space.xxxl,
     paddingTop: space.lg,
@@ -302,6 +405,10 @@ const styles = StyleSheet.create({
   generation: {
     gap: space.xs,
   },
+  section: {
+    gap: space.md,
+    paddingTop: space.xs,
+  },
   sectionLabel: {
     ...tokens.postAuth.smallText,
     color: color.soft,
@@ -309,6 +416,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1.25,
     lineHeight: 17,
     textTransform: "uppercase",
+  },
+  globalStats: {
+    gap: space.xxl,
+    paddingTop: space.xs,
   },
   generationValue: {
     color: color.text,
@@ -343,7 +454,6 @@ const styles = StyleSheet.create({
   },
   origin: {
     gap: space.md,
-    paddingTop: space.sm,
   },
   originRecord: {
     gap: 3,
@@ -377,6 +487,76 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     lineHeight: 20,
+    textTransform: "uppercase",
+  },
+  leaderboard: {
+    gap: space.md,
+    paddingTop: space.xs,
+  },
+  leaderboardState: {
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 11,
+    letterSpacing: 1,
+    lineHeight: 18,
+    paddingLeft: space.xs,
+    textTransform: "uppercase",
+  },
+  leaderboardRows: {
+    gap: 0,
+  },
+  leaderboardRow: {
+    alignItems: "center",
+    borderTopColor: "rgba(184, 206, 211, 0.12)",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: space.md,
+    minHeight: 54,
+    paddingVertical: space.sm,
+  },
+  rank: {
+    ...tokens.postAuth.smallText,
+    color: color.muted,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    lineHeight: 15,
+    width: 28,
+  },
+  leaderIdentity: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  leaderNumber: {
+    color: color.text,
+    fontSize: 16,
+    fontWeight: "500",
+    lineHeight: 21,
+  },
+  leaderGeneration: {
+    ...tokens.postAuth.smallText,
+    color: color.muted,
+    fontSize: 10,
+    letterSpacing: 1,
+    lineHeight: 14,
+    textTransform: "uppercase",
+  },
+  descendants: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  descendantNumber: {
+    color: color.text,
+    fontSize: 17,
+    fontWeight: "500",
+    lineHeight: 21,
+  },
+  descendantLabel: {
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 9,
+    letterSpacing: 0.8,
+    lineHeight: 13,
     textTransform: "uppercase",
   },
 });
