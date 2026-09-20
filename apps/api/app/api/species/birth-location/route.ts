@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 const MAX_LOCATION_BODY_BYTES = 4 * 1024;
 const LOCATION_GRID_DEGREES = 0.5;
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
+const LOCATION_LABEL_MAX_LENGTH = 80;
 const LOCATION_LABEL_PATTERN = /^[\p{L}\p{M} .,'()-]{1,80}$/u;
 const ALLOWED_FIELDS = new Set([
   "organismNumber",
@@ -88,12 +89,7 @@ export async function POST(request: Request) {
 
     const coarseLatitude = coarsenCoordinate(input.latitude, -90, 90);
     const coarseLongitude = coarsenCoordinate(input.longitude, -180, 180);
-    const label =
-      input.cityLabel ??
-      input.regionLabel ??
-      input.countryName ??
-      input.countryCode ??
-      "Unlabeled region";
+    const label = getLocationDisplayLabel(input);
 
     try {
       await BirthLocationModel.create({
@@ -217,11 +213,30 @@ function normalizeLocationLabel(value: unknown) {
     return null;
   }
 
-  if (!LOCATION_LABEL_PATTERN.test(normalized)) {
+  if (normalized.length > LOCATION_LABEL_MAX_LENGTH || !LOCATION_LABEL_PATTERN.test(normalized)) {
     throw new BirthLocationInputError("Location label is invalid.");
   }
 
   return normalized;
+}
+
+function getLocationDisplayLabel(input: BirthLocationSubmission) {
+  const locality = input.cityLabel ?? input.regionLabel;
+  const country = input.countryName ?? input.countryCode;
+
+  if (locality && country && !sameLocationLabel(locality, country)) {
+    const displayLabel = `${locality}, ${country}`;
+
+    if (displayLabel.length <= LOCATION_LABEL_MAX_LENGTH) {
+      return displayLabel;
+    }
+  }
+
+  return locality ?? country ?? "Unlabeled region";
+}
+
+function sameLocationLabel(left: string, right: string) {
+  return left.toLowerCase() === right.toLowerCase();
 }
 
 function coarsenCoordinate(value: number, min: number, max: number) {

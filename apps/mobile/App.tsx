@@ -7,7 +7,8 @@ import { SporeLoader } from "./src/components/SporeLoader";
 
 import { AuthEntryScreen } from "./src/screens/AuthEntryScreen";
 import { BloodlineScreen } from "./src/screens/BloodlineScreen";
-import { SpeciesScreen } from "./src/screens/SpeciesScreen";
+import { RankScreen } from "./src/screens/RankScreen";
+import { SpreadScreen } from "./src/screens/SpreadScreen";
 import { SpecimenScreen } from "./src/screens/SpecimenScreen";
 import { tokens } from "./src/design/tokens";
 import {
@@ -23,7 +24,8 @@ const Reproduction = lazy(() => import("./src/spore/Reproduction"));
 const previewScreens: Record<SurfaceKey, ComponentType> = {
   specimen: PreviewSpecimenScreen,
   bloodline: BloodlineScreen,
-  species: SpeciesScreen,
+  spread: SpreadScreen,
+  rank: RankScreen,
 };
 
 function PreviewSpecimenScreen() {

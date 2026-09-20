@@ -37,89 +37,86 @@ type ProjectedRegion = SpeciesMapRegion & {
   phase: number;
 };
 
+type GeoPoint = [longitude: number, latitude: number];
+
+type LandPathCommand =
+  | { point: GeoPoint; type: "M" }
+  | { point: GeoPoint; type: "L" }
+  | { control1: GeoPoint; control2: GeoPoint; point: GeoPoint; type: "C" }
+  | { type: "Z" };
+
 const MAP_ASPECT_RATIO = 1.86;
-const MIN_MAP_HEIGHT = 176;
-const MAX_MAP_HEIGHT = 236;
+const MIN_MAP_HEIGHT = 224;
+const MAX_MAP_HEIGHT = 328;
 const NODE_LIMIT = 200;
-const CONTINENTS: Array<Array<[number, number]>> = [
+// Static simplified world silhouette in lon/lat coordinates.
+const WORLD_LAND_PATHS: LandPathCommand[][] = [
   [
-    [-168, 70],
-    [-146, 72],
-    [-126, 63],
-    [-110, 54],
-    [-95, 51],
-    [-79, 43],
-    [-68, 32],
-    [-82, 23],
-    [-96, 18],
-    [-114, 24],
-    [-126, 34],
-    [-143, 44],
-    [-159, 55],
+    { point: [-169, 58], type: "M" },
+    { control1: [-164, 68], control2: [-151, 73], point: [-135, 70], type: "C" },
+    { control1: [-121, 67], control2: [-113, 59], point: [-98, 56], type: "C" },
+    { control1: [-82, 55], control2: [-70, 51], point: [-59, 45], type: "C" },
+    { control1: [-65, 42], control2: [-70, 38], point: [-73, 34], type: "C" },
+    { control1: [-77, 29], control2: [-79, 26], point: [-83, 24], type: "C" },
+    { control1: [-90, 22], control2: [-95, 25], point: [-101, 22], type: "C" },
+    { control1: [-107, 19], control2: [-108, 15], point: [-101, 12], type: "C" },
+    { control1: [-94, 10], control2: [-88, 8], point: [-82, 7], type: "C" },
+    { control1: [-91, 4], control2: [-101, 8], point: [-109, 17], type: "C" },
+    { control1: [-116, 25], control2: [-121, 36], point: [-129, 43], type: "C" },
+    { control1: [-140, 52], control2: [-154, 54], point: [-169, 58], type: "C" },
+    { type: "Z" },
   ],
   [
-    [-82, 12],
-    [-66, 7],
-    [-54, -8],
-    [-48, -24],
-    [-57, -43],
-    [-70, -55],
-    [-76, -39],
-    [-74, -21],
-    [-84, -4],
+    { point: [-80, 10], type: "M" },
+    { control1: [-70, 13], control2: [-57, 8], point: [-48, -4], type: "C" },
+    { control1: [-39, -16], control2: [-39, -29], point: [-51, -39], type: "C" },
+    { control1: [-58, -45], control2: [-61, -54], point: [-68, -56], type: "C" },
+    { control1: [-74, -45], control2: [-78, -31], point: [-76, -18], type: "C" },
+    { control1: [-74, -7], control2: [-84, 0], point: [-80, 10], type: "C" },
+    { type: "Z" },
   ],
   [
-    [-24, 36],
-    [-8, 54],
-    [22, 61],
-    [55, 60],
-    [86, 53],
-    [124, 48],
-    [149, 58],
-    [166, 46],
-    [145, 31],
-    [113, 23],
-    [84, 18],
-    [55, 13],
-    [35, 1],
-    [19, -10],
-    [2, 5],
-    [-10, 19],
+    { point: [-54, 76], type: "M" },
+    { control1: [-44, 78], control2: [-31, 74], point: [-28, 65], type: "C" },
+    { control1: [-34, 58], control2: [-47, 57], point: [-59, 62], type: "C" },
+    { control1: [-66, 68], control2: [-64, 74], point: [-54, 76], type: "C" },
+    { type: "Z" },
   ],
   [
-    [-17, 32],
-    [12, 32],
-    [31, 17],
-    [36, -3],
-    [29, -25],
-    [18, -35],
-    [2, -28],
-    [-9, -9],
-    [-18, 8],
+    { point: [-12, 36], type: "M" },
+    { control1: [-8, 47], control2: [-1, 55], point: [13, 58], type: "C" },
+    { control1: [20, 66], control2: [36, 67], point: [49, 61], type: "C" },
+    { control1: [73, 63], control2: [108, 62], point: [137, 56], type: "C" },
+    { control1: [154, 53], control2: [166, 47], point: [167, 39], type: "C" },
+    { control1: [156, 39], control2: [149, 34], point: [140, 31], type: "C" },
+    { control1: [129, 27], control2: [119, 28], point: [112, 18], type: "C" },
+    { control1: [108, 13], control2: [105, 8], point: [101, 4], type: "C" },
+    { control1: [96, 6], control2: [97, 14], point: [91, 15], type: "C" },
+    { control1: [86, 16], control2: [84, 10], point: [82, 7], type: "C" },
+    { control1: [78, 16], control2: [73, 23], point: [64, 24], type: "C" },
+    { control1: [56, 25], control2: [49, 28], point: [43, 29], type: "C" },
+    { control1: [39, 23], control2: [44, 16], point: [53, 13], type: "C" },
+    { control1: [43, 10], control2: [35, 20], point: [31, 30], type: "C" },
+    { control1: [23, 38], control2: [15, 38], point: [8, 42], type: "C" },
+    { control1: [1, 47], control2: [-7, 42], point: [-12, 36], type: "C" },
+    { type: "Z" },
   ],
   [
-    [38, 28],
-    [55, 24],
-    [74, 20],
-    [88, 8],
-    [78, -2],
-    [62, 3],
-    [45, 12],
+    { point: [-18, 30], type: "M" },
+    { control1: [-7, 33], control2: [15, 33], point: [31, 27], type: "C" },
+    { control1: [40, 23], control2: [43, 15], point: [47, 8], type: "C" },
+    { control1: [39, 4], control2: [37, -8], point: [34, -18], type: "C" },
+    { control1: [30, -30], control2: [22, -36], point: [14, -35], type: "C" },
+    { control1: [4, -33], control2: [-4, -25], point: [-8, -13], type: "C" },
+    { control1: [-13, -2], control2: [-20, 11], point: [-18, 30], type: "C" },
+    { type: "Z" },
   ],
   [
-    [112, -12],
-    [134, -12],
-    [154, -26],
-    [144, -39],
-    [119, -36],
-    [108, -25],
-  ],
-  [
-    [-53, 75],
-    [-35, 72],
-    [-28, 64],
-    [-44, 59],
-    [-61, 65],
+    { point: [111, -17], type: "M" },
+    { control1: [122, -12], control2: [139, -12], point: [152, -25], type: "C" },
+    { control1: [148, -35], control2: [135, -42], point: [119, -38], type: "C" },
+    { control1: [108, -34], control2: [104, -24], point: [111, -17], type: "C" },
+    { type: "Z" },
   ],
 ];
 
@@ -181,6 +178,12 @@ export function WorldInfectionMap({
   }
 
   const showEmptyState = !loading && !error && projectedRegions.length === 0;
+  const landFillColor = showEmptyState
+    ? "rgba(184, 206, 211, 0.038)"
+    : "rgba(184, 206, 211, 0.055)";
+  const landStrokeColor = showEmptyState
+    ? "rgba(181, 238, 226, 0.052)"
+    : "rgba(181, 238, 226, 0.075)";
 
   return (
     <View style={styles.shell} onLayout={updateSize}>
@@ -194,10 +197,10 @@ export function WorldInfectionMap({
                 strokeWidth={0.6}
                 style="stroke"
               />
-              <Path path={landPath} color="rgba(184, 206, 211, 0.055)" />
+              <Path path={landPath} color={landFillColor} />
               <Path
                 path={landPath}
-                color="rgba(181, 238, 226, 0.075)"
+                color={landStrokeColor}
                 strokeWidth={0.8}
                 style="stroke"
               />
@@ -226,8 +229,8 @@ export function WorldInfectionMap({
         ) : null}
 
         {showEmptyState ? (
-          <View pointerEvents="none" style={styles.mapState}>
-            <AppText style={styles.mapStateText}>
+          <View pointerEvents="none" style={[styles.mapState, styles.emptyMapState]}>
+            <AppText style={[styles.mapStateText, styles.emptyMapStateText]}>
               THE SPECIES HAS NOT SURFACED GLOBALLY YET
             </AppText>
           </View>
@@ -329,20 +332,30 @@ function createLandPath(size: MapSize) {
     return path;
   }
 
-  for (const continent of CONTINENTS) {
-    const [firstLongitude, firstLatitude] = continent[0];
-    const first = project(firstLongitude, firstLatitude, size);
+  for (const landPath of WORLD_LAND_PATHS) {
+    for (const command of landPath) {
+      if (command.type === "Z") {
+        path.close();
+        continue;
+      }
 
-    path.moveTo(first.x, first.y);
+      const point = project(command.point[0], command.point[1], size);
 
-    for (let index = 1; index < continent.length; index += 1) {
-      const [longitude, latitude] = continent[index];
-      const point = project(longitude, latitude, size);
+      if (command.type === "M") {
+        path.moveTo(point.x, point.y);
+        continue;
+      }
 
-      path.lineTo(point.x, point.y);
+      if (command.type === "L") {
+        path.lineTo(point.x, point.y);
+        continue;
+      }
+
+      const control1 = project(command.control1[0], command.control1[1], size);
+      const control2 = project(command.control2[0], command.control2[1], size);
+
+      path.cubicTo(control1.x, control1.y, control2.x, control2.y, point.x, point.y);
     }
-
-    path.close();
   }
 
   return path;
@@ -449,6 +462,9 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
   },
+  emptyMapState: {
+    transform: [{ translateY: tokens.spacing.lg }],
+  },
   mapStateText: {
     ...tokens.postAuth.smallText,
     color: tokens.postAuth.secondary,
@@ -457,6 +473,9 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: "center",
     textTransform: "uppercase",
+  },
+  emptyMapStateText: {
+    maxWidth: 260,
   },
   node: {
     alignItems: "center",

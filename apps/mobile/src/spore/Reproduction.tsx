@@ -39,7 +39,8 @@ import { SporeLoader } from "../components/SporeLoader";
 import { tokens } from "../design/tokens";
 import { SpecimenScreen } from "../screens/SpecimenScreen";
 import { BloodlineScreen } from "../screens/BloodlineScreen";
-import { SpeciesScreen } from "../screens/SpeciesScreen";
+import { RankScreen } from "../screens/RankScreen";
+import { SpreadScreen } from "../screens/SpreadScreen";
 import {
   BottomNavigation,
   type SurfaceKey,
@@ -660,12 +661,10 @@ export default function Reproduction({
     };
   }, [surface, organism]);
   useEffect(() => {
-    if (surface !== "species") return;
+    if (surface !== "spread") return;
     let live = true;
     setSpecies({});
     setSpeciesMap({});
-    setSpeciesLeaderboard({});
-    void refreshOutbreak();
     void getSpecies()
       .then((data) => {
         if (live) setSpecies({ data });
@@ -688,6 +687,14 @@ export default function Reproduction({
             error: e instanceof Error ? e.message : "Species map is unavailable.",
           });
       });
+    return () => {
+      live = false;
+    };
+  }, [surface]);
+  useEffect(() => {
+    if (surface !== "rank") return;
+    let live = true;
+    setSpeciesLeaderboard({});
     void getSpeciesLeaderboard(10)
       .then((data) => {
         if (live) setSpeciesLeaderboard({ data });
@@ -702,7 +709,7 @@ export default function Reproduction({
     return () => {
       live = false;
     };
-  }, [refreshOutbreak, surface]);
+  }, [surface]);
 
   async function release() {
     await run(async () => {
@@ -1136,7 +1143,7 @@ export default function Reproduction({
             if (!locked.current) {
               setSurface(next);
               void refresh().catch((e) => setError(sporeMessage(e)));
-              if (next === "specimen" || next === "species") {
+              if (next === "specimen") {
                 void refreshOutbreak();
               }
             }
@@ -1276,18 +1283,20 @@ export default function Reproduction({
         error={bloodline.error}
         loading={bloodline.data === undefined && !bloodline.error}
       />
-    ) : (
-      <SpeciesScreen
-        outbreak={activeOutbreak}
+    ) : surface === "spread" ? (
+      <SpreadScreen
         species={species.data}
         speciesMap={speciesMap.data}
         speciesMapError={speciesMap.error}
         speciesMapLoading={speciesMap.data === undefined && !speciesMap.error}
-        leaderboard={speciesLeaderboard.data}
-        leaderboardError={speciesLeaderboard.error}
-        leaderboardLoading={speciesLeaderboard.data === undefined && !speciesLeaderboard.error}
         error={species.error}
         loading={species.data === undefined && !species.error}
+      />
+    ) : (
+      <RankScreen
+        leaderboard={speciesLeaderboard.data}
+        error={speciesLeaderboard.error}
+        loading={speciesLeaderboard.data === undefined && !speciesLeaderboard.error}
       />
     ),
     true,
