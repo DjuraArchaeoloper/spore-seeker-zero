@@ -1,5 +1,5 @@
 /**
- * SPORE Creature Asset Registry — mobile adapter shape reference.
+ * SPORE Creature Asset Registry - mobile adapter shape reference.
  *
  * Shared art metadata lives in packages/shared/src/organismArt.ts.
  * Metro still requires static image paths, so the mobile adapter must use

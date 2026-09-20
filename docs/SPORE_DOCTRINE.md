@@ -1,4 +1,4 @@
-# SPORE: Seeker Zero — Project Doctrine
+# SPORE: Seeker Zero - Project Doctrine
 
 ## 1. What We Are Building
 
@@ -8,7 +8,7 @@ SPORE is a tiny, premium Solana Seeker mobile app built around one mechanic:
 
 The species begins with one unique organism:
 
-**Seeker Zero — Organism #000000 — Generation 0**
+**Seeker Zero - Organism #000000 - Generation 0**
 
 Every future organism must descend from Seeker Zero.
 
@@ -124,7 +124,7 @@ Visually:
 
 ---
 
-# 5. Spore Rules — LOCKED
+# 5. Spore Rules - LOCKED
 
 Each organism:
 
@@ -184,7 +184,7 @@ The parent does NOT need to remain present/sign during the claim.
 
 ---
 
-# 7. Identity — LOCKED
+# 7. Identity - LOCKED
 
 SPORE authentication is wallet-only.
 
@@ -301,7 +301,7 @@ NO:
 
 ---
 
-# 10. Seeker Zero — LOCKED
+# 10. Seeker Zero - LOCKED
 
 Seeker Zero is:
 
@@ -325,7 +325,7 @@ No admin organism minting backdoor.
 
 ---
 
-# 11. Genome — LOCKED
+# 11. Genome - LOCKED
 
 Genome size:
 
@@ -347,22 +347,22 @@ The mutation system is deterministic cosmetic evolution.
 
 ## Gene Map
 
-0 — Body form  
-1 — Body proportion  
-2 — Membrane shape  
-3 — Membrane density  
-4 — Pigment  
-5 — Bioluminescence  
-6 — Nucleus / internal core  
-7 — Sensory nodes  
-8 — Appendage / wing family  
-9 — Appendage expression  
-10 — Surface pattern  
-11 — Surface density  
-12 — Internal filaments  
-13 — External halo  
-14 — Motion / pulse  
-15 — Asymmetry
+0 - Body form  
+1 - Body proportion  
+2 - Membrane shape  
+3 - Membrane density  
+4 - Pigment  
+5 - Bioluminescence  
+6 - Nucleus / internal core  
+7 - Sensory nodes  
+8 - Appendage / wing family  
+9 - Appendage expression  
+10 - Surface pattern  
+11 - Surface density  
+12 - Internal filaments  
+13 - External halo  
+14 - Motion / pulse  
+15 - Asymmetry
 
 Rule:
 
@@ -372,7 +372,7 @@ Phenotype must never need to be stored separately on-chain.
 
 ---
 
-# 12. Creature Visual Direction — CRITICAL
+# 12. Creature Visual Direction - CRITICAL
 
 The current highest-priority work is the creature visual system.
 
@@ -439,7 +439,7 @@ The creature is the visual hero of the application.
 
 ---
 
-# 13. Creature Rendering Strategy — LOCKED DIRECTION
+# 13. Creature Rendering Strategy - LOCKED DIRECTION
 
 DO NOT ask Codex to invent final creature artwork procedurally from Bézier curves alone.
 
@@ -499,7 +499,7 @@ We need isolated reusable creature assets/components.
 
 ---
 
-# 15. Moustache — LOCKED
+# 15. Moustache - LOCKED
 
 Every organism has a tiny black moustache by default.
 
@@ -537,7 +537,7 @@ Target:
 
 ---
 
-# 16. NFT — LOCKED
+# 16. NFT - LOCKED
 
 Every organism receives exactly one:
 
@@ -572,7 +572,7 @@ Later mainnet hardening may make the SPORE program immutable for stronger trustl
 
 ---
 
-# 17. Birth Fee — LOCKED
+# 17. Birth Fee - LOCKED
 
 Releasing a spore:
 
@@ -635,7 +635,7 @@ Do not monetize:
 
 ---
 
-# 19. Family Tree — LOCKED, SIMPLE
+# 19. Family Tree - LOCKED, SIMPLE
 
 Bloodline is important but must remain minimal.
 
@@ -664,7 +664,7 @@ User can navigate into individual descendants/children.
 
 ---
 
-# 20. Mobile Screens — LOCKED
+# 20. Mobile Screens - LOCKED
 
 Only three core surfaces:
 

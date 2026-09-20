@@ -1,4 +1,4 @@
-# SPORE Creature Art Kit v1 — Repo Ready
+# SPORE Creature Art Kit v1 - Repo Ready
 
 ## What this package is
 

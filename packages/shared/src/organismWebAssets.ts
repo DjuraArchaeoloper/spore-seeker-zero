@@ -5,7 +5,10 @@ import silkRayGlow from "../assets/organisms/silk-ray/glow.png";
 import silkRaySurface from "../assets/organisms/silk-ray/surface.png";
 import silkRayTendrils from "../assets/organisms/silk-ray/tendrils.png";
 import moustache from "../assets/organisms/shared/moustache_01.png";
-import { resolveCreatureFamily, SEEKER_ZERO_GENOME, type CreatureLayer } from "./genome";
+import webBackgroundDesktop from "../assets/backgrounds/spor-web-background-desktop.png";
+import webBackgroundMobile from "../assets/backgrounds/spor-web-background-mobile.png";
+import { resolveCreatureFamily, SEEKER_ZERO_GENOME } from "./genome";
+import type { CreatureLayer } from "./organismArt";
 
 export type WebImageAsset = {
   src: string;
@@ -31,4 +34,9 @@ export const SEEKER_ZERO_CREATURE_WEB_ASSETS = {
     glow: silkRayGlow
   } satisfies Record<CreatureLayer, WebImageAsset>,
   moustache
+} as const;
+
+export const SPORE_WEB_BACKGROUNDS = {
+  desktop: webBackgroundDesktop,
+  mobile: webBackgroundMobile
 } as const;

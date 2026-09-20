@@ -10,10 +10,10 @@ const michroma = Michroma({
 });
 
 export const metadata: Metadata = {
-  title: "SPØR — Seeker Zero",
+  title: "SPØR · Seeker Zero",
   description,
   openGraph: {
-    title: "SPØR — Seeker Zero",
+    title: "SPØR · Seeker Zero",
     description,
     siteName: "SPØR",
     type: "website"

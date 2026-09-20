@@ -1,4 +1,4 @@
-# SPORE — Genome → Phenotype Contract v1
+# SPORE - Genome → Phenotype Contract v1
 
 This documents the visual contract for the 16-byte SPORE genome.
 

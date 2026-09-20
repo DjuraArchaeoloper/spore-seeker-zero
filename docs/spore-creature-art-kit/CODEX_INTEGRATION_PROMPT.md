@@ -1,4 +1,4 @@
-# CODEX TASK — SPORE CREATURE ART KIT V1 INTEGRATION
+# CODEX TASK - SPORE CREATURE ART KIT V1 INTEGRATION
 
 Read the repository and `SPORE_DOCTRINE.md` if it exists. Treat the doctrine as product law.
 
@@ -141,7 +141,7 @@ Apply the phenotype contract with Skia transforms, opacity, color filters and im
 All animation must be deterministic for a given genome except for time progression.
 Do not call `Math.random()` in the render path.
 
-## Moustache — locked
+## Moustache - locked
 
 Every organism has the shared black moustache by default.
 
