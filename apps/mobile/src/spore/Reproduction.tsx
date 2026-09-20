@@ -71,6 +71,10 @@ import {
   type BirthRevealPayload,
 } from "./BirthRevealStage";
 import { submitOptionalBirthLocation } from "./birthLocation";
+import {
+  consumePropagationMoment,
+  type PropagationMoment,
+} from "./propagationMoments";
 
 type Stage = "home" | "scan" | "accept" | "offer" | "recover";
 type BirthRevealState =
@@ -151,6 +155,7 @@ export default function Reproduction({
     data?: BloodlineResponse | null;
     error?: string | null;
   }>({});
+  const [propagationMoment, setPropagationMoment] = useState<PropagationMoment | null>(null);
   const [species, setSpecies] = useState<{
     data?: SpeciesResponse | null;
     error?: string | null;
@@ -645,9 +650,19 @@ export default function Reproduction({
     if (surface !== "bloodline" || !organism) return;
     let live = true;
     setBloodline({});
+    setPropagationMoment(null);
     void getBloodline(organism.organismNumber)
       .then((data) => {
-        if (live) setBloodline({ data });
+        if (live) {
+          setBloodline({ data });
+          void consumePropagationMoment(data)
+            .then((moment) => {
+              if (live && moment) {
+                setPropagationMoment(moment);
+              }
+            })
+            .catch(() => {});
+        }
       })
       .catch((e: unknown) => {
         if (live)
@@ -660,6 +675,17 @@ export default function Reproduction({
       live = false;
     };
   }, [surface, organism]);
+  useEffect(() => {
+    if (!propagationMoment) return;
+
+    const timer = setTimeout(() => {
+      setPropagationMoment(null);
+    }, 7000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [propagationMoment]);
   useEffect(() => {
     if (surface !== "spread") return;
     let live = true;
@@ -1282,6 +1308,8 @@ export default function Reproduction({
         bloodline={bloodline.data}
         error={bloodline.error}
         loading={bloodline.data === undefined && !bloodline.error}
+        moment={propagationMoment}
+        onDismissMoment={() => setPropagationMoment(null)}
       />
     ) : surface === "spread" ? (
       <SpreadScreen

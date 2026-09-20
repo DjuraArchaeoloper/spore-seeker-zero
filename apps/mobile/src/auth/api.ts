@@ -47,6 +47,8 @@ export type BloodlineResponse = {
   ancestors: PublicOrganism[];
   directChildren: PublicOrganism[];
   totalDescendants: number;
+  directChildrenCount: number;
+  deepestDescendantGeneration: number;
 };
 
 export type SpeciesResponse = {

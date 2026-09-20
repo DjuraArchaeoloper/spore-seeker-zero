@@ -35,14 +35,26 @@ export async function GET(_request: Request, context: RouteContext) {
     const parent = organism.parentOrganismPda
       ? ancestors.find((ancestor) => ancestor.organismPda === organism.parentOrganismPda) ?? null
       : null;
-    const directChildren = await OrganismIndexModel.find({
-      parentOrganismPda: organism.organismPda
-    })
-      .sort({ bornAt: 1 })
-      .lean();
-    const totalDescendants = await OrganismIndexModel.countDocuments({
-      ancestorNumbers: organism.organismNumber
-    });
+    const [directChildren, totalDescendants, deepestDescendant] = await Promise.all([
+      OrganismIndexModel.find({
+        parentOrganismPda: organism.organismPda
+      })
+        .sort({ bornAt: 1 })
+        .lean(),
+      OrganismIndexModel.countDocuments({
+        ancestorNumbers: organism.organismNumber
+      }),
+      OrganismIndexModel.findOne({
+        ancestorNumbers: organism.organismNumber
+      })
+        .sort({ generation: -1 })
+        .select({ generation: 1 })
+        .lean()
+    ]);
+    const deepestDescendantGeneration = Math.max(
+      organism.generation,
+      deepestDescendant?.generation ?? organism.generation
+    );
 
     return jsonOk({
       organism: toPublicOrganism(organism, parent),
@@ -50,7 +62,9 @@ export async function GET(_request: Request, context: RouteContext) {
         toPublicOrganism(ancestor, index === 0 ? null : ancestors[index - 1])
       ),
       directChildren: directChildren.map((child) => toPublicOrganism(child, organism)),
-      totalDescendants
+      totalDescendants,
+      directChildrenCount: directChildren.length,
+      deepestDescendantGeneration
     });
   } catch {
     return jsonError(503, "server_misconfigured", "Organism lookup is unavailable.");

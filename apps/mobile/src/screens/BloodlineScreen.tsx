@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import type { BloodlineResponse } from "../auth/api";
 import { AppText } from "../components/AppText";
@@ -11,6 +11,13 @@ type BloodlineScreenProps = {
   bloodline?: BloodlineResponse | null;
   error?: string | null;
   loading?: boolean;
+  moment?: BloodlineMoment | null;
+  onDismissMoment?: () => void;
+};
+
+type BloodlineMoment = {
+  title: string;
+  detail: string;
 };
 
 type OrganismRecord = Record<string, unknown>;
@@ -150,6 +157,14 @@ function normalizeLineage(bloodline: BloodlineResponse): LineageEntry[] {
   });
 }
 
+function formatChildrenCount(count: number) {
+  return count === 1 ? "1 CHILD" : `${count} CHILDREN`;
+}
+
+function formatDescendantCount(count: number) {
+  return count === 1 ? "1 DESCENDANT" : `${count} DESCENDANTS`;
+}
+
 /*
 const previewBloodline: BloodlineResponse = {
   organism: {
@@ -169,7 +184,13 @@ const previewBloodline: BloodlineResponse = {
 };
 
 */
-export function BloodlineScreen({ bloodline, error, loading = false }: BloodlineScreenProps) {
+export function BloodlineScreen({
+  bloodline,
+  error,
+  loading = false,
+  moment,
+  onDismissMoment,
+}: BloodlineScreenProps) {
   if (loading) {
     return (
       <Screen eyebrow="ANCESTRY" title="Bloodline">
@@ -208,7 +229,16 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
 
   const renderedLineage = normalizeLineage(bloodline);
   const renderedDirectChildren = Array.isArray(bloodline.directChildren) ? bloodline.directChildren : [];
-  const renderedTotalDescendants = bloodline.totalDescendants ?? 0;
+  const renderedDirectChildrenCount = Math.max(
+    0,
+    bloodline.directChildrenCount ?? renderedDirectChildren.length,
+  );
+  const renderedTotalDescendants = Math.max(0, bloodline.totalDescendants ?? 0);
+  const organismGeneration = getGeneration(bloodline.organism) ?? 0;
+  const renderedDeepestDescendantGeneration = Math.max(
+    organismGeneration,
+    bloodline.deepestDescendantGeneration ?? organismGeneration,
+  );
 
   return (
     <Screen eyebrow="ANCESTRY" title="Bloodline">
@@ -268,6 +298,35 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
           </View>
         </View>
 
+        <View style={styles.bloodlinePropagation}>
+          <AppText style={styles.bloodlinePropagationCounts}>
+            {formatChildrenCount(renderedDirectChildrenCount)} · {formatDescendantCount(renderedTotalDescendants)}
+          </AppText>
+          <View style={styles.bloodlinePropagationDepth}>
+            <AppText style={styles.bloodlinePropagationDepthLabel}>DEEPEST GENERATION</AppText>
+            <AppText style={styles.bloodlinePropagationDepthValue}>
+              {renderedDeepestDescendantGeneration}
+            </AppText>
+          </View>
+        </View>
+
+        {moment ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onDismissMoment}
+            style={styles.bloodlineMoment}
+          >
+            <SoftTextScrim style={styles.bloodlineMomentScrim} variant="state" />
+            <View style={styles.bloodlineMomentCopy}>
+              <AppText style={styles.bloodlineMomentTitle}>{moment.title}</AppText>
+              <AppText style={styles.bloodlineMomentText}>{moment.detail}</AppText>
+            </View>
+            {onDismissMoment ? (
+              <AppText style={styles.bloodlineMomentDismiss}>DISMISS</AppText>
+            ) : null}
+          </Pressable>
+        ) : null}
+
         <View style={styles.bloodlineSection}>
           <AppText style={styles.bloodlineSectionLabel}>DIRECT OFFSPRING</AppText>
           {renderedDirectChildren.length > 0 ? (
@@ -294,10 +353,6 @@ export function BloodlineScreen({ bloodline, error, loading = false }: Bloodline
           )}
         </View>
 
-        <View style={styles.bloodlineDescendants}>
-          <AppText style={styles.bloodlineDescendantNumber}>{renderedTotalDescendants}</AppText>
-          <AppText style={styles.bloodlineDescendantLabel}>TOTAL DESCENDANTS</AppText>
-        </View>
       </View>
     </Screen>
   );
@@ -563,24 +618,83 @@ const styles = StyleSheet.create({
     paddingLeft: 30,
     textTransform: "uppercase",
   },
-  bloodlineDescendants: {
-    alignItems: "baseline",
-    flexDirection: "row",
-    gap: space.sm,
+  bloodlinePropagation: {
+    gap: space.xs,
+    paddingLeft: 30,
     paddingTop: space.xs,
   },
-  bloodlineDescendantNumber: {
+  bloodlinePropagationCounts: {
+    ...tokens.postAuth.smallText,
     color: color.text,
-    fontSize: 38,
-    fontWeight: "500",
-    lineHeight: 42,
+    fontSize: 12,
+    letterSpacing: 1.05,
+    lineHeight: 18,
+    textTransform: "uppercase",
   },
-  bloodlineDescendantLabel: {
+  bloodlinePropagationDepth: {
+    alignItems: "baseline",
+    flexDirection: "row",
+    gap: space.xs,
+  },
+  bloodlinePropagationDepthLabel: {
     ...tokens.postAuth.smallText,
     color: color.soft,
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 1,
+    lineHeight: 15,
+    textTransform: "uppercase",
+  },
+  bloodlinePropagationDepthValue: {
+    ...tokens.postAuth.smallText,
+    color: color.accent,
+    fontSize: 12,
+    letterSpacing: 1.1,
+    lineHeight: 17,
+    textTransform: "uppercase",
+  },
+  bloodlineMoment: {
+    alignItems: "baseline",
+    flexDirection: "row",
+    gap: space.md,
+    overflow: "visible",
+    paddingBottom: space.sm,
+    paddingLeft: 30,
+    paddingTop: space.sm,
+    position: "relative",
+  },
+  bloodlineMomentScrim: {
+    bottom: -12,
+    left: 10,
+    right: 18,
+    top: -2,
+  },
+  bloodlineMomentCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  bloodlineMomentTitle: {
+    ...tokens.postAuth.smallText,
+    color: color.text,
+    fontSize: 11,
+    letterSpacing: 1.05,
     lineHeight: 16,
+    textTransform: "uppercase",
+  },
+  bloodlineMomentText: {
+    ...tokens.postAuth.smallText,
+    color: color.soft,
+    fontSize: 10,
+    letterSpacing: 0.75,
+    lineHeight: 15,
+    textTransform: "uppercase",
+  },
+  bloodlineMomentDismiss: {
+    ...tokens.postAuth.smallText,
+    color: color.muted,
+    fontSize: 9,
+    letterSpacing: 0.9,
+    lineHeight: 14,
     textTransform: "uppercase",
   },
   content: {
