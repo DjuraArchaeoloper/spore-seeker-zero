@@ -23,7 +23,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_SPORE_API_URL": "https://spore-devnet-api.vercel.app",
+        "EXPO_PUBLIC_SPORE_API_URL": "https://api.sporseekerzero.fun/",
         "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
         "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "devnet",
         "EXPO_PUBLIC_SPORE_RPC_URL": "https://api.devnet.solana.com",
