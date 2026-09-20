@@ -37,11 +37,11 @@ export default function Home() {
       <main>
         <section className="hero" aria-labelledby="hero-title">
           <div className="heroCopy">
-            <p className="heroKicker">SEEKER ZERO</p>
+            {/* <p className="heroKicker">SEEKER ZERO</p> */}
             <h1 id="hero-title">SPØR</h1>
             <p className="origin">IT STARTED WITH SEEKER ZERO.</p>
             <p className="heroText">
-              A digital species spreading from one Solana Seeker to another.
+              An onchain species spreading through Seekers.
             </p>
           </div>
 

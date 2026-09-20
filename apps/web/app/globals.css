@@ -46,10 +46,10 @@ img {
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  background:
+  /* background:
     radial-gradient(ellipse at 72% 34%, rgba(165, 247, 255, 0.08), transparent 31%),
     radial-gradient(ellipse at 20% 78%, rgba(181, 238, 226, 0.055), transparent 34%),
-    linear-gradient(180deg, rgba(1, 3, 4, 0.06) 0%, rgba(1, 3, 4, 0.34) 51%, rgba(1, 3, 4, 0.18) 100%);
+    linear-gradient(180deg, rgba(1, 3, 4, 0.06) 0%, rgba(1, 3, 4, 0.34) 51%, rgba(1, 3, 4, 0.18) 100%); */
   content: "";
 }
 
@@ -77,7 +77,7 @@ img {
 .atmosphereImage {
   object-fit: cover;
   object-position: center center;
-  opacity: 0.74;
+  /* opacity: 0.74; */
   transform: scale(1.006);
   user-select: none;
 }
@@ -86,8 +86,19 @@ img {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(1, 3, 4, 0.82) 0%, rgba(1, 3, 4, 0.5) 31%, rgba(1, 3, 4, 0.2) 62%, rgba(1, 3, 4, 0.52) 100%),
-    linear-gradient(180deg, rgba(1, 3, 4, 0.42) 0%, rgba(1, 3, 4, 0.08) 33%, rgba(1, 3, 4, 0.68) 100%);
+    linear-gradient(
+      90deg,
+      rgba(1, 3, 4, 0.82) 0%,
+      rgba(1, 3, 4, 0.5) 31%,
+      rgba(1, 3, 4, 0.2) 62%,
+      rgba(1, 3, 4, 0.52) 100%
+    ),
+    /* linear-gradient(
+      180deg,
+      rgba(1, 3, 4, 0.42) 0%,
+      rgba(1, 3, 4, 0.08) 33%,
+      rgba(1, 3, 4, 0.68) 100%
+    ); */
 }
 
 .masthead {
@@ -127,7 +138,7 @@ main {
   grid-template-columns: minmax(340px, 0.68fr) minmax(560px, 1.32fr);
   align-items: center;
   min-height: 100svh;
-  padding: 100px var(--gutter) 72px;
+  padding: 100px var(--gutter) 0;
 }
 
 .hero::before {
@@ -135,17 +146,16 @@ main {
   inset: 0 43% 0 0;
   z-index: 0;
   pointer-events: none;
-  background:
+  /* background:
     radial-gradient(ellipse at 16% 69%, rgba(1, 3, 4, 0.72), transparent 58%),
-    linear-gradient(90deg, rgba(1, 3, 4, 0.72), rgba(1, 3, 4, 0.12));
+    linear-gradient(90deg, rgba(1, 3, 4, 0.72), rgba(1, 3, 4, 0.12)); */
   content: "";
 }
 
 .heroCopy {
   position: relative;
   z-index: 3;
-  max-width: 560px;
-  align-self: end;
+  /* max-width: 560px; */
   padding-bottom: 8svh;
 }
 
@@ -205,10 +215,18 @@ h1 {
   inset: 8% 2% 10% 3%;
   z-index: -1;
   background:
-    radial-gradient(ellipse at 52% 42%, rgba(165, 247, 255, 0.16), transparent 42%),
-    radial-gradient(ellipse at 43% 58%, rgba(181, 238, 226, 0.1), transparent 56%);
+    radial-gradient(
+      ellipse at 52% 42%,
+      rgba(165, 247, 255, 0.16),
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse at 43% 58%,
+      rgba(181, 238, 226, 0.1),
+      transparent 56%
+    );
   filter: blur(24px);
-  opacity: 0.82;
+  /* opacity: 0.82; */
 }
 
 .organismComposite {
@@ -286,14 +304,14 @@ h1 {
 .spread,
 .originPanel {
   position: relative;
-  padding: 118px var(--gutter);
+  padding: 50px var(--gutter);
 }
 
 .spread {
   display: grid;
   align-content: center;
-  gap: 64px;
-  min-height: 76svh;
+  gap: 14px;
+  min-height: 36svh;
 }
 
 .spread::before,
@@ -305,11 +323,20 @@ h1 {
   content: "";
 }
 
-.spread::before {
+/* .spread::before {
   background:
-    radial-gradient(ellipse at 50% 45%, rgba(181, 238, 226, 0.075), transparent 42%),
-    linear-gradient(180deg, rgba(1, 3, 4, 0.3), rgba(1, 3, 4, 0.08) 38%, rgba(1, 3, 4, 0.3));
-}
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(181, 238, 226, 0.075),
+      transparent 42%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(1, 3, 4, 0.3),
+      rgba(1, 3, 4, 0.08) 38%,
+      rgba(1, 3, 4, 0.3)
+    );
+} */
 
 .spread > *,
 .originPanel > * {
@@ -348,6 +375,7 @@ h1 {
   color: var(--ink);
   font-size: 3rem;
   line-height: 1;
+  justify-content: center;
 }
 
 .lifeSequence li span {
@@ -358,7 +386,7 @@ h1 {
 .lifeSequence li:not(:last-child)::after {
   position: absolute;
   top: calc(50% - 0.53em);
-  right: -41px;
+  right: -61px;
   z-index: 2;
   color: rgba(181, 238, 226, 0.58);
   font-size: 1.12rem;
@@ -410,13 +438,17 @@ h1 {
   align-items: center;
   gap: 74px;
   min-height: 86svh;
-  padding-top: 126px;
+  /* padding-top: 126px; */
   padding-bottom: 96px;
 }
 
 .originPanel::before {
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(181, 238, 226, 0.06), transparent 40%),
+    radial-gradient(
+      ellipse at 20% 50%,
+      rgba(181, 238, 226, 0.06),
+      transparent 40%
+    ),
     linear-gradient(180deg, rgba(1, 3, 4, 0.16), rgba(1, 3, 4, 0.36) 100%);
 }
 
@@ -528,22 +560,26 @@ h1 {
     --gutter: 22px;
   }
 
-  .siteRoot::before {
-    background:
-      radial-gradient(ellipse at 50% 28%, rgba(165, 247, 255, 0.065), transparent 36%),
-      linear-gradient(180deg, rgba(1, 3, 4, 0.16), rgba(1, 3, 4, 0.3));
-  }
-
   .atmosphereImage {
     object-position: center top;
-    opacity: 0.78;
+    /* opacity: 0.78; */
     transform: none;
   }
 
   .atmosphereVeil {
     background:
-      linear-gradient(180deg, rgba(1, 3, 4, 0.3) 0%, rgba(1, 3, 4, 0.05) 27%, rgba(1, 3, 4, 0.46) 100%),
-      linear-gradient(90deg, rgba(1, 3, 4, 0.44), rgba(1, 3, 4, 0.1), rgba(1, 3, 4, 0.34));
+      linear-gradient(
+        180deg,
+        rgba(1, 3, 4, 0.3) 0%,
+        rgba(1, 3, 4, 0.05) 27%,
+        rgba(1, 3, 4, 0.46) 100%
+      ),
+      linear-gradient(
+        90deg,
+        rgba(1, 3, 4, 0.44),
+        rgba(1, 3, 4, 0.1),
+        rgba(1, 3, 4, 0.34)
+      );
   }
 
   .masthead {
@@ -568,7 +604,12 @@ h1 {
     inset: 0;
     background:
       radial-gradient(ellipse at 50% 36%, rgba(1, 3, 4, 0.12), transparent 36%),
-      linear-gradient(180deg, rgba(1, 3, 4, 0.08) 0%, rgba(1, 3, 4, 0.62) 64%, rgba(1, 3, 4, 0.42) 100%);
+      linear-gradient(
+        180deg,
+        rgba(1, 3, 4, 0.08) 0%,
+        rgba(1, 3, 4, 0.62) 64%,
+        rgba(1, 3, 4, 0.42) 100%
+      );
   }
 
   .heroCopy {
@@ -612,7 +653,7 @@ h1 {
   .organismLight {
     inset: 10% 5% 12%;
     filter: blur(18px);
-    opacity: 0.74;
+    /* opacity: 0.74; */
   }
 
   .seekerZeroFigure figcaption {
@@ -647,7 +688,7 @@ h1 {
     top: auto;
     right: auto;
     bottom: -29px;
-    left: 2px;
+    left: 162px;
     font-size: 1rem;
     content: "↓";
   }
@@ -707,7 +748,7 @@ h1 {
   }
 
   .seekerZeroFigure {
-    width: 118vw;
+    width: 88vw;
     margin-top: 10px;
     margin-bottom: -22px;
   }
