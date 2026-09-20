@@ -15,7 +15,7 @@ export type CreatureFamilyArtDefinition = {
   sensoryAnchors: readonly PointPair[];
 };
 
-export const SHOW_MOUSTACHE = true;
+export const SHOW_MOUSTACHE = false;
 export const SPORE_CREATURE_ART_REVISION = 1;
 
 export const ORGANISM_RUNTIME_CANVAS = {

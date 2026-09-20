@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Michroma_400Regular } from "@expo-google-fonts/michroma";
 import { Host, Icon } from "@expo/ui";
@@ -45,8 +45,14 @@ const surfaces: Array<{ key: SurfaceKey; label: string; icon: NavigationIconSour
   { key: "rank", label: "Rank", icon: RANK_ICON },
 ];
 
+const TAB_COUNT = surfaces.length;
+const TRAY_HORIZONTAL_PADDING = 6;
+const ACTIVE_SIGNAL_COLOR = "#b2f6ff";
+const ACTIVE_SEGMENT_WIDTH = 36;
+const ACTIVE_GLOW_WIDTH = 88;
+
 const ACTIVE_TRANSITION = {
-  duration: 210,
+  duration: 240,
   easing: Easing.out(Easing.cubic),
 };
 
@@ -58,7 +64,11 @@ type BottomNavigationProps = {
 export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavigationProps) {
   const insets = useSafeAreaInsets();
   const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
+  const [trayWidth, setTrayWidth] = useState(0);
+  const activeIndex = Math.max(0, surfaces.findIndex((surface) => surface.key === activeSurface));
+
   if (fontError) throw fontError;
+
   return (
     <View style={[styles.navigation, {
       paddingBottom: insets.bottom + 18,
@@ -66,7 +76,11 @@ export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavig
       paddingRight: Math.max(insets.right, tokens.spacing.lg),
       opacity: fontsLoaded ? 1 : 0,
     }]}>
-      <View style={styles.tray}>
+      <View
+        onLayout={({ nativeEvent }) => setTrayWidth(nativeEvent.layout.width)}
+        style={styles.tray}
+      >
+        <ActiveTopSignal activeIndex={activeIndex} trayWidth={trayWidth} />
         {surfaces.map((surface) => {
           const active = surface.key === activeSurface;
 
@@ -78,9 +92,12 @@ export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavig
               onPress={() => onSurfaceChange(surface.key)}
               style={({ pressed }) => [styles.item, pressed && styles.pressed]}
             >
-              <ActiveTabEffects active={active} />
               <NavigationIcon active={active} source={surface.icon} />
-              <AppText maxFontSizeMultiplier={1.2} variant="metadata" style={[styles.label, active && styles.labelActive]}>
+              <AppText
+                maxFontSizeMultiplier={1.2}
+                variant="metadata"
+                style={[styles.label, active ? styles.labelActive : styles.labelInactive]}
+              >
                 {surface.label}
               </AppText>
             </Pressable>
@@ -91,31 +108,58 @@ export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavig
   );
 }
 
-function ActiveTabEffects({ active }: { active: boolean }) {
-  const progress = useSharedValue(active ? 1 : 0);
+function ActiveTopSignal({
+  activeIndex,
+  trayWidth,
+}: {
+  activeIndex: number;
+  trayWidth: number;
+}) {
+  const position = useSharedValue(activeIndex);
+  const glow = useSharedValue(1);
 
   useEffect(() => {
-    progress.value = withTiming(active ? 1 : 0, ACTIVE_TRANSITION);
-  }, [active, progress]);
+    position.value = withTiming(activeIndex, ACTIVE_TRANSITION);
+    glow.value = 0.7;
+    glow.value = withTiming(1, ACTIVE_TRANSITION);
+  }, [activeIndex, glow, position]);
 
-  const auraStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [
-      { scaleX: 0.88 + progress.value * 0.12 },
-      { scaleY: 0.92 + progress.value * 0.08 },
-    ],
+  const signalStyle = useAnimatedStyle(() => {
+    const usableWidth = Math.max(0, trayWidth - TRAY_HORIZONTAL_PADDING * 2);
+    const tabWidth = usableWidth / TAB_COUNT;
+    const centerX =
+      TRAY_HORIZONTAL_PADDING +
+      tabWidth * position.value +
+      tabWidth / 2;
+
+    return {
+      opacity: trayWidth > 0 ? 1 : 0,
+      transform: [
+        { translateX: centerX - ACTIVE_GLOW_WIDTH / 2 },
+        { scaleX: 0.98 + glow.value * 0.02 },
+      ],
+    };
+  }, [trayWidth]);
+
+  const nearGlowStyle = useAnimatedStyle(() => ({
+    opacity: 0.105 + glow.value * 0.035,
   }));
 
-  const indicatorStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ scaleX: 0.68 + progress.value * 0.32 }],
+  const midGlowStyle = useAnimatedStyle(() => ({
+    opacity: 0.048 + glow.value * 0.022,
+  }));
+
+  const farGlowStyle = useAnimatedStyle(() => ({
+    opacity: 0.018 + glow.value * 0.01,
   }));
 
   return (
-    <>
-      <Animated.View pointerEvents="none" style={[styles.activeAura, auraStyle]} />
-      <Animated.View pointerEvents="none" style={[styles.indicator, indicatorStyle]} />
-    </>
+    <Animated.View pointerEvents="none" style={[styles.activeSignal, signalStyle]}>
+      <Animated.View style={[styles.activeGlowFar, farGlowStyle]} />
+      <Animated.View style={[styles.activeGlowMid, midGlowStyle]} />
+      <Animated.View style={[styles.activeGlowNear, nearGlowStyle]} />
+      <View style={styles.activeSegment} />
+    </Animated.View>
   );
 }
 
@@ -127,14 +171,23 @@ function NavigationIcon({
   source: NavigationIconSource;
 }) {
   const tint = active ? tokens.postAuth.primary : tokens.postAuth.secondary;
-  const opacity = active ? 0.92 : 0.58;
+  const progress = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(active ? 1 : 0, ACTIVE_TRANSITION);
+  }, [active, progress]);
+
+  const iconStyle = useAnimatedStyle(() => ({
+    opacity: 0.58 + progress.value * 0.38,
+    transform: [{ translateY: -1 * progress.value }],
+  }));
 
   return (
-    <View style={[styles.icon, { opacity }]}>
+    <Animated.View style={[styles.icon, iconStyle]}>
       <Host matchContents pointerEvents="none" style={styles.iconHost}>
         <Icon name={source} color={tint} size={18} />
       </Host>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -144,40 +197,76 @@ const styles = StyleSheet.create({
     minHeight: 72,
     paddingHorizontal: tokens.spacing.xl,
   },
-  // One shared tray: preserve the approved geometry across tab switches.
+  // One shared dock: preserve the approved navigation behavior across tab switches.
   tray: {
     backgroundColor: "rgba(3, 19, 24, 0.64)",
     borderColor: "rgba(135, 221, 234, 0.45)",
-    borderRadius: 22,
-    borderWidth: 1,
+    borderRadius: 17,
+    borderTopWidth: StyleSheet.hairlineWidth,
     boxShadow: "0 1px 5px 0 rgba(136, 223, 234, 0.08) inset",
     flex: 1,
     flexDirection: "row",
     minHeight: 54,
-    paddingHorizontal: 8,
+    overflow: "hidden",
+    paddingHorizontal: TRAY_HORIZONTAL_PADDING,
+    position: "relative",
   },
   item: {
     alignItems: "center",
     flex: 1,
-    gap: 2,
+    gap: 3,
     justifyContent: "center",
-    paddingTop: 5,
-    paddingBottom: 5,
+    paddingTop: 12,
+    paddingBottom: 6,
+    position: "relative",
+    zIndex: 1,
   },
-  activeAura: {
-    backgroundColor: "rgba(112, 226, 246, 0.035)",
-    borderRadius: 28,
-    boxShadow: "0 0 18px 8px rgba(112, 226, 246, 0.09)",
-    height: 34,
+  activeSignal: {
+    alignItems: "center",
+    height: 24,
     position: "absolute",
-    top: 7,
-    width: 62,
+    top: 0,
+    width: ACTIVE_GLOW_WIDTH,
+    zIndex: 0,
+  },
+  activeSegment: {
+    backgroundColor: ACTIVE_SIGNAL_COLOR,
+    borderRadius: 999,
+    height: 2,
+    width: ACTIVE_SEGMENT_WIDTH,
+  },
+  activeGlowNear: {
+    backgroundColor: ACTIVE_SIGNAL_COLOR,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    height: 9,
+    position: "absolute",
+    top: 2,
+    width: 46,
+  },
+  activeGlowMid: {
+    backgroundColor: ACTIVE_SIGNAL_COLOR,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    height: 17,
+    position: "absolute",
+    top: 4,
+    width: 66,
+  },
+  activeGlowFar: {
+    backgroundColor: ACTIVE_SIGNAL_COLOR,
+    borderBottomLeftRadius: 42,
+    borderBottomRightRadius: 42,
+    height: 25,
+    position: "absolute",
+    top: 6,
+    width: ACTIVE_GLOW_WIDTH,
   },
   icon: {
     alignItems: "center",
-    height: 18,
+    height: 20,
     justifyContent: "center",
-    width: 22,
+    width: 24,
   },
   iconHost: {
     height: 18,
@@ -194,17 +283,12 @@ const styles = StyleSheet.create({
     paddingLeft: 1,
     textTransform: "uppercase",
   },
+  labelInactive: {
+    opacity: 0.5,
+  },
   labelActive: {
     color: tokens.postAuth.primary,
-  },
-  indicator: {
-    backgroundColor: "#b2f6ff",
-    borderRadius: 999,
-    bottom: 5,
-    boxShadow: "0 0 7px 2px rgba(112, 226, 246, 0.42)",
-    height: 2,
-    position: "absolute",
-    width: 24,
+    opacity: 0.96,
   },
   pressed: {
     opacity: tokens.opacity.muted,
