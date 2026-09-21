@@ -124,3 +124,31 @@ function getDevnetTesterFundingTargetLamports() {
 
   return lamports;
 }
+
+export function getSporSocialSecret() {
+  const value = getOptionalEnv("SPOR_SOCIAL_SECRET");
+
+  if (!value) {
+    throw new Error("Missing required environment variable: SPOR_SOCIAL_SECRET");
+  }
+
+  return value;
+}
+
+export function getXOauth1Credentials() {
+  const appKey = getOptionalEnv("X_API_KEY");
+  const appSecret = getOptionalEnv("X_API_KEY_SECRET");
+  const accessToken = getOptionalEnv("X_ACCESS_TOKEN");
+  const accessSecret = getOptionalEnv("X_ACCESS_TOKEN_SECRET");
+
+  if (!appKey || !appSecret || !accessToken || !accessSecret) {
+    throw new Error("Missing required X OAuth environment variables.");
+  }
+
+  return {
+    appKey,
+    appSecret,
+    accessToken,
+    accessSecret
+  };
+}
