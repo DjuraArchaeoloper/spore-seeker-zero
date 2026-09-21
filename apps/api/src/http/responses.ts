@@ -9,7 +9,20 @@ type ErrorCode =
   | "verification_unavailable"
   | "server_misconfigured"
   | "outbreak_scoring_deferred"
-  | "x_publish_failed";
+  | "x_publish_failed"
+  | "spore_not_ready"
+  | "spore_offer_expired"
+  | "active_spore_already_released"
+  | "organism_already_exists"
+  | "self_reproduction"
+  | "claim_conflict"
+  | "settlement_invalid"
+  | "settlement_expired"
+  | "settlement_not_ready"
+  | "finalization_conflict"
+  | "species_not_ready";
+
+export type { ErrorCode };
 
 const headers = {
   "Cache-Control": "no-store"

@@ -7,6 +7,10 @@
     "apps/mobile",
     "apps/api",
     "apps/web",
-    "packages/shared"
-  ]
+    "packages/shared",
+    "packages/spore-core-wasm"
+  ],
+  "scripts": {
+    "build:spore-core-wasm": "npm run build -w @spore/core-wasm"
+  }
 }

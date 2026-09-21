@@ -74,6 +74,97 @@ export async function sendWalletTransactionWithSignature(connection: Connection,
   }
 }
 
+/**
+ * Sign and submit a server-built settlement transaction via MWA.
+ * Does not modify transaction contents client-side.
+ * Never logs the serialized transaction.
+ */
+export async function signAndSendPreparedTransaction(
+  connection: Connection,
+  identity: AuthIdentity,
+  transactionBase64: string,
+  lastValidBlockHeight: number,
+): Promise<ConfirmedWalletTransaction> {
+  if (process.env.EXPO_PUBLIC_SPORE_VISUAL_PREVIEW === "true") {
+    throw new SporeFailure("Reproduction is unavailable in visual preview.");
+  }
+
+  const { transact } = await import("@solana-mobile/mobile-wallet-adapter-protocol-web3js");
+  let signature: string | undefined;
+
+  try {
+    const transaction = Transaction.from(Buffer.from(transactionBase64, "base64"));
+    const blockhash = transaction.recentBlockhash;
+
+    if (!blockhash) {
+      throw new SporeFailure("Settlement transaction is incomplete.");
+    }
+
+    const submitted = await transact(async (wallet) => {
+      const authorization = await wallet.authorize({
+        chain: sporeWalletChain(),
+        identity: { name: "SPØR", uri: process.env.EXPO_PUBLIC_SPORE_API_URL! },
+      });
+      const owner = new PublicKey(identity.walletAddress);
+
+      if (
+        !authorization.accounts.some((account) =>
+          new PublicKey(
+            "publicKey" in account
+              ? account.publicKey
+              : Buffer.from(account.address, "base64"),
+          ).equals(owner),
+        )
+      ) {
+        throw new SporeFailure("Select the wallet you used to sign in.");
+      }
+
+      if (!transaction.feePayer || !transaction.feePayer.equals(owner)) {
+        throw new SporeFailure("Select the wallet you used to sign in.");
+      }
+
+      const minContextSlot = await connection.getSlot("confirmed");
+      const signatures = await wallet.signAndSendTransactions({
+        transactions: [transaction],
+        minContextSlot,
+      });
+      signature = signatures[0];
+      if (!signature) throw new Error();
+      return {
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      };
+    });
+
+    const result = await connection.confirmTransaction(submitted, "confirmed");
+    if (result.value.err) {
+      throw new SporeFailure("The transaction failed. Refresh and try again.");
+    }
+
+    return {
+      signature: submitted.signature,
+      slot: result.context.slot,
+    };
+  } catch (error) {
+    if (error instanceof SporeFailure) throw error;
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code === -3 || code === 4001 || code === "ERROR_ASSOCIATION_CANCELLED") {
+      throw new SporeFailure("Wallet transaction rejected.");
+    }
+    // Signature may already be on-cluster; never abandon from the caller in this case.
+    if (signature) {
+      return {
+        signature,
+        slot: 0,
+      };
+    }
+    throw new SporeFailure(
+      "The wallet could not complete the transaction. Refresh to check its result before trying again.",
+    );
+  }
+}
+
 export async function requestWalletSignIn(
   signInPayload: SiwsPayload,
 ): Promise<MobileSignInResult> {

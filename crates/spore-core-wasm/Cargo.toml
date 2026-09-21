@@ -1,0 +1,12 @@
+[package]
+name = "spore-core-wasm"
+version = "0.1.0"
+description = "WASM bindings for spore-core, for the SPØR API."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+spore-core = { path = "../spore-core" }
+wasm-bindgen = "0.2"

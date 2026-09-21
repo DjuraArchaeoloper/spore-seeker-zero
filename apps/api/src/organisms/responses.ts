@@ -1,3 +1,4 @@
+import { ORGANISM_STATUS } from "../models/OrganismIndex";
 import type { OrganismIndex } from "../models/OrganismIndex";
 
 type OrganismLike = Pick<
@@ -17,6 +18,7 @@ export function toPublicOrganism(
   parent?: Pick<OrganismIndex, "organismPda" | "organismNumber"> | null
 ) {
   return {
+    // organismPda is a logical identity string (compat), not proof of an on-chain account.
     organismPda: organism.organismPda,
     organismNumber: organism.organismNumber,
     sgtMint: organism.sgtMint,
@@ -33,3 +35,13 @@ export function toPublicOrganism(
     coreAsset: organism.coreAsset
   };
 }
+
+/** Public/read queries should never surface pending or abandoned births. */
+export const publicOrganismFilter: {
+  $or: Array<{ status: string } | { status: { $exists: false } }>;
+} = {
+  $or: [
+    { status: ORGANISM_STATUS.finalized },
+    { status: { $exists: false } }
+  ]
+};

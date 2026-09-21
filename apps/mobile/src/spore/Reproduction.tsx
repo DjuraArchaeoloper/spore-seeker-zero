@@ -47,7 +47,6 @@ import {
 } from "../navigation/BottomNavigation";
 import {
   claimSporeWithSignature,
-  connection,
   fetchDevnetGenesisStatus,
   fetchOwnOrganism,
   hasOffer,
@@ -595,7 +594,7 @@ export default function Reproduction({
   useEffect(() => {
     if (!(stage === "offer" || stage === "home") || !offer || !secret.current) return;
     let live = true;
-    // Refetch via the same validated decoder; polling also covers dropped websocket notifications.
+    // Poll authenticated organism state; server era has no on-chain Organism account updates.
     const observe = async () => {
       try {
         const parent = await refresh();
@@ -612,25 +611,16 @@ export default function Reproduction({
           if (claimed) void refreshOutbreak();
         }
       } catch {
-        /* Keep the canonical expiry timer working during RPC interruption. */
+        /* Keep the canonical expiry timer working during interruption. */
       }
     };
-    const subscription = connection().onAccountChange(
-      offer.address,
-      () => {
-        void observe();
-      },
-      "confirmed",
-    );
     const poll = setInterval(() => {
       void observe();
     }, 4000);
+    void observe();
     return () => {
       live = false;
       clearInterval(poll);
-      void connection()
-        .removeAccountChangeListener(subscription)
-        .catch(() => {});
     };
   }, [stage, offer, refresh, clearSecret, refreshOutbreak]);
   useEffect(() => {
@@ -904,43 +894,74 @@ export default function Reproduction({
       const payload = secret.current;
       if (!payload) throw new SporeFailure("Scan a fresh spore offer.");
       const parent = offer;
-      pendingClaimParent.current = parent;
+      const revealParent =
+        parent && parent.organismNumber.length > 0 ? parent : null;
+      pendingClaimParent.current = revealParent;
       pendingClaimSignature.current = null;
-      setBirthReveal({ status: "submittingClaim", parent });
+      setBirthReveal({ status: "submittingClaim", parent: revealParent });
       try {
         const claim = await claimSporeWithSignature(identity, payload);
 
         birthSlot.current = claim.slot;
         pendingClaimSignature.current = claim.transactionSignature;
+        clearSecret();
+        setStage("home");
+        beginBirthReveal(claim.organism, revealParent, claim.transactionSignature);
+        void refreshSpecies();
+        void refresh().catch(() => {});
       } catch (e) {
-        // A wallet/RPC timeout may happen after landing. Reconcile before another signature.
+        const recoverable = e as SporeFailure & {
+          reservationId?: string;
+          transactionSignature?: string;
+        };
+        if (
+          recoverable.reservationId &&
+          recoverable.transactionSignature
+        ) {
+          pendingClaimSignature.current = recoverable.transactionSignature;
+          try {
+            const { confirmClaimWithRetry } = await import("./reproductionApi");
+            const confirmed = await confirmClaimWithRetry({
+              reservationId: recoverable.reservationId,
+              transactionSignature: recoverable.transactionSignature,
+            });
+            const { organismFromPublic } = await import("./chain");
+            clearSecret();
+            setStage("home");
+            beginBirthReveal(
+              organismFromPublic(confirmed.organism),
+              revealParent,
+              recoverable.transactionSignature,
+            );
+            void refreshSpecies();
+            void refresh().catch(() => {});
+            return;
+          } catch {
+            // Fall through to newborn reconcile / recover.
+          }
+        }
+
+        // A wallet/API timeout may happen after landing. Reconcile before another signature.
         clearSecret();
         setStage("home");
         setBirthReveal({ status: "idle" });
         const child = await resolveNewborn(2).catch(() => null);
         if (child) {
-          beginBirthReveal(child, parent, null);
+          beginBirthReveal(child, revealParent, pendingClaimSignature.current);
+          void refreshSpecies();
           return;
+        }
+        if (pendingClaimSignature.current) {
+          if (mounted.current) {
+            setStage("recover");
+          }
+          throw new SporeFailure(
+            "Life is born. Your organism is still emerging.",
+          );
         }
         pendingClaimParent.current = null;
         pendingClaimSignature.current = null;
         throw e;
-      }
-      clearSecret();
-      setStage("home");
-      setBirthReveal({ status: "awaitingNewborn", parent });
-      try {
-        const child = await resolveNewborn();
-        beginBirthReveal(child, parent, pendingClaimSignature.current);
-      } catch {
-        if (mounted.current) {
-          setBirthReveal({ status: "idle" });
-          setStage("recover");
-        }
-
-        throw new SporeFailure(
-          "Life is born. Your organism is still emerging.",
-        );
       }
     });
   }

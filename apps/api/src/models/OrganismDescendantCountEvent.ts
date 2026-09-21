@@ -16,52 +16,54 @@ const organismNumberField = {
   type: String,
   required: true,
   match: DECIMAL_U64_PATTERN,
-  immutable: true
+  immutable: true,
 };
 
-const organismDescendantCountEventSchema = new Schema<OrganismDescendantCountEvent>(
-  {
-    childOrganismNumber: {
-      ...organismNumberField,
-      unique: true
-    },
-    birthReference: {
-      type: String,
-      required: true,
-      unique: true,
-      match: BIRTH_REFERENCE_PATTERN,
-      immutable: true
-    },
-    transactionSignature: {
-      type: String,
-      required: true,
-      minlength: 80,
-      maxlength: 96,
-      match: BASE58_PATTERN,
-      immutable: true
-    },
-    ancestorNumbers: {
-      type: [String],
-      required: true,
-      default: [],
-      validate: {
-        validator(values: string[]) {
-          return values.every((value) => DECIMAL_U64_PATTERN.test(value));
-        },
-        message: "ancestorNumbers must be decimal u64 strings."
+const organismDescendantCountEventSchema =
+  new Schema<OrganismDescendantCountEvent>(
+    {
+      childOrganismNumber: {
+        ...organismNumberField,
+        unique: true,
       },
-      immutable: true
+      birthReference: {
+        type: String,
+        required: true,
+        unique: true,
+        match: BIRTH_REFERENCE_PATTERN,
+        immutable: true,
+      },
+      transactionSignature: {
+        type: String,
+        required: true,
+        minlength: 80,
+        maxlength: 96,
+        match: BASE58_PATTERN,
+        immutable: true,
+      },
+      ancestorNumbers: {
+        type: [String],
+        required: true,
+        default: [],
+        validate: {
+          validator(values: string[]) {
+            return values.every((value) => DECIMAL_U64_PATTERN.test(value));
+          },
+          message: "ancestorNumbers must be decimal u64 strings.",
+        },
+        immutable: true,
+      },
+      createdAt: {
+        type: Date,
+        required: true,
+        immutable: true,
+      },
     },
-    createdAt: {
-      type: Date,
-      required: true,
-      immutable: true
-    }
-  },
-  {
-    versionKey: false
-  }
-);
+    {
+      versionKey: false,
+      collection: "organism_descendant_count_events",
+    },
+  );
 
 organismDescendantCountEventSchema.index({ transactionSignature: 1 });
 
@@ -71,5 +73,5 @@ export const OrganismDescendantCountEventModel =
     | undefined) ??
   mongoose.model<OrganismDescendantCountEvent>(
     "OrganismDescendantCountEvent",
-    organismDescendantCountEventSchema
+    organismDescendantCountEventSchema,
   );

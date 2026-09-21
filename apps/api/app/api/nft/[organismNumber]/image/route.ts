@@ -2,6 +2,7 @@ import { connectToDatabase } from "../../../../../src/db/mongoose";
 import { jsonError } from "../../../../../src/http/responses";
 import { OrganismIndexModel } from "../../../../../src/models/OrganismIndex";
 import { renderOrganismPng } from "../../../../../src/nft/organismImage";
+import { publicOrganismFilter } from "../../../../../src/organisms/responses";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,8 @@ export async function GET(_request: Request, context: RouteContext) {
     await connectToDatabase();
 
     const organism = await OrganismIndexModel.findOne({
-      organismNumber: normalizedNumber
+      organismNumber: normalizedNumber,
+      ...publicOrganismFilter
     }).lean();
 
     if (!organism) {

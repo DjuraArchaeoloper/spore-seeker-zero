@@ -1,0 +1,8 @@
+[package]
+name = "spore-core"
+version = "0.1.0"
+description = "Pure deterministic SPØR species rules."
+edition = "2021"
+
+[dependencies]
+sha2 = "0.10"

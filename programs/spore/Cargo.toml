@@ -22,3 +22,4 @@ anchor-lang = "0.31.1"
 anchor-spl = { version = "0.31.1", default-features = false, features = ["token", "token_2022", "token_2022_extensions"] }
 mpl-core = { version = "0.12.1", default-features = false, features = ["anchor"] }
 spl-token-group-interface = "0.5"
+spore-core = { path = "../../crates/spore-core" }

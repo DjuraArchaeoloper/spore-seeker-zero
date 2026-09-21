@@ -17,39 +17,45 @@ const publicKeyField = {
   type: String,
   required: true,
   minlength: PUBLIC_KEY_MIN_LENGTH,
-  maxlength: PUBLIC_KEY_MAX_LENGTH
+  maxlength: PUBLIC_KEY_MAX_LENGTH,
 };
 
 const devnetTestSgtAssignmentSchema = new Schema<DevnetTestSgtAssignment>(
   {
     wallet: {
       ...publicKeyField,
-      unique: true
+      unique: true,
     },
     sgtMint: {
       ...publicKeyField,
-      unique: true
+      unique: true,
     },
     fundedAt: {
       type: Date,
-      default: null
+      default: null,
     },
     fundedLamports: {
       type: Number,
       default: null,
-      min: 0
+      min: 0,
     },
     fundingReservedAt: {
       type: Date,
-      default: null
-    }
+      default: null,
+    },
   },
   {
     timestamps: true,
-    versionKey: false
-  }
+    versionKey: false,
+    collection: "devnet_test_sgt_assignments",
+  },
 );
 
 export const DevnetTestSgtAssignmentModel =
-  (mongoose.models.DevnetTestSgtAssignment as Model<DevnetTestSgtAssignment> | undefined) ??
-  mongoose.model<DevnetTestSgtAssignment>("DevnetTestSgtAssignment", devnetTestSgtAssignmentSchema);
+  (mongoose.models.DevnetTestSgtAssignment as
+    | Model<DevnetTestSgtAssignment>
+    | undefined) ??
+  mongoose.model<DevnetTestSgtAssignment>(
+    "DevnetTestSgtAssignment",
+    devnetTestSgtAssignmentSchema,
+  );

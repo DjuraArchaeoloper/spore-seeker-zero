@@ -6,7 +6,11 @@ const DECIMAL_AMOUNT_PATTERN = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
 const PUBLIC_KEY_MIN_LENGTH = 32;
 const PUBLIC_KEY_MAX_LENGTH = 44;
 
-export const OUTBREAK_SEASON_STATUSES = ["scheduled", "active", "ended"] as const;
+export const OUTBREAK_SEASON_STATUSES = [
+  "scheduled",
+  "active",
+  "ended",
+] as const;
 
 export type OutbreakSeasonStatus = (typeof OUTBREAK_SEASON_STATUSES)[number];
 
@@ -34,33 +38,34 @@ const skrPoolSchema = new Schema<OutbreakSkrPoolMetadata>(
     tokenMint: {
       type: String,
       minlength: PUBLIC_KEY_MIN_LENGTH,
-      maxlength: PUBLIC_KEY_MAX_LENGTH
+      maxlength: PUBLIC_KEY_MAX_LENGTH,
     },
     totalAmount: {
       type: String,
       match: DECIMAL_AMOUNT_PATTERN,
-      maxlength: 80
+      maxlength: 80,
     },
     decimals: {
       type: Number,
       min: 0,
-      max: 18
+      max: 18,
     },
     label: {
       type: String,
       trim: true,
-      maxlength: 80
+      maxlength: 80,
     },
     notes: {
       type: String,
       trim: true,
-      maxlength: 240
-    }
+      maxlength: 240,
+    },
   },
   {
     _id: false,
-    versionKey: false
-  }
+    versionKey: false,
+    collection: "outbreak_seasons",
+  },
 );
 
 const outbreakSeasonSchema = new Schema<OutbreakSeason>(
@@ -69,39 +74,39 @@ const outbreakSeasonSchema = new Schema<OutbreakSeason>(
       type: String,
       required: true,
       unique: true,
-      match: SEASON_ID_PATTERN
+      match: SEASON_ID_PATTERN,
     },
     startsAt: {
       type: Date,
       required: true,
-      index: true
+      index: true,
     },
     endsAt: {
       type: Date,
       required: true,
-      index: true
+      index: true,
     },
     status: {
       type: String,
       required: true,
       enum: OUTBREAK_SEASON_STATUSES,
-      index: true
+      index: true,
     },
     scoringVersion: {
       type: String,
       required: true,
       match: SCORING_VERSION_PATTERN,
-      maxlength: 64
+      maxlength: 64,
     },
     skrPool: {
       type: skrPoolSchema,
-      required: false
-    }
+      required: false,
+    },
   },
   {
     timestamps: true,
-    versionKey: false
-  }
+    versionKey: false,
+  },
 );
 
 outbreakSeasonSchema.pre("validate", function () {

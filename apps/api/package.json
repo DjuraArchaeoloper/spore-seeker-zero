@@ -5,12 +5,20 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "build:spore-core-wasm": "npm run build -w @spore/core-wasm",
+    "bootstrap:seeker-zero": "npx --yes tsx scripts/bootstrap-seeker-zero.ts"
   },
   "dependencies": {
+    "@metaplex-foundation/mpl-core": "^1.7.0",
+    "@metaplex-foundation/umi": "^1.2.0",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
+    "@metaplex-foundation/umi-web3js-adapters": "^1.2.0",
+    "@solana/spl-memo": "^0.2.5",
     "@solana/spl-token": "0.4.15",
     "@solana/wallet-standard-util": "1.1.3",
     "@solana/web3.js": "1.99.0",
+    "@spore/core-wasm": "0.1.0",
     "@spore/shared": "0.1.0",
     "mongoose": "9.0.1",
     "next": "16.0.8",

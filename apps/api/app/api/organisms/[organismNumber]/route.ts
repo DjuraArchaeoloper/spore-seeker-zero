@@ -2,7 +2,10 @@ import { connectToDatabase } from "../../../../src/db/mongoose";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { OrganismIndexModel } from "../../../../src/models/OrganismIndex";
 import { normalizeOrganismNumber } from "../../../../src/organisms/identifiers";
-import { toPublicOrganism } from "../../../../src/organisms/responses";
+import {
+  publicOrganismFilter,
+  toPublicOrganism
+} from "../../../../src/organisms/responses";
 
 export const runtime = "nodejs";
 
@@ -24,7 +27,8 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     const organism = await OrganismIndexModel.findOne({
-      organismNumber: normalizedNumber
+      organismNumber: normalizedNumber,
+      ...publicOrganismFilter
     }).lean();
 
     if (!organism) {
@@ -37,15 +41,18 @@ export async function GET(_request: Request, context: RouteContext) {
       : null;
     const [directChildren, totalDescendants, deepestDescendant] = await Promise.all([
       OrganismIndexModel.find({
-        parentOrganismPda: organism.organismPda
+        parentOrganismPda: organism.organismPda,
+        ...publicOrganismFilter
       })
         .sort({ bornAt: 1 })
         .lean(),
       OrganismIndexModel.countDocuments({
-        ancestorNumbers: organism.organismNumber
+        ancestorNumbers: organism.organismNumber,
+        ...publicOrganismFilter
       }),
       OrganismIndexModel.findOne({
-        ancestorNumbers: organism.organismNumber
+        ancestorNumbers: organism.organismNumber,
+        ...publicOrganismFilter
       })
         .sort({ generation: -1 })
         .select({ generation: 1 })
@@ -79,7 +86,8 @@ async function loadAncestors(ancestorNumbers: string[]) {
   const ancestors = await OrganismIndexModel.find({
     organismNumber: {
       $in: ancestorNumbers
-    }
+    },
+    ...publicOrganismFilter
   }).lean();
   const byNumber = new Map(ancestors.map((ancestor) => [ancestor.organismNumber, ancestor]));
 

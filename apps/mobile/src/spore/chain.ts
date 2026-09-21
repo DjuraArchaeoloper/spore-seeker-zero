@@ -7,7 +7,7 @@ import {
   TransactionInstruction,
   type AccountInfo,
 } from "@solana/web3.js";
-import type { AuthIdentity } from "../auth/api";
+import type { AuthIdentity, PublicOrganism } from "../auth/api";
 import { getCurrentIdentity } from "../auth/api";
 import { getStoredSessionToken } from "../auth/session";
 import {
@@ -17,7 +17,21 @@ import {
   sporeMetadataBaseUri,
   sporeProgramId,
 } from "./config";
-import { commitment, SporeFailure, type ClaimPayload } from "./payload";
+import {
+  commitment,
+  encodeSecretBase64Url,
+  SporeFailure,
+  type ClaimPayload,
+} from "./payload";
+import {
+  abandonClaimViaApi,
+  confirmClaimWithRetry,
+  fetchClaimSettlementViaApi,
+  fetchOwnOrganismFromApi,
+  releaseSporeViaApi,
+  reserveClaimViaApi,
+  type OwnOrganismResponse,
+} from "./reproductionApi";
 
 export type Organism = {
   address: PublicKey;
@@ -44,7 +58,13 @@ export type DevnetGenesisResult = {
 export type ClaimSporeResult = {
   slot: number;
   transactionSignature: string;
+  organism: Organism;
+  reservationId: string;
 };
+
+const EMPTY_COMMITMENT = new Uint8Array(32);
+/** Soft local offer window while QR accept awaits server reserve validation. */
+const SOFT_OFFER_SECONDS = 120;
 
 const TOKEN_2022 = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 const CORE = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
@@ -115,6 +135,60 @@ function checkedData(info: AccountInfo<Buffer>, name: string): Buffer {
   return data;
 }
 
+function hexToBytes(hex: string, expectedLength: number) {
+  if (!/^[0-9a-f]+$/i.test(hex) || hex.length !== expectedLength * 2) {
+    throw new SporeFailure("Invalid organism encoding.");
+  }
+
+  const bytes = new Uint8Array(expectedLength);
+  for (let index = 0; index < expectedLength; index += 1) {
+    bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function unixFromIso(value: string) {
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) throw new SporeFailure("Invalid organism encoding.");
+  return Math.floor(ms / 1000);
+}
+
+export function organismFromPublic(
+  organism: PublicOrganism,
+  reproduction?: {
+    nextSporeAt?: string;
+    activeSporeCommitment?: string;
+    activeSporeExpiresAt?: string;
+  },
+): Organism {
+  return {
+    address: new PublicKey(organism.organismPda),
+    organismNumber: organism.organismNumber,
+    sgtMint: new PublicKey(organism.sgtMint),
+    parentOrganism: organism.parentOrganismPda
+      ? new PublicKey(organism.parentOrganismPda)
+      : null,
+    generation: organism.generation,
+    genome: hexToBytes(organism.genome, 16),
+    bornAt: unixFromIso(organism.bornAt),
+    nextSporeAt: unixFromIso(reproduction?.nextSporeAt ?? organism.bornAt),
+    activeSporeCommitment: reproduction?.activeSporeCommitment
+      ? hexToBytes(reproduction.activeSporeCommitment, 32)
+      : new Uint8Array(EMPTY_COMMITMENT),
+    activeSporeExpiresAt: unixFromIso(
+      reproduction?.activeSporeExpiresAt ?? new Date(0).toISOString(),
+    ),
+  };
+}
+
+function organismFromOwnApi(organism: OwnOrganismResponse): Organism {
+  return organismFromPublic(organism, {
+    nextSporeAt: organism.nextSporeAt,
+    activeSporeCommitment: organism.activeSporeCommitment,
+    activeSporeExpiresAt: organism.activeSporeExpiresAt,
+  });
+}
+
 // Anchor/Borsh layout from programs/spore/src/state.rs. No generated IDL/client exists in this repository.
 export function decodeOrganism(
   address: PublicKey,
@@ -177,12 +251,10 @@ export async function fetchOrganism(
 
 export async function fetchOwnOrganism(
   identity: AuthIdentity,
-  minContextSlot?: number,
+  _minContextSlot?: number,
 ) {
-  return fetchOrganism(
-    organismPda(new PublicKey(identity.sgtMint)),
-    minContextSlot,
-  );
+  const organism = await fetchOwnOrganismFromApi(identity);
+  return organism ? organismFromOwnApi(organism) : null;
 }
 
 export async function fetchDevnetGenesisStatus(
@@ -296,51 +368,38 @@ export const hasOffer = (parent: Organism) =>
   parent.activeSporeCommitment.some(Boolean) &&
   parent.activeSporeExpiresAt >= nowSeconds();
 
+/**
+ * Soft preflight for scan UX. Server reserve is authoritative on ACCEPT LIFE.
+ * Does not invent parent organism number/genome/generation.
+ */
 export async function preflightOffer(
   payload: ClaimPayload,
   debug?: PreflightDebug,
 ) {
-  const parent = await fetchOrganism(payload.parent);
-  debug?.("parent_fetch_complete", {
-    found: Boolean(parent),
+  debug?.("soft_preflight_start", {
     parent: payload.parent.toBase58(),
-    organismNumber: parent?.organismNumber ?? null,
   });
-  if (!parent || !parent.activeSporeCommitment.some(Boolean))
-    throw new SporeFailure("This offer was already claimed or replaced.");
-  const expiryNow = nowSeconds();
-  const expiryOk = parent.activeSporeExpiresAt > expiryNow;
-  debug?.("offer_expiry_check", {
-    ok: expiryOk,
-    parent: parent.address.toBase58(),
-    organismNumber: parent.organismNumber,
-    expiresAt: parent.activeSporeExpiresAt,
-    now: expiryNow,
+  commitment(payload.secret);
+  // Minimal parent identity for UI plumbing only. Birth reveal uses null parent
+  // traits from this stub — never treat these fields as canonical state.
+  const stub: Organism = {
+    address: payload.parent,
+    organismNumber: "",
+    sgtMint: new PublicKey(new Uint8Array(32)),
+    parentOrganism: null,
+    generation: 0,
+    genome: new Uint8Array(16),
+    bornAt: 0,
+    nextSporeAt: 0,
+    activeSporeCommitment: new Uint8Array(commitment(payload.secret)),
+    // Local UX upper bound matching doctrine TTL; server remains authoritative.
+    activeSporeExpiresAt: nowSeconds() + SOFT_OFFER_SECONDS,
+  };
+  debug?.("soft_preflight_complete", {
+    parent: payload.parent.toBase58(),
+    expiresAt: stub.activeSporeExpiresAt,
   });
-  if (!expiryOk)
-    throw new SporeFailure("This spore offer has expired.");
-  const commitmentOk = Buffer.from(commitment(payload.secret)).equals(
-    Buffer.from(parent.activeSporeCommitment),
-  );
-  debug?.("offer_commitment_match", {
-    ok: commitmentOk,
-    parent: parent.address.toBase58(),
-    organismNumber: parent.organismNumber,
-  });
-  if (!commitmentOk)
-    throw new SporeFailure("This offer was already claimed or replaced.");
-  const readyNow = nowSeconds();
-  const readyOk = parent.nextSporeAt <= readyNow;
-  debug?.("offer_ready_check", {
-    ok: readyOk,
-    parent: parent.address.toBase58(),
-    organismNumber: parent.organismNumber,
-    nextSporeAt: parent.nextSporeAt,
-    now: readyNow,
-  });
-  if (!readyOk)
-    throw new SporeFailure("This spore is not ready.");
-  return parent;
+  return stub;
 }
 
 async function currentSigner(expected: AuthIdentity) {
@@ -403,34 +462,20 @@ async function send(
 }
 
 export async function releaseSpore(identity: AuthIdentity, secret: Uint8Array) {
-  const { owner, mint, tokenAccount } = await currentSigner(identity);
-  const address = organismPda(mint);
-  const parent = await fetchOrganism(address);
-  if (!parent || parent.nextSporeAt > nowSeconds())
-    throw new SporeFailure("Your spore is not ready.");
   const hash = commitment(secret);
-  const slot = await send(identity, "release_spore", hash, [
-    meta(owner, true, true),
-    meta(address, true),
-    meta(mint),
-    meta(tokenAccount),
-  ]);
-  let released: Organism | null;
-  try {
-    released = await fetchOrganism(address, slot);
-  } catch {
-    throw new SporeFailure(
-      "Release confirmed, but its account could not be read. Refresh before releasing again.",
-    );
-  }
+  await releaseSporeViaApi(encodeSecretBase64Url(secret));
+
+  const released = await fetchOwnOrganism(identity);
   if (
     !released ||
     !Buffer.from(released.activeSporeCommitment).equals(Buffer.from(hash)) ||
     !hasOffer(released)
-  )
+  ) {
     throw new SporeFailure(
       "The released offer is no longer available. Refresh your organism.",
     );
+  }
+
   return released;
 }
 
@@ -447,52 +492,67 @@ export async function claimSporeWithSignature(
   identity: AuthIdentity,
   payload: ClaimPayload,
 ): Promise<ClaimSporeResult> {
-  const { owner, mint, tokenAccount } = await currentSigner(identity);
-  if (await fetchOwnOrganism(identity))
+  if (await fetchOwnOrganism(identity)) {
     throw new SporeFailure("This Seeker already owns an organism.");
-  await preflightOffer(payload);
-  const species = pda("species");
-  const info = await connection().getAccountInfo(species, "confirmed");
-  if (!info) throw new SporeFailure("The species is not available yet.");
-  const data = checkedData(info, "Species");
-  if (data.length !== 229)
-    throw new SporeFailure("Invalid canonical Species account.");
-  const treasury = new PublicKey(data.subarray(40, 72));
-  const result = await sendWithSignature(identity, "claim_spore", payload.secret, [
-    meta(species, true),
-    meta(payload.parent, true),
-    meta(owner, true, true),
-    meta(mint),
-    meta(tokenAccount),
-    meta(treasury, true),
-    meta(organismPda(mint), true),
-    meta(pda("core_asset", mint), true),
-    meta(CORE),
-    meta(SystemProgram.programId),
-  ]);
+  }
 
-  return {
-    slot: result.slot,
-    transactionSignature: result.signature,
-  };
-}
+  const secretBase64Url = encodeSecretBase64Url(payload.secret);
+  let reservationId: string | null = null;
+  let transactionSignature: string | null = null;
+  let settlementPrepared = false;
 
-async function sendWithSignature(
-  identity: AuthIdentity,
-  name: string,
-  bytes: Uint8Array,
-  keys: ReturnType<typeof meta>[],
-) {
-  const { sendWalletTransactionWithSignature } = await import("../auth/wallet");
-  const instruction = new TransactionInstruction({
-    programId: programId(),
-    keys,
-    data: Buffer.concat([discriminator(`global:${name}`), Buffer.from(bytes)]),
-  });
   try {
-    return await sendWalletTransactionWithSignature(connection(), identity, instruction);
-  } finally {
-    instruction.data.fill(0);
+    const reserved = await reserveClaimViaApi({
+      parentOrganismPda: payload.parent.toBase58(),
+      secretBase64Url,
+    });
+    reservationId = reserved.reservationId;
+
+    const settlement = await fetchClaimSettlementViaApi(reservationId);
+    settlementPrepared = true;
+    const { signAndSendPreparedTransaction } = await import("../auth/wallet");
+    const submitted = await signAndSendPreparedTransaction(
+      connection(),
+      identity,
+      settlement.transaction,
+      settlement.lastValidBlockHeight,
+    );
+    transactionSignature = submitted.signature;
+
+    const confirmed = await confirmClaimWithRetry({
+      reservationId,
+      transactionSignature,
+    });
+
+    return {
+      slot: submitted.slot,
+      transactionSignature,
+      organism: organismFromPublic(confirmed.organism),
+      reservationId,
+    };
+  } catch (error) {
+    // Only abandon pre-settlement reservations. Once settlement is prepared,
+    // recovery is confirm-only (tx may already be broadcast).
+    if (reservationId && !transactionSignature && !settlementPrepared) {
+      await abandonClaimViaApi(reservationId).catch(() => {});
+    }
+
+    if (
+      error instanceof SporeFailure &&
+      reservationId &&
+      transactionSignature
+    ) {
+      (error as SporeFailure & {
+        reservationId?: string;
+        transactionSignature?: string;
+      }).reservationId = reservationId;
+      (error as SporeFailure & {
+        reservationId?: string;
+        transactionSignature?: string;
+      }).transactionSignature = transactionSignature;
+    }
+
+    throw error;
   }
 }
 

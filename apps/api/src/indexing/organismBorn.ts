@@ -3,11 +3,16 @@ import crypto from "crypto";
 import { PublicKey } from "@solana/web3.js";
 
 import { ensureDescendantCountersForBirth } from "./descendantCounters";
-import { OrganismIndexModel, type OrganismIndex } from "../models/OrganismIndex";
+import {
+  ORGANISM_STATUS,
+  OrganismIndexModel,
+  type OrganismIndex
+} from "../models/OrganismIndex";
 import {
   ensureOutbreakContributionsForBirth,
   type OutbreakScoringStatus
 } from "../outbreak/scoring";
+import { EMPTY_SPORE_COMMITMENT_HEX } from "../spore/bytes";
 
 const PROGRAM_DATA_PREFIX = "Program data: ";
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -277,7 +282,15 @@ async function indexOrganismBorn(candidate: CandidateEvent): Promise<IndexOrgani
     ...candidate.event,
     transactionSignature: candidate.transactionSignature,
     ancestorNumbers,
-    indexedAt
+    indexedAt,
+    createdAt: indexedAt,
+    mutationSlot: null,
+    nextSporeAt: candidate.event.bornAt,
+    activeSporeCommitment: EMPTY_SPORE_COMMITMENT_HEX,
+    activeSporeExpiresAt: new Date(0),
+    claimedOfferCommitment: null,
+    activeClaimReservationId: null,
+    status: ORGANISM_STATUS.finalized
   };
 
   const existing = await findExistingIndex(document);

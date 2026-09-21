@@ -3829,6 +3829,22 @@ dependencies = [
  "anchor-spl",
  "mpl-core",
  "spl-token-group-interface",
+ "spore-core",
+]
+
+[[package]]
+name = "spore-core"
+version = "0.1.0"
+dependencies = [
+ "sha2 0.10.9",
+]
+
+[[package]]
+name = "spore-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "spore-core",
+ "wasm-bindgen",
 ]
 
 [[package]]

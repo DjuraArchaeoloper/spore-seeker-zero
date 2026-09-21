@@ -1,7 +1,4 @@
-use anchor_lang::{
-    prelude::*,
-    solana_program::hash::hashv,
-};
+use anchor_lang::prelude::*;
 
 pub mod constants;
 pub mod errors;
@@ -9,10 +6,9 @@ pub mod sgt;
 pub mod state;
 
 use constants::{
-    CORE_ASSET_SEED, EMPTY_SPORE_COMMITMENT, GENOME_BYTE_LENGTH,
-    MAX_BIRTH_FEE_LAMPORTS, MAX_METADATA_BASE_URI_LENGTH, ORGANISM_SEED,
-    SEEKER_ZERO_GENERATION, SEEKER_ZERO_GENOME, SEEKER_ZERO_ORGANISM_NUMBER, SPECIES_SEED,
-    SPORE_COMMITMENT_BYTE_LENGTH, SPORE_OFFER_TTL_SECONDS, SPORE_REGEN_SECONDS,
+    CORE_ASSET_SEED, EMPTY_SPORE_COMMITMENT, GENOME_BYTE_LENGTH, MAX_BIRTH_FEE_LAMPORTS,
+    ORGANISM_SEED, SEEKER_ZERO_GENERATION, SEEKER_ZERO_GENOME, SEEKER_ZERO_ORGANISM_NUMBER,
+    SPECIES_SEED,
 };
 use errors::SporeError;
 use mpl_core::{
@@ -20,6 +16,11 @@ use mpl_core::{
     types::{PermanentFreezeDelegate, Plugin, PluginAuthority, PluginAuthorityPair},
 };
 use sgt::verify_seeker_genesis_token;
+use spore_core::{
+    checked_child_generation, checked_increment_u64, checked_next_spore_at,
+    checked_offer_expires_at, format_organism_name, format_organism_uri, has_live_spore,
+    is_valid_metadata_base_uri, mutate_child_genome, spore_secret_matches,
+};
 use state::{Organism, Species};
 
 #[cfg(feature = "devnet-test-sgt")]
@@ -37,7 +38,10 @@ pub mod spore {
         birth_fee_lamports: u64,
         metadata_base_uri: String,
     ) -> Result<()> {
-        validate_metadata_base_uri(&metadata_base_uri)?;
+        require!(
+            is_valid_metadata_base_uri(&metadata_base_uri),
+            SporeError::InvalidMetadataBaseUri
+        );
         require_keys_neq!(
             treasury,
             Pubkey::default(),
@@ -156,14 +160,17 @@ pub mod spore {
         );
         require!(now >= parent.next_spore_at, SporeError::SporeNotReady);
         require!(
-            !has_live_spore(parent, now),
+            !has_live_spore(
+                &parent.active_spore_commitment,
+                parent.active_spore_expires_at,
+                now,
+            ),
             SporeError::ActiveSporeAlreadyReleased
         );
 
         parent.active_spore_commitment = commitment;
-        parent.active_spore_expires_at = now
-            .checked_add(SPORE_OFFER_TTL_SECONDS)
-            .ok_or(SporeError::MathOverflow)?;
+        parent.active_spore_expires_at =
+            checked_offer_expires_at(now).ok_or(SporeError::MathOverflow)?;
 
         Ok(())
     }
@@ -207,7 +214,13 @@ pub mod spore {
             now <= ctx.accounts.parent_organism.active_spore_expires_at,
             SporeError::SporeOfferExpired
         );
-        require_spore_secret_match(&secret, &ctx.accounts.parent_organism.active_spore_commitment)?;
+        require!(
+            spore_secret_matches(
+                &secret,
+                &ctx.accounts.parent_organism.active_spore_commitment,
+            ),
+            SporeError::InvalidSporeSecret
+        );
         require!(
             now >= ctx.accounts.parent_organism.next_spore_at,
             SporeError::SporeNotReady
@@ -218,34 +231,22 @@ pub mod spore {
         );
 
         let child_number = ctx.accounts.species.next_organism_number;
-        let generation = ctx
-            .accounts
-            .parent_organism
-            .generation
-            .checked_add(1)
+        let generation = checked_child_generation(ctx.accounts.parent_organism.generation)
             .ok_or(SporeError::MathOverflow)?;
         let genome = mutate_child_genome(
             &ctx.accounts.parent_organism.genome,
-            &parent_organism_key,
-            &verified_sgt.mint_address,
+            &parent_organism_key.to_bytes(),
+            &verified_sgt.mint_address.to_bytes(),
             child_number,
             clock.slot,
             now,
         );
-        let next_parent_spore_at = now
-            .checked_add(SPORE_REGEN_SECONDS)
-            .ok_or(SporeError::MathOverflow)?;
-        let next_organism_number = ctx
-            .accounts
-            .species
-            .next_organism_number
-            .checked_add(1)
-            .ok_or(SporeError::MathOverflow)?;
-        let total_organisms = ctx
-            .accounts
-            .species
-            .total_organisms
-            .checked_add(1)
+        let next_parent_spore_at =
+            checked_next_spore_at(now).ok_or(SporeError::MathOverflow)?;
+        let next_organism_number =
+            checked_increment_u64(ctx.accounts.species.next_organism_number)
+                .ok_or(SporeError::MathOverflow)?;
+        let total_organisms = checked_increment_u64(ctx.accounts.species.total_organisms)
             .ok_or(SporeError::MathOverflow)?;
 
         {
@@ -480,26 +481,6 @@ pub struct OrganismBorn {
     pub born_at: i64,
 }
 
-fn has_live_spore(organism: &Organism, now: i64) -> bool {
-    organism.active_spore_commitment != EMPTY_SPORE_COMMITMENT
-        && organism.active_spore_expires_at != 0
-        && now <= organism.active_spore_expires_at
-}
-
-fn require_spore_secret_match(
-    secret: &[u8; SPORE_COMMITMENT_BYTE_LENGTH],
-    commitment: &[u8; SPORE_COMMITMENT_BYTE_LENGTH],
-) -> Result<()> {
-    let secret_hash = hashv(&[secret.as_ref()]).to_bytes();
-
-    require!(
-        secret_hash == *commitment,
-        SporeError::InvalidSporeSecret
-    );
-
-    Ok(())
-}
-
 #[allow(clippy::too_many_arguments)]
 fn create_frozen_core_asset<'info>(
     core_program: &AccountInfo<'info>,
@@ -566,58 +547,4 @@ fn transfer_birth_fee<'info>(
         CpiContext::new(system_program.clone(), transfer_accounts);
 
     anchor_lang::system_program::transfer(transfer_context, lamports)
-}
-
-fn validate_metadata_base_uri(metadata_base_uri: &str) -> Result<()> {
-    let byte_length = metadata_base_uri.as_bytes().len();
-
-    require!(
-        byte_length > 0 && byte_length <= MAX_METADATA_BASE_URI_LENGTH,
-        SporeError::InvalidMetadataBaseUri
-    );
-    require!(
-        metadata_base_uri.starts_with("https://") && !metadata_base_uri.ends_with('/'),
-        SporeError::InvalidMetadataBaseUri
-    );
-
-    Ok(())
-}
-
-fn format_organism_name(organism_number: u64) -> String {
-    format!("SPØR #{:06}", organism_number)
-}
-
-fn format_organism_uri(metadata_base_uri: &str, organism_number: u64) -> String {
-    format!("{}/api/nft/{}", metadata_base_uri, organism_number)
-}
-
-fn mutate_child_genome(
-    parent_genome: &[u8; GENOME_BYTE_LENGTH],
-    parent_organism: &Pubkey,
-    recipient_sgt_mint: &Pubkey,
-    child_number: u64,
-    slot: u64,
-    born_at: i64,
-) -> [u8; GENOME_BYTE_LENGTH] {
-    // Deterministic pseudo-random cosmetic evolution; not adversarial randomness.
-    let child_number_bytes = child_number.to_le_bytes();
-    let slot_bytes = slot.to_le_bytes();
-    let born_at_bytes = born_at.to_le_bytes();
-    let seed = hashv(&[
-        parent_genome.as_ref(),
-        parent_organism.as_ref(),
-        recipient_sgt_mint.as_ref(),
-        child_number_bytes.as_ref(),
-        slot_bytes.as_ref(),
-        born_at_bytes.as_ref(),
-    ])
-    .to_bytes();
-
-    let gene_index = usize::from(seed[0]) % GENOME_BYTE_LENGTH;
-    let delta = (seed[1] % 255).wrapping_add(1);
-    let mut genome = *parent_genome;
-
-    genome[gene_index] = genome[gene_index].wrapping_add(delta);
-
-    genome
 }

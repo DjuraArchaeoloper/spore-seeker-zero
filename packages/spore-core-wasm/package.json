@@ -1,0 +1,22 @@
+{
+  "name": "@spore/core-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prebuilt Node.js WASM bindings for spore-core.",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "pkg"
+  ],
+  "scripts": {
+    "build": "wasm-pack build ../../crates/spore-core-wasm --target nodejs --release --out-dir pkg --out-name spore_core_wasm && node ./remove-pkg-gitignore.js"
+  }
+}

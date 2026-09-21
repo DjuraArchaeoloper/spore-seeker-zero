@@ -35,6 +35,15 @@ type IndexedBirth = Pick<
   | "transactionSignature"
 >;
 
+type ScorableIndexedBirth = Omit<
+  IndexedBirth,
+  "parentOrganismPda" | "coreAsset" | "transactionSignature"
+> & {
+  parentOrganismPda: string;
+  coreAsset: string;
+  transactionSignature: string;
+};
+
 type QualifyingSeason = Pick<OutbreakSeason, "seasonId" | "scoringVersion">;
 type ContributionStatus = "created" | "existing" | "skipped";
 
@@ -50,27 +59,43 @@ export class OutbreakScoringError extends Error {
 export async function ensureOutbreakContributionsForBirth(
   indexedBirth: IndexedBirth
 ): Promise<OutbreakScoringStatus> {
-  if (!indexedBirth.parentOrganismPda) {
+  if (
+    !indexedBirth.parentOrganismPda ||
+    !indexedBirth.coreAsset ||
+    !indexedBirth.transactionSignature
+  ) {
     return "skipped";
   }
 
-  const verifiedChild = await verifyCanonicalBirth(indexedBirth);
+  const scorableBirth: ScorableIndexedBirth = {
+    organismPda: indexedBirth.organismPda,
+    organismNumber: indexedBirth.organismNumber,
+    sgtMint: indexedBirth.sgtMint,
+    parentOrganismPda: indexedBirth.parentOrganismPda,
+    generation: indexedBirth.generation,
+    genome: indexedBirth.genome,
+    bornAt: indexedBirth.bornAt,
+    coreAsset: indexedBirth.coreAsset,
+    transactionSignature: indexedBirth.transactionSignature
+  };
+
+  const verifiedChild = await verifyCanonicalBirth(scorableBirth);
   const season = await findActiveOutbreakSeason(verifiedChild.bornAt);
   if (!season) {
     return "skipped";
   }
 
-  const canonicalParent = await fetchCanonicalOrganismByPda(indexedBirth.parentOrganismPda);
+  const canonicalParent = await fetchCanonicalOrganismByPda(scorableBirth.parentOrganismPda);
   assertParentRelationship(verifiedChild, canonicalParent);
 
   const directStatus = await ensureDirectBirthContribution({
-    indexedBirth,
+    indexedBirth: scorableBirth,
     season,
     verifiedChild,
     canonicalParent
   });
   const lineageStatus = await ensureLineageContinuationContribution({
-    indexedBirth,
+    indexedBirth: scorableBirth,
     season,
     triggerChild: verifiedChild,
     reproducingParent: canonicalParent
@@ -85,7 +110,7 @@ async function ensureDirectBirthContribution({
   verifiedChild,
   canonicalParent
 }: {
-  indexedBirth: IndexedBirth;
+  indexedBirth: ScorableIndexedBirth;
   season: QualifyingSeason;
   verifiedChild: CanonicalOrganismAccount;
   canonicalParent: CanonicalOrganismAccount;
@@ -137,7 +162,7 @@ async function tryCreateDirectBirthContribution({
   rewardSlot,
   points
 }: {
-  indexedBirth: IndexedBirth;
+  indexedBirth: ScorableIndexedBirth;
   season: QualifyingSeason;
   verifiedChild: CanonicalOrganismAccount;
   canonicalParent: CanonicalOrganismAccount;
@@ -191,7 +216,7 @@ async function ensureLineageContinuationContribution({
   triggerChild,
   reproducingParent
 }: {
-  indexedBirth: IndexedBirth;
+  indexedBirth: ScorableIndexedBirth;
   season: QualifyingSeason;
   triggerChild: CanonicalOrganismAccount;
   reproducingParent: CanonicalOrganismAccount;

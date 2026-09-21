@@ -1,6 +1,11 @@
 import mongoose, { Schema, type Model } from "mongoose";
 
-export const SOCIAL_POST_STATUSES = ["pending", "publishing", "posted", "failed"] as const;
+export const SOCIAL_POST_STATUSES = [
+  "pending",
+  "publishing",
+  "posted",
+  "failed",
+] as const;
 
 export type SocialPostStatus = (typeof SOCIAL_POST_STATUSES)[number];
 
@@ -21,36 +26,37 @@ const socialPostSchema = new Schema<SocialPost>(
       type: String,
       required: true,
       trim: true,
-      maxlength: 280
+      maxlength: 280,
     },
     scheduledFor: {
       type: Date,
-      required: true
+      required: true,
     },
     status: {
       type: String,
       required: true,
       enum: SOCIAL_POST_STATUSES,
-      default: "pending"
+      default: "pending",
     },
     xPostId: {
       type: String,
-      required: false
+      required: false,
     },
     postedAt: {
       type: Date,
-      required: false
+      required: false,
     },
     lastError: {
       type: String,
       required: false,
-      maxlength: 500
-    }
+      maxlength: 500,
+    },
   },
   {
     timestamps: true,
-    versionKey: false
-  }
+    versionKey: false,
+    collection: "social_posts",
+  },
 );
 
 socialPostSchema.index({ status: 1, scheduledFor: 1 });

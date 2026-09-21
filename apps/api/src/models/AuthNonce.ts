@@ -12,24 +12,25 @@ const authNonceSchema = new Schema<AuthNonce>(
     nonce: {
       type: String,
       required: true,
-      unique: true
+      unique: true,
     },
     createdAt: {
       type: Date,
-      required: true
+      required: true,
     },
     expiresAt: {
       type: Date,
-      required: true
+      required: true,
     },
     usedAt: {
       type: Date,
-      default: null
-    }
+      default: null,
+    },
   },
   {
-    versionKey: false
-  }
+    versionKey: false,
+    collection: "auth_nonces",
+  },
 );
 
 authNonceSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

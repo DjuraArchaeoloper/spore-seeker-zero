@@ -9,6 +9,7 @@ import {
   normalizeOrganismNumber,
   normalizeTransactionSignature
 } from "../../../../src/organisms/identifiers";
+import { publicOrganismFilter } from "../../../../src/organisms/responses";
 
 export const runtime = "nodejs";
 
@@ -56,7 +57,8 @@ export async function POST(request: Request) {
     const organism = await OrganismIndexModel.findOne({
       organismNumber: input.organismNumber,
       transactionSignature: input.transactionSignature,
-      sgtMint: seeker.sgtMint
+      sgtMint: seeker.sgtMint,
+      ...publicOrganismFilter
     })
       .select({
         organismNumber: 1,
@@ -68,9 +70,10 @@ export async function POST(request: Request) {
       return jsonError(404, "not_found", "Organism birth not found.");
     }
 
+    const transactionSignature = input.transactionSignature;
     const birthReference = getBirthReference(
       organism.organismNumber,
-      organism.transactionSignature
+      transactionSignature
     );
     const existing = await BirthLocationModel.findOne({
       organismNumber: organism.organismNumber
@@ -95,11 +98,11 @@ export async function POST(request: Request) {
       await BirthLocationModel.create({
         birthReference,
         organismNumber: organism.organismNumber,
-        transactionSignature: organism.transactionSignature,
-        countryCode: input.countryCode,
-        countryName: input.countryName,
-        regionLabel: input.regionLabel,
-        cityLabel: input.cityLabel,
+        transactionSignature,
+        countryCode: input.countryCode ?? undefined,
+        countryName: input.countryName ?? undefined,
+        regionLabel: input.regionLabel ?? undefined,
+        cityLabel: input.cityLabel ?? undefined,
         label,
         locationKey: getLocationKey(input.countryCode, coarseLatitude, coarseLongitude),
         latitude: coarseLatitude,

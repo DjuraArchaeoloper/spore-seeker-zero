@@ -32,7 +32,7 @@ export async function ensureDescendantCountersForBirth(
 
   const birthReference = getBirthReference(
     indexedBirth.organismNumber,
-    indexedBirth.transactionSignature
+    indexedBirth.transactionSignature ?? ""
   );
   const session = await mongoose.startSession();
   let status: DescendantCounterStatus = "skipped";
@@ -58,7 +58,7 @@ export async function ensureDescendantCountersForBirth(
           {
             childOrganismNumber: indexedBirth.organismNumber,
             birthReference,
-            transactionSignature: indexedBirth.transactionSignature,
+            transactionSignature: indexedBirth.transactionSignature ?? "",
             ancestorNumbers,
             createdAt: now
           }

@@ -1,5 +1,9 @@
 [workspace]
-members = ["programs/spore"]
+members = [
+    "crates/spore-core",
+    "crates/spore-core-wasm",
+    "programs/spore",
+]
 resolver = "2"
 
 [profile.release]

@@ -1,0 +1,12 @@
+{
+  "name": "spore-core-wasm",
+  "description": "WASM bindings for spore-core, for the SPØR API.",
+  "version": "0.1.0",
+  "files": [
+    "spore_core_wasm_bg.wasm",
+    "spore_core_wasm.js",
+    "spore_core_wasm.d.ts"
+  ],
+  "main": "spore_core_wasm.js",
+  "types": "spore_core_wasm.d.ts"
+}

@@ -18,13 +18,13 @@ const organismDescendantCounterSchema = new Schema<OrganismDescendantCounter>(
       required: true,
       unique: true,
       match: DECIMAL_U64_PATTERN,
-      immutable: true
+      immutable: true,
     },
     organismNumberSortKey: {
       type: String,
       required: true,
       match: ORGANISM_NUMBER_SORT_KEY_PATTERN,
-      immutable: true
+      immutable: true,
     },
     totalDescendants: {
       type: Number,
@@ -34,27 +34,28 @@ const organismDescendantCounterSchema = new Schema<OrganismDescendantCounter>(
         validator(value: number) {
           return Number.isInteger(value);
         },
-        message: "totalDescendants must be an integer."
-      }
+        message: "totalDescendants must be an integer.",
+      },
     },
     createdAt: {
       type: Date,
       required: true,
-      immutable: true
+      immutable: true,
     },
     updatedAt: {
       type: Date,
-      required: true
-    }
+      required: true,
+    },
   },
   {
-    versionKey: false
-  }
+    versionKey: false,
+    collection: "organism_descendant_counters",
+  },
 );
 
 organismDescendantCounterSchema.index({
   totalDescendants: -1,
-  organismNumberSortKey: 1
+  organismNumberSortKey: 1,
 });
 
 export const OrganismDescendantCounterModel =
@@ -63,5 +64,5 @@ export const OrganismDescendantCounterModel =
     | undefined) ??
   mongoose.model<OrganismDescendantCounter>(
     "OrganismDescendantCounter",
-    organismDescendantCounterSchema
+    organismDescendantCounterSchema,
   );

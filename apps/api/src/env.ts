@@ -135,6 +135,41 @@ export function getSporSocialSecret() {
   return value;
 }
 
+export type SporeReproductionMode = "server" | "anchor_legacy";
+
+/**
+ * Production default is server-era reproduction (Mongo + settlement + Core).
+ * `anchor_legacy` is only for explicit legacy/devnet Anchor testing.
+ */
+export function getSporeReproductionMode(): SporeReproductionMode {
+  const value = process.env.SPORE_REPRODUCTION_MODE?.trim() ?? "server";
+
+  if (value !== "server" && value !== "anchor_legacy") {
+    throw new Error("SPORE_REPRODUCTION_MODE must be server or anchor_legacy.");
+  }
+
+  return value;
+}
+
+export function assertServerReproductionEnabled() {
+  if (getSporeReproductionMode() !== "server") {
+    throw new Error(
+      "Server-era /api/spore reproduction is disabled (SPORE_REPRODUCTION_MODE)."
+    );
+  }
+}
+
+/** Optional server-era secrets used by settlement / Core finalization / bootstrap. */
+export function getSporeServerEraConfig() {
+  return {
+    serverAuthoritySecret: getOptionalEnv("SPORE_SERVER_AUTHORITY_SECRET"),
+    assetDerivationSecret: getOptionalEnv("SPORE_ASSET_DERIVATION_SECRET"),
+    treasury: getOptionalEnv("SPORE_TREASURY"),
+    birthFeeLamports: getOptionalEnv("SPORE_BIRTH_FEE_LAMPORTS"),
+    metadataBaseUri: getOptionalEnv("SPORE_METADATA_BASE_URI")
+  };
+}
+
 export function getCronSecret() {
   const value = getOptionalEnv("CRON_SECRET");
 

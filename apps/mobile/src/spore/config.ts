@@ -56,6 +56,11 @@ export function sporeMetadataBaseUri() {
 
 export function isDevnetGenesisCandidate(walletAddress: string) {
   try {
+    // Server-era production must never take the Anchor genesis path.
+    if (sporeReproductionMode() === "server") {
+      return false;
+    }
+
     return (
       sporeCluster() === "devnet" &&
       process.env.EXPO_PUBLIC_SPORE_DEVNET_GENESIS_ENABLED === "true" &&
@@ -68,6 +73,9 @@ export function isDevnetGenesisCandidate(walletAddress: string) {
 }
 
 export function assertDevnetGenesisCandidate(walletAddress: string) {
+  if (sporeReproductionMode() === "server") {
+    throw new SporeFailure("Anchor genesis is unavailable in server reproduction mode.");
+  }
   if (sporeCluster() !== "devnet") {
     throw new SporeFailure("Devnet genesis is unavailable.");
   }
@@ -83,6 +91,20 @@ export function assertDevnetGenesisCandidate(walletAddress: string) {
   if (!wallet || !wallet.equals(new PublicKey(walletAddress))) {
     throw new SporeFailure("This wallet cannot initialize devnet genesis.");
   }
+}
+
+/**
+ * `server` (default): mobile uses /api/spore/* for release/claim.
+ * `anchor_legacy`: reserved for explicit legacy Anchor reproduction testing.
+ */
+export function sporeReproductionMode(): "server" | "anchor_legacy" {
+  const value = process.env.EXPO_PUBLIC_SPORE_REPRODUCTION_MODE ?? "server";
+
+  if (value !== "server" && value !== "anchor_legacy") {
+    throw new SporeFailure("SPØR reproduction mode is not configured.");
+  }
+
+  return value;
 }
 
 function configuredDevnetGenesisWallet() {

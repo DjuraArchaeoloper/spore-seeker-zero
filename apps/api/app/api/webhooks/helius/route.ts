@@ -3,7 +3,11 @@ import crypto from "crypto";
 import { PublicKey } from "@solana/web3.js";
 
 import { connectToDatabase } from "../../../../src/db/mongoose";
-import { getHeliusWebhookAuth, getSporeProgramId } from "../../../../src/env";
+import {
+  getHeliusWebhookAuth,
+  getSporeProgramId,
+  getSporeReproductionMode
+} from "../../../../src/env";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { DescendantCounterConflictError } from "../../../../src/indexing/descendantCounters";
 import {
@@ -21,6 +25,17 @@ export async function POST(request: Request) {
   try {
     if (!isAuthorizedWebhook(request)) {
       return jsonError(401, "unauthorized", "Unauthorized.");
+    }
+
+    // Server-era reproduction is canonical in Mongo. Do not ingest Anchor
+    // OrganismBorn events into OrganismIndex while in server mode.
+    if (getSporeReproductionMode() === "server") {
+      return jsonOk({
+        skipped: true,
+        reason: "server_reproduction_mode",
+        indexed: 0,
+        outbreakFailed: 0
+      });
     }
 
     const sporeProgramId = normalizePublicKey(getSporeProgramId());

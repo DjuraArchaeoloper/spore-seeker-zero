@@ -12,6 +12,11 @@ export const commitment = (secret: Uint8Array) => {
   validateSecret(secret);
   return sha256(secret);
 };
+/** Base64url (no padding) encoding for spore secrets sent to the API. */
+export function encodeSecretBase64Url(secret: Uint8Array) {
+  validateSecret(secret);
+  return encode(secret);
+}
 export function serializeClaim({ parent, secret }: ClaimPayload) {
   validateSecret(secret);
   return `spore://claim?v=1&p=${parent.toBase58()}&s=${encode(secret)}`;
@@ -46,5 +51,10 @@ export function parseClaim(input: string): ClaimPayload {
 }
 export function sporeMessage(error: unknown) {
   // Never surface/log RPC objects: they can contain serialized claim instructions.
-  return error instanceof SporeFailure ? error.message : "Unable to reach Solana. Please try again.";
+  if (error instanceof SporeFailure) return error.message;
+  if (error instanceof Error && error.message && !error.message.includes("{")) {
+    // Preserve short transport failures without dumping payloads.
+    if (error.message.length <= 120) return error.message;
+  }
+  return "Unable to reach SPØR. Please try again.";
 }

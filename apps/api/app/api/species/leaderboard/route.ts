@@ -2,6 +2,7 @@ import { connectToDatabase } from "../../../../src/db/mongoose";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { OrganismDescendantCounterModel } from "../../../../src/models/OrganismDescendantCounter";
 import { OrganismIndexModel } from "../../../../src/models/OrganismIndex";
+import { publicOrganismFilter } from "../../../../src/organisms/responses";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,8 @@ export async function GET(request: Request) {
     const organisms = await OrganismIndexModel.find({
       organismNumber: {
         $in: organismNumbers
-      }
+      },
+      ...publicOrganismFilter
     })
       .select({
         organismNumber: 1,
