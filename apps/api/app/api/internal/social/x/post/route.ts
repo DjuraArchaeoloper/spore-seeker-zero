@@ -1,5 +1,11 @@
 import crypto from "crypto";
 
+import {
+  ApiPartialResponseError,
+  ApiRequestError,
+  ApiResponseError
+} from "twitter-api-v2";
+
 import { getSporSocialSecret } from "../../../../../../src/env";
 import { RequestBodyError, readJsonObject } from "../../../../../../src/http/request";
 import { jsonError, jsonOk } from "../../../../../../src/http/responses";
@@ -39,9 +45,9 @@ export async function POST(request: Request) {
       return jsonError(503, "server_misconfigured", "Social publishing is unavailable.");
     }
 
-    console.error("SPØR internal X post failed");
+    logXPublishError(error);
 
-    return jsonError(502, "server_misconfigured", "Unable to publish post.");
+    return jsonError(502, "x_publish_failed", "Unable to publish post.");
   }
 }
 
@@ -83,6 +89,56 @@ function parsePostText(value: unknown) {
   }
 
   return text;
+}
+
+function logXPublishError(error: unknown) {
+  if (error instanceof ApiResponseError) {
+    console.error("SPØR internal X post failed", {
+      name: error.name,
+      message: error.message,
+      type: error.type,
+      httpStatus: error.code,
+      data: error.data,
+      rateLimit: error.rateLimit ?? null,
+      rateLimitError: error.rateLimitError,
+      isAuthError: error.isAuthError
+    });
+    return;
+  }
+
+  if (error instanceof ApiRequestError) {
+    console.error("SPØR internal X post failed", {
+      name: error.name,
+      message: error.message,
+      type: error.type,
+      requestErrorName: error.requestError?.name ?? null,
+      requestErrorMessage: error.requestError?.message ?? null
+    });
+    return;
+  }
+
+  if (error instanceof ApiPartialResponseError) {
+    console.error("SPØR internal X post failed", {
+      name: error.name,
+      message: error.message,
+      type: error.type,
+      responseErrorName: error.responseError?.name ?? null,
+      responseErrorMessage: error.responseError?.message ?? null
+    });
+    return;
+  }
+
+  if (error instanceof Error) {
+    console.error("SPØR internal X post failed", {
+      name: error.name,
+      message: error.message
+    });
+    return;
+  }
+
+  console.error("SPØR internal X post failed", {
+    name: "unknown"
+  });
 }
 
 class PostTextError extends Error {

@@ -8,7 +8,8 @@ type ErrorCode =
   | "integrity_conflict"
   | "verification_unavailable"
   | "server_misconfigured"
-  | "outbreak_scoring_deferred";
+  | "outbreak_scoring_deferred"
+  | "x_publish_failed";
 
 const headers = {
   "Cache-Control": "no-store"
