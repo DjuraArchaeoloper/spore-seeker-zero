@@ -1,10 +1,43 @@
 import {
   SEEKER_ZERO_CREATURE_WEB_ASSETS,
-  SPORE_WEB_BACKGROUNDS
+  SPORE_WEB_BACKGROUNDS,
 } from "@spore/shared/web-assets";
 import { SeekerZeroHero } from "./SeekerZeroHero";
+import { Metadata } from "next";
 
 const sporeSeed = SEEKER_ZERO_CREATURE_WEB_ASSETS.layers.core;
+const description =
+  "A digital species spreading from one Solana Seeker to another.";
+
+const ogImage = {
+  url: "/opengraph.png",
+  width: 1200,
+  height: 630,
+  alt: "SPØR · Seeker Zero",
+} as const;
+
+export const metadata: Metadata = {
+  title: "SPØR · Seeker Zero",
+  description,
+  openGraph: {
+    title: "SPØR · Seeker Zero",
+    description,
+    siteName: "SPØR",
+    type: "website",
+    url: "/",
+    images: [ogImage],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SPØR · Seeker Zero",
+    description,
+    images: [ogImage],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 export default function Home() {
   return (
@@ -15,7 +48,10 @@ export default function Home() {
             media="(max-width: 900px) and (orientation: portrait)"
             srcSet={SPORE_WEB_BACKGROUNDS.mobile.src}
           />
-          <source media="(max-width: 760px)" srcSet={SPORE_WEB_BACKGROUNDS.mobile.src} />
+          <source
+            media="(max-width: 760px)"
+            srcSet={SPORE_WEB_BACKGROUNDS.mobile.src}
+          />
           <img
             className="atmosphereImage"
             src={SPORE_WEB_BACKGROUNDS.desktop.src}
@@ -49,7 +85,9 @@ export default function Home() {
         </section>
 
         <section className="spread" aria-labelledby="spread-title">
-          <p className="sectionMark" id="spread-title">HOW LIFE SPREADS</p>
+          <p className="sectionMark" id="spread-title">
+            HOW LIFE SPREADS
+          </p>
           <ol className="lifeSequence" aria-label="Release, accept, birth">
             {["RELEASE", "ACCEPT", "BIRTH"].map((step) => (
               <li key={step}>
