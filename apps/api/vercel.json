@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/social/x/publish-due?slot=morning",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/internal/social/x/publish-due?slot=evening",
+      "schedule": "0 18 * * *"
+    }
+  ]
+}

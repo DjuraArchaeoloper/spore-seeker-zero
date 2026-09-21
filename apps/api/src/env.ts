@@ -135,6 +135,16 @@ export function getSporSocialSecret() {
   return value;
 }
 
+export function getCronSecret() {
+  const value = getOptionalEnv("CRON_SECRET");
+
+  if (!value) {
+    throw new Error("Missing required environment variable: CRON_SECRET");
+  }
+
+  return value;
+}
+
 export function getXOauth1Credentials() {
   const appKey = getOptionalEnv("X_API_KEY");
   const appSecret = getOptionalEnv("X_API_KEY_SECRET");

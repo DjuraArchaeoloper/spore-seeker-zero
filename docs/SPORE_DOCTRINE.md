@@ -1063,3 +1063,72 @@ I would attach this **once and treat it as law**. In future chats, you can simpl
 > **Read the SPORE project doctrine and continue from the current state.**
 
 Then we should not need to re-litigate the core product every time.
+
+# SPØR Social Doctrine — LOCKED
+
+SPØR social output must meet the same quality bar as the product.
+
+Every post must be:
+- sharp
+- memorable
+- premium
+- strange in a deliberate way
+- concise
+- unmistakably SPØR
+
+Voice:
+- confident
+- restrained
+- biological
+- slightly mysterious
+- never corporate
+- never generic startup marketing
+- never generic crypto/Web3 hype
+- never engagement bait
+- avoid unnecessary hashtags
+- avoid unnecessary emojis
+- avoid buzzwords
+- avoid unnecessary exclamation marks
+- never sound AI-generated
+
+Core principle:
+
+SHOW > EXPLAIN.
+
+Prefer:
+- organism reveals
+- mutation
+- reproduction
+- bloodlines
+- Seeker Zero
+- strange observations about the species
+- meaningful real development milestones
+- concise lore grounded in actual SPØR mechanics
+
+Never invent:
+- features
+- statistics
+- users
+- partnerships
+- launches
+- achievements
+- blockchain claims
+
+One post = one strong idea.
+
+Before a post enters the publishing queue:
+- generate multiple candidate versions
+- remove generic wording
+- remove overexplaining
+- verify every factual claim
+- compare against recent posts to avoid repetition
+- choose only the strongest version
+- if nothing is genuinely good, do not queue a post
+
+Quality > posting frequency.
+
+Core anchor:
+
+"It started with Seeker Zero."
+
+Do not mechanically repeat that phrase.
