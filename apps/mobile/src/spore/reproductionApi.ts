@@ -42,6 +42,20 @@ export type ConfirmClaimResponse = {
   organism: PublicOrganism;
 };
 
+export type ActiveClaimResponse = {
+  activeClaim: null | {
+    reservationId: string;
+    status: string;
+    parentOrganismPda: string;
+    birthFeeLamports?: string;
+    transaction?: string;
+    encoding?: "base64";
+    lastValidBlockHeight?: number;
+    transactionSignature?: string | null;
+    organism?: PublicOrganism;
+  };
+};
+
 type SporeErrorBody = {
   error?: {
     code?: string;
@@ -202,6 +216,16 @@ export async function reserveClaimViaApi(input: {
     "Unable to reserve this spore.",
   );
   return (await response.json()) as ReserveClaimResponse;
+}
+
+export async function fetchActiveClaimViaApi() {
+  const token = await requireSessionToken();
+  const response = await sporeReproductionFetch(
+    "/api/spore/claim/active",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Unable to check active claim.",
+  );
+  return (await response.json()) as ActiveClaimResponse;
 }
 
 export async function fetchClaimSettlementViaApi(reservationId: string) {

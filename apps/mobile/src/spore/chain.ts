@@ -26,6 +26,7 @@ import {
 import {
   abandonClaimViaApi,
   confirmClaimWithRetry,
+  fetchActiveClaimViaApi,
   fetchClaimSettlementViaApi,
   fetchOwnOrganismFromApi,
   releaseSporeViaApi,
@@ -517,42 +518,16 @@ export async function claimSporeWithSignature(
       };
     }
 
-    const settlement = await fetchClaimSettlementViaApi(reservationId);
-    settlementPrepared = true;
-
-    if (settlement.organism) {
-      return {
-        slot: 0,
-        transactionSignature: settlement.transactionSignature ?? "",
-        organism: organismFromPublic(settlement.organism),
-        reservationId,
-      };
-    }
-
-    if (!settlement.transaction || settlement.lastValidBlockHeight == null) {
-      throw new SporeFailure("Unable to prepare settlement.");
-    }
-
-    const { signAndSendPreparedTransaction } = await import("../auth/wallet");
-    const submitted = await signAndSendPreparedTransaction(
-      connection(),
+    return await completeClaimSettlement({
       identity,
-      settlement.transaction,
-      settlement.lastValidBlockHeight,
-    );
-    transactionSignature = submitted.signature;
-
-    const confirmed = await confirmClaimWithRetry({
       reservationId,
-      transactionSignature,
+      onSettlementPrepared: () => {
+        settlementPrepared = true;
+      },
+      onSignature: (signature) => {
+        transactionSignature = signature;
+      },
     });
-
-    return {
-      slot: submitted.slot,
-      transactionSignature,
-      organism: organismFromPublic(confirmed.organism),
-      reservationId,
-    };
   } catch (error) {
     // Only abandon pre-settlement reservations. Once settlement is prepared,
     // recovery is confirm-only (tx may already be broadcast).
@@ -577,6 +552,176 @@ export async function claimSporeWithSignature(
 
     throw error;
   }
+}
+
+export type ActiveClaimRecovery =
+  | { kind: "none" }
+  | {
+      kind: "organism";
+      reservationId: string;
+      transactionSignature: string;
+      organism: Organism;
+    }
+  | {
+      kind: "needs_signature";
+      reservationId: string;
+      parentOrganismPda: string;
+      transaction: string;
+      lastValidBlockHeight: number;
+    };
+
+/**
+ * Recover an in-flight claim for the signed-in recipient without the QR secret.
+ */
+export async function recoverActiveClaim(
+  identity: AuthIdentity,
+): Promise<ActiveClaimRecovery> {
+  if (await fetchOwnOrganism(identity)) {
+    return { kind: "none" };
+  }
+
+  const { activeClaim } = await fetchActiveClaimViaApi();
+
+  if (!activeClaim) {
+    return { kind: "none" };
+  }
+
+  if (activeClaim.organism) {
+    return {
+      kind: "organism",
+      reservationId: activeClaim.reservationId,
+      transactionSignature: activeClaim.transactionSignature ?? "",
+      organism: organismFromPublic(activeClaim.organism),
+    };
+  }
+
+  if (
+    !activeClaim.transaction ||
+    activeClaim.lastValidBlockHeight == null
+  ) {
+    return { kind: "none" };
+  }
+
+  return {
+    kind: "needs_signature",
+    reservationId: activeClaim.reservationId,
+    parentOrganismPda: activeClaim.parentOrganismPda,
+    transaction: activeClaim.transaction,
+    lastValidBlockHeight: activeClaim.lastValidBlockHeight,
+  };
+}
+
+/**
+ * Complete settlement for a recovered reservation (no QR secret).
+ * Never abandons settling reservations.
+ */
+export async function resumeClaimSettlement(
+  identity: AuthIdentity,
+  input: {
+    reservationId: string;
+    transaction?: string;
+    lastValidBlockHeight?: number;
+  },
+): Promise<ClaimSporeResult> {
+  if (await fetchOwnOrganism(identity)) {
+    throw new SporeFailure("This Seeker already owns an organism.");
+  }
+
+  let transactionSignature: string | null = null;
+
+  try {
+    return await completeClaimSettlement({
+      identity,
+      reservationId: input.reservationId,
+      preparedSettlement:
+        input.transaction && input.lastValidBlockHeight != null
+          ? {
+              transaction: input.transaction,
+              lastValidBlockHeight: input.lastValidBlockHeight,
+            }
+          : undefined,
+      onSignature: (signature) => {
+        transactionSignature = signature;
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof SporeFailure &&
+      transactionSignature
+    ) {
+      (error as SporeFailure & {
+        reservationId?: string;
+        transactionSignature?: string;
+      }).reservationId = input.reservationId;
+      (error as SporeFailure & {
+        reservationId?: string;
+        transactionSignature?: string;
+      }).transactionSignature = transactionSignature;
+    }
+
+    throw error;
+  }
+}
+
+async function completeClaimSettlement(input: {
+  identity: AuthIdentity;
+  reservationId: string;
+  preparedSettlement?: {
+    transaction: string;
+    lastValidBlockHeight: number;
+  };
+  onSettlementPrepared?: () => void;
+  onSignature?: (signature: string) => void;
+}): Promise<ClaimSporeResult> {
+  const settlement =
+    input.preparedSettlement ??
+    (await fetchClaimSettlementViaApi(input.reservationId));
+
+  input.onSettlementPrepared?.();
+
+  if ("organism" in settlement && settlement.organism) {
+    return {
+      slot: 0,
+      transactionSignature:
+        ("transactionSignature" in settlement
+          ? settlement.transactionSignature
+          : null) ?? "",
+      organism: organismFromPublic(settlement.organism),
+      reservationId: input.reservationId,
+    };
+  }
+
+  const transaction =
+    "transaction" in settlement ? settlement.transaction : input.preparedSettlement?.transaction;
+  const lastValidBlockHeight =
+    "lastValidBlockHeight" in settlement
+      ? settlement.lastValidBlockHeight
+      : input.preparedSettlement?.lastValidBlockHeight;
+
+  if (!transaction || lastValidBlockHeight == null) {
+    throw new SporeFailure("Unable to prepare settlement.");
+  }
+
+  const { signAndSendPreparedTransaction } = await import("../auth/wallet");
+  const submitted = await signAndSendPreparedTransaction(
+    connection(),
+    input.identity,
+    transaction,
+    lastValidBlockHeight,
+  );
+  input.onSignature?.(submitted.signature);
+
+  const confirmed = await confirmClaimWithRetry({
+    reservationId: input.reservationId,
+    transactionSignature: submitted.signature,
+  });
+
+  return {
+    slot: submitted.slot,
+    transactionSignature: submitted.signature,
+    organism: organismFromPublic(confirmed.organism),
+    reservationId: input.reservationId,
+  };
 }
 
 type SpeciesState = {

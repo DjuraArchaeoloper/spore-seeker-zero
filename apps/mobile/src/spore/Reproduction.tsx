@@ -53,7 +53,9 @@ import {
   initializeDevnetGenesis,
   nowSeconds,
   preflightOffer,
+  recoverActiveClaim,
   releaseSpore,
+  resumeClaimSettlement,
   type Organism,
 } from "./chain";
 import {
@@ -149,6 +151,14 @@ export default function Reproduction({
   const birthSlot = useRef<number | undefined>(undefined);
   const pendingClaimSignature = useRef<string | null>(null);
   const pendingClaimParent = useRef<Organism | null>(null);
+  const [resumingClaim, setResumingClaim] = useState(false);
+  const pendingResumeClaim = useRef<{
+    reservationId: string;
+    transaction: string;
+    lastValidBlockHeight: number;
+  } | null>(null);
+  const claimRecoveryChecked = useRef(false);
+  const [claimRecoveryTick, setClaimRecoveryTick] = useState(0);
   const [offer, setOffer] = useState<Organism | null>(null);
   const [bloodline, setBloodline] = useState<{
     data?: BloodlineResponse | null;
@@ -492,6 +502,68 @@ export default function Reproduction({
     setOrganism(newborn);
     setBirthReveal({ status: "newbornResolved", payload });
   }, []);
+  useEffect(() => {
+    if (claimRecoveryChecked.current || organism === undefined) {
+      return;
+    }
+
+    claimRecoveryChecked.current = true;
+
+    if (organism !== null || birthReveal.status !== "idle") {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const recovered = await recoverActiveClaim(identity);
+        if (!mounted.current || recovered.kind === "none") {
+          return;
+        }
+
+        if (recovered.kind === "organism") {
+          pendingClaimSignature.current = recovered.transactionSignature || null;
+          beginBirthReveal(
+            recovered.organism,
+            null,
+            recovered.transactionSignature || null,
+          );
+          void refreshSpecies();
+          void refresh().catch(() => {});
+          return;
+        }
+
+        pendingResumeClaim.current = {
+          reservationId: recovered.reservationId,
+          transaction: recovered.transaction,
+          lastValidBlockHeight: recovered.lastValidBlockHeight,
+        };
+        setResumingClaim(true);
+        setStage("accept");
+        setError(null);
+      } catch (e) {
+        if (mounted.current) {
+          setError(sporeMessage(e));
+          // Allow one more automatic retry after a short delay.
+          if (claimRecoveryTick < 1) {
+            claimRecoveryChecked.current = false;
+            setTimeout(() => {
+              if (mounted.current) {
+                setClaimRecoveryTick((tick) => tick + 1);
+              }
+            }, 1500);
+          }
+        }
+      }
+    })();
+  }, [
+    beginBirthReveal,
+    birthReveal.status,
+    claimRecoveryTick,
+    identity,
+    organism,
+    refresh,
+    refreshSpecies,
+  ]);
   const completeBirthReveal = useCallback((payload: BirthRevealPayload) => {
     if (!mounted.current) {
       return;
@@ -572,6 +644,8 @@ export default function Reproduction({
   const close = useCallback(() => {
     if (locked.current) return;
     clearSecret();
+    pendingResumeClaim.current = null;
+    setResumingClaim(false);
     scanned.current = false;
     setStage("home");
     setError(null);
@@ -891,8 +965,13 @@ export default function Reproduction({
   }
   async function accept() {
     await run(async () => {
+      const resume = pendingResumeClaim.current;
       const payload = secret.current;
-      if (!payload) throw new SporeFailure("Scan a fresh spore offer.");
+
+      if (!resume && !payload) {
+        throw new SporeFailure("Scan a fresh spore offer.");
+      }
+
       const parent = offer;
       const revealParent =
         parent && parent.organismNumber.length > 0 ? parent : null;
@@ -900,10 +979,14 @@ export default function Reproduction({
       pendingClaimSignature.current = null;
       setBirthReveal({ status: "submittingClaim", parent: revealParent });
       try {
-        const claim = await claimSporeWithSignature(identity, payload);
+        const claim = resume
+          ? await resumeClaimSettlement(identity, resume)
+          : await claimSporeWithSignature(identity, payload!);
 
         birthSlot.current = claim.slot;
         pendingClaimSignature.current = claim.transactionSignature;
+        pendingResumeClaim.current = null;
+        setResumingClaim(false);
         clearSecret();
         setStage("home");
         beginBirthReveal(claim.organism, revealParent, claim.transactionSignature);
@@ -926,6 +1009,8 @@ export default function Reproduction({
               transactionSignature: recoverable.transactionSignature,
             });
             const { organismFromPublic } = await import("./chain");
+            pendingResumeClaim.current = null;
+            setResumingClaim(false);
             clearSecret();
             setStage("home");
             beginBirthReveal(
@@ -942,11 +1027,16 @@ export default function Reproduction({
         }
 
         // A wallet/API timeout may happen after landing. Reconcile before another signature.
-        clearSecret();
-        setStage("home");
+        // Keep resume claim when settlement was already prepared without a signature.
+        if (!pendingResumeClaim.current) {
+          clearSecret();
+        }
+        setStage(pendingResumeClaim.current ? "accept" : "home");
         setBirthReveal({ status: "idle" });
         const child = await resolveNewborn(2).catch(() => null);
         if (child) {
+          pendingResumeClaim.current = null;
+          setResumingClaim(false);
           beginBirthReveal(child, revealParent, pendingClaimSignature.current);
           void refreshSpecies();
           return;
@@ -1127,10 +1217,12 @@ export default function Reproduction({
         <View style={styles.acceptLifeContent}>
           <View style={styles.acceptLifeCopy}>
             <AppText style={styles.acceptLifeTitle} variant="title">
-              A SPORE FOUND YOU
+              {resumingClaim ? "FINISH YOUR CLAIM" : "A SPORE FOUND YOU"}
             </AppText>
             <AppText style={styles.acceptLifeText} tone="secondary">
-              Descend from Seeker Zero.
+              {resumingClaim
+                ? "Your reservation is still active. Continue settlement."
+                : "Descend from Seeker Zero."}
             </AppText>
             {error ? <AppText style={styles.acceptLifeMessage}>{error}</AppText> : null}
           </View>
