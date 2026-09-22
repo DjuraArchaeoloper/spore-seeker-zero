@@ -1,5 +1,6 @@
 import { connectToDatabase } from "../../../../../src/db/mongoose";
 import { jsonOk } from "../../../../../src/http/responses";
+import { toPublicOrganism } from "../../../../../src/organisms/responses";
 import {
   handleSporeRouteError,
   isAuthenticatedSeeker,
@@ -17,6 +18,8 @@ export const runtime = "nodejs";
  * POST /api/spore/claim/reserve
  * Body: { parentOrganismPda, secret }
  * Identity comes only from the session.
+ * Resumes an existing active reservation for the same parent/offer/SGT.
+ * If the claim is already settled/finalized, returns the organism for recovery.
  */
 export async function POST(request: Request) {
   let secret: Uint8Array | null = null;
@@ -41,6 +44,19 @@ export async function POST(request: Request) {
       parentOrganismPda,
       secret
     });
+
+    if (result.organism) {
+      return jsonOk({
+        reservationId: result.reservation.reservationId,
+        status: result.reservation.status,
+        parentOrganismPda: result.reservation.parentOrganismPda,
+        parentOrganismNumber: result.parent.organismNumber,
+        birthFeeLamports: result.birthFeeLamports,
+        preparedAt: result.reservation.preparedAt.toISOString(),
+        transactionSignature: result.reservation.settlementSignature,
+        organism: toPublicOrganism(result.organism, null)
+      });
+    }
 
     return jsonOk({
       reservationId: result.reservation.reservationId,

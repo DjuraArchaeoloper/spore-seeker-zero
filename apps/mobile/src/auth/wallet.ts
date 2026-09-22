@@ -10,6 +10,7 @@ import {
   type Connection,
   type TransactionInstruction,
 } from "@solana/web3.js";
+import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { sporeWalletChain } from "../spore/config";
 import { SporeFailure } from "../spore/payload";
 
@@ -26,7 +27,6 @@ export async function sendWalletTransaction(connection: Connection, identity: Au
 
 export async function sendWalletTransactionWithSignature(connection: Connection, identity: AuthIdentity, instruction: TransactionInstruction): Promise<ConfirmedWalletTransaction> {
   if (process.env.EXPO_PUBLIC_SPORE_VISUAL_PREVIEW === "true") throw new SporeFailure("Reproduction is unavailable in visual preview.");
-  const { transact } = await import("@solana-mobile/mobile-wallet-adapter-protocol-web3js");
   let signature: string | undefined;
   try {
     const submitted = await transact(async (wallet) => {
@@ -89,12 +89,19 @@ export async function signAndSendPreparedTransaction(
     throw new SporeFailure("Reproduction is unavailable in visual preview.");
   }
 
-  const { transact } = await import("@solana-mobile/mobile-wallet-adapter-protocol-web3js");
   let signature: string | undefined;
 
   try {
     const transaction = Transaction.from(Buffer.from(transactionBase64, "base64"));
     const blockhash = transaction.recentBlockhash;
+
+    if (__DEV__) {
+      console.warn("[SPØR MWA] settlement transaction deserialized", {
+        hasBlockhash: Boolean(blockhash),
+        hasFeePayer: Boolean(transaction.feePayer),
+        instructionCount: transaction.instructions.length,
+      });
+    }
 
     if (!blockhash) {
       throw new SporeFailure("Settlement transaction is incomplete.");
@@ -105,17 +112,29 @@ export async function signAndSendPreparedTransaction(
         chain: sporeWalletChain(),
         identity: { name: "SPØR", uri: process.env.EXPO_PUBLIC_SPORE_API_URL! },
       });
-      const owner = new PublicKey(identity.walletAddress);
 
-      if (
-        !authorization.accounts.some((account) =>
-          new PublicKey(
-            "publicKey" in account
-              ? account.publicKey
-              : Buffer.from(account.address, "base64"),
-          ).equals(owner),
-        )
-      ) {
+      if (__DEV__) {
+        console.warn("[SPØR MWA] settlement wallet authorized", {
+          accountCount: authorization.accounts.length,
+        });
+      }
+
+      const owner = new PublicKey(identity.walletAddress);
+      const walletMatches = authorization.accounts.some((account) =>
+        new PublicKey(
+          "publicKey" in account
+            ? account.publicKey
+            : Buffer.from(account.address, "base64"),
+        ).equals(owner),
+      );
+
+      if (__DEV__) {
+        console.warn("[SPØR MWA] settlement authorized wallet match", {
+          matches: walletMatches,
+        });
+      }
+
+      if (!walletMatches) {
         throw new SporeFailure("Select the wallet you used to sign in.");
       }
 
@@ -123,12 +142,24 @@ export async function signAndSendPreparedTransaction(
         throw new SporeFailure("Select the wallet you used to sign in.");
       }
 
-      const minContextSlot = await connection.getSlot("confirmed");
+      if (__DEV__) {
+        console.warn("[SPØR MWA] settlement calling signAndSendTransactions", {
+          hasMinContextSlot: false,
+        });
+      }
+
+      // Server-prepared settlement: do not pass minContextSlot (wallet/RPC skew).
       const signatures = await wallet.signAndSendTransactions({
         transactions: [transaction],
-        minContextSlot,
       });
       signature = signatures[0];
+
+      if (__DEV__) {
+        console.warn("[SPØR MWA] settlement signAndSendTransactions returned", {
+          hasSignature: Boolean(signature),
+        });
+      }
+
       if (!signature) throw new Error();
       return {
         signature,
@@ -147,6 +178,10 @@ export async function signAndSendPreparedTransaction(
       slot: result.context.slot,
     };
   } catch (error) {
+    if (__DEV__) {
+      console.warn("[SPØR MWA] settlement wallet error", sanitizeWalletError(error));
+    }
+
     if (error instanceof SporeFailure) throw error;
     const code = (error as { code?: unknown } | null)?.code;
     if (code === -3 || code === 4001 || code === "ERROR_ASSOCIATION_CANCELLED") {
@@ -159,8 +194,12 @@ export async function signAndSendPreparedTransaction(
         slot: 0,
       };
     }
+
+    const detail = formatSanitizedWalletError(error);
     throw new SporeFailure(
-      "The wallet could not complete the transaction. Refresh to check its result before trying again.",
+      detail
+        ? `The wallet could not complete the transaction (${detail}). Refresh to check its result before trying again.`
+        : "The wallet could not complete the transaction. Refresh to check its result before trying again.",
     );
   }
 }
@@ -169,8 +208,6 @@ export async function requestWalletSignIn(
   signInPayload: SiwsPayload,
 ): Promise<MobileSignInResult> {
   try {
-    const { transact } =
-      await import("@solana-mobile/mobile-wallet-adapter-protocol-web3js");
     const signInResult = await transact(async (wallet) => {
       const authorization = await wallet.authorize({
         chain: signInPayload.chainId,
@@ -228,6 +265,45 @@ export async function requestWalletSignIn(
   } catch {
     throw new Error("Authentication failed.");
   }
+}
+
+function sanitizeWalletError(error: unknown): Record<string, string> {
+  const fields: Record<string, string> = {};
+
+  if (error instanceof Error) {
+    if (error.name) fields.name = error.name;
+    if (error.message) fields.message = error.message;
+    fields.class = error.constructor?.name ?? "Error";
+  } else if (error !== null && typeof error === "object") {
+    fields.class = (error as { constructor?: { name?: string } }).constructor?.name ?? "object";
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.length > 0) {
+      fields.message = message;
+    }
+  } else if (typeof error === "string") {
+    fields.message = error;
+  } else {
+    fields.class = typeof error;
+  }
+
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code !== undefined && code !== null && `${code}`.length > 0) {
+    fields.code = String(code);
+  }
+
+  const type = (error as { type?: unknown } | null)?.type;
+  if (typeof type === "string" && type.length > 0) {
+    fields.type = type;
+  }
+
+  return fields;
+}
+
+function formatSanitizedWalletError(error: unknown): string {
+  const fields = sanitizeWalletError(error);
+  return [fields.name, fields.message, fields.code ? `code=${fields.code}` : null, fields.type ? `type=${fields.type}` : null]
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
 }
 
 function createFallbackSignInResult(

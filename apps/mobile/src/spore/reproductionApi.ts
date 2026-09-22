@@ -21,15 +21,19 @@ export type ReserveClaimResponse = {
   parentOrganismNumber: string;
   birthFeeLamports: string;
   preparedAt: string;
+  transactionSignature?: string | null;
+  organism?: PublicOrganism;
 };
 
 export type SettlementResponse = {
   reservationId: string;
   status: string;
-  transaction: string;
-  encoding: "base64";
-  lastValidBlockHeight: number;
-  birthFeeLamports: string;
+  transaction?: string;
+  encoding?: "base64";
+  lastValidBlockHeight?: number;
+  birthFeeLamports?: string;
+  transactionSignature?: string | null;
+  organism?: PublicOrganism;
 };
 
 export type ConfirmClaimResponse = {

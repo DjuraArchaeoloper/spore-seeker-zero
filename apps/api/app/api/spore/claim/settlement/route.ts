@@ -1,5 +1,6 @@
 import { connectToDatabase } from "../../../../../src/db/mongoose";
 import { jsonOk } from "../../../../../src/http/responses";
+import { toPublicOrganism } from "../../../../../src/organisms/responses";
 import {
   handleSporeRouteError,
   isAuthenticatedSeeker,
@@ -15,7 +16,8 @@ export const runtime = "nodejs";
 /**
  * POST /api/spore/claim/settlement
  * Body: { reservationId }
- * Returns a partially signed legacy transaction (base64) for the recipient wallet.
+ * Returns a partially signed legacy transaction (base64) for the recipient wallet,
+ * or the finalized organism when a prior settlement already landed on-chain.
  */
 export async function POST(request: Request) {
   try {
@@ -36,6 +38,15 @@ export async function POST(request: Request) {
       seeker: seekerOrError,
       reservationId
     });
+
+    if (result.kind === "finalized") {
+      return jsonOk({
+        reservationId: result.reservation.reservationId,
+        status: result.reservation.status,
+        transactionSignature: result.reservation.settlementSignature,
+        organism: toPublicOrganism(result.organism, null)
+      });
+    }
 
     return jsonOk({
       reservationId: result.reservation.reservationId,

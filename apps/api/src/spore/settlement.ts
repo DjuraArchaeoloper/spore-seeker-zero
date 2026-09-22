@@ -36,7 +36,7 @@ import {
   ClaimReservationModel,
   type ClaimReservation
 } from "../models/ClaimReservation";
-import { OrganismIndexModel } from "../models/OrganismIndex";
+import { OrganismIndexModel, type OrganismIndex } from "../models/OrganismIndex";
 import {
   dateFromUnixSeconds,
   hexToBytes,
@@ -45,6 +45,7 @@ import {
 } from "./bytes";
 import { hasLiveSpore } from "./core";
 import { SporeDomainError } from "./errors";
+import { finalizeClaimBirth } from "./finalizeBirth";
 import {
   ensureReproductionFields,
   finalizedOrganismFilter
@@ -55,6 +56,7 @@ import { getCanonicalSpecies } from "./species";
 
 const MEMO_PREFIX = "spore-claim:";
 const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+const LANDED_SETTLEMENT_SIGNATURE_SCAN = 25;
 
 export type SettlementTransactionResult = {
   reservation: ClaimReservation;
@@ -66,14 +68,25 @@ export type SettlementTransactionResult = {
   treasury: string;
 };
 
+export type BuildClaimSettlementResult =
+  | ({ kind: "needs_signature" } & SettlementTransactionResult)
+  | {
+      kind: "finalized";
+      reservation: ClaimReservation;
+      organism: OrganismIndex;
+    };
+
 /**
  * Build a recipient-payable settlement transaction for a reserved claim.
  * Partially signs with the derived Core asset keypair only.
+ *
+ * Before preparing/refreshing a transaction for a settling reservation, probes
+ * whether the expected Core asset already landed and recovers via confirm+finalize.
  */
 export async function buildClaimSettlementTransaction(input: {
   seeker: AuthenticatedSeeker;
   reservationId: string;
-}): Promise<SettlementTransactionResult> {
+}): Promise<BuildClaimSettlementResult> {
   await connectToDatabase();
   await assertCurrentSgtOwnership(input.seeker);
 
@@ -81,6 +94,31 @@ export async function buildClaimSettlementTransaction(input: {
     input.reservationId,
     input.seeker.sgtMint
   );
+
+  if (reservation.recipientWalletAddress !== input.seeker.walletAddress) {
+    throw new SporeDomainError(
+      "claim_conflict",
+      "This reservation is bound to a different wallet session."
+    );
+  }
+
+  if (
+    reservation.status === CLAIM_RESERVATION_STATUS.settled ||
+    reservation.status === CLAIM_RESERVATION_STATUS.finalized
+  ) {
+    const organism = await finalizeClaimBirth({
+      reservationId: reservation.reservationId
+    });
+    const latest = await ClaimReservationModel.findOne({
+      reservationId: reservation.reservationId
+    }).lean();
+
+    return {
+      kind: "finalized",
+      reservation: latest ?? reservation,
+      organism
+    };
+  }
 
   if (
     reservation.status !== CLAIM_RESERVATION_STATUS.reserved &&
@@ -96,6 +134,40 @@ export async function buildClaimSettlementTransaction(input: {
 
   const species = await getCanonicalSpecies();
   const connection = getSolanaConnection();
+
+  // Settling recovery: if a prior wallet broadcast already created the Core asset,
+  // confirm+finalize instead of asking the wallet to sign again.
+  if (
+    reservation.status === CLAIM_RESERVATION_STATUS.settling &&
+    reservation.expectedCoreAsset
+  ) {
+    const landedSignature = await findLandedSettlementSignature({
+      reservation,
+      treasury: species.treasury,
+      birthFeeLamports: species.birthFeeLamports
+    });
+
+    if (landedSignature) {
+      const settled = await confirmClaimSettlement({
+        seeker: input.seeker,
+        reservationId: reservation.reservationId,
+        transactionSignature: landedSignature
+      });
+      const organism = await finalizeClaimBirth({
+        reservationId: settled.reservationId
+      });
+      const latest = await ClaimReservationModel.findOne({
+        reservationId: settled.reservationId
+      }).lean();
+
+      return {
+        kind: "finalized",
+        reservation: latest ?? settled,
+        organism
+      };
+    }
+  }
+
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
 
   if (
@@ -107,6 +179,7 @@ export async function buildClaimSettlementTransaction(input: {
     reservation.recentBlockhash === blockhash
   ) {
     return {
+      kind: "needs_signature",
       reservation,
       transactionBase64: reservation.settlementTransactionBase64,
       expectedCoreAsset: reservation.expectedCoreAsset,
@@ -123,6 +196,7 @@ export async function buildClaimSettlementTransaction(input: {
   ) {
     const currentHeight = await connection.getBlockHeight("confirmed");
 
+    // Blockhash still usable: never rotate the prepared settlement identity.
     if (
       currentHeight <= reservation.lastValidBlockHeight &&
       reservation.settlementTransactionBase64 &&
@@ -130,6 +204,7 @@ export async function buildClaimSettlementTransaction(input: {
       reservation.settlementAttemptId
     ) {
       return {
+        kind: "needs_signature",
         reservation,
         transactionBase64: reservation.settlementTransactionBase64,
         expectedCoreAsset: reservation.expectedCoreAsset,
@@ -298,6 +373,7 @@ export async function buildClaimSettlementTransaction(input: {
   }
 
   return {
+    kind: "needs_signature",
     reservation: updated,
     transactionBase64,
     expectedCoreAsset: updated.expectedCoreAsset,
@@ -324,6 +400,13 @@ export async function confirmClaimSettlement(input: {
     input.reservationId,
     input.seeker.sgtMint
   );
+
+  if (reservation.recipientWalletAddress !== input.seeker.walletAddress) {
+    throw new SporeDomainError(
+      "claim_conflict",
+      "This reservation is bound to a different wallet session."
+    );
+  }
 
   if (reservation.status === CLAIM_RESERVATION_STATUS.settled) {
     if (reservation.settlementSignature === input.transactionSignature) {
@@ -386,6 +469,72 @@ export async function confirmClaimSettlement(input: {
 
 export function claimMemoForReservation(reservationId: string) {
   return `${MEMO_PREFIX}${reservationId}`;
+}
+
+/**
+ * Discover a finalized settlement signature for the reserved Core asset without
+ * trusting the mobile client. Returns null when the asset is absent or no
+ * signature passes canonical settlement verification.
+ */
+async function findLandedSettlementSignature(input: {
+  reservation: ClaimReservation;
+  treasury: string;
+  birthFeeLamports: string;
+}): Promise<string | null> {
+  if (!input.reservation.expectedCoreAsset) {
+    return null;
+  }
+
+  const connection = getSolanaConnection();
+  const expectedAsset = new PublicKey(input.reservation.expectedCoreAsset);
+  const account = await connection.getAccountInfo(expectedAsset, "confirmed");
+
+  if (!account) {
+    return null;
+  }
+
+  if (input.reservation.settlementSignature) {
+    try {
+      await verifySettlementTransaction({
+        reservation: input.reservation,
+        transactionSignature: input.reservation.settlementSignature,
+        treasury: input.treasury,
+        birthFeeLamports: input.birthFeeLamports
+      });
+      return input.reservation.settlementSignature;
+    } catch {
+      // Fall through to signature scan.
+    }
+  }
+
+  const signatures = await connection.getSignaturesForAddress(expectedAsset, {
+    limit: LANDED_SETTLEMENT_SIGNATURE_SCAN
+  });
+
+  for (const entry of signatures) {
+    if (entry.err) {
+      continue;
+    }
+
+    try {
+      await verifySettlementTransaction({
+        reservation: input.reservation,
+        transactionSignature: entry.signature,
+        treasury: input.treasury,
+        birthFeeLamports: input.birthFeeLamports
+      });
+      return entry.signature;
+    } catch {
+      // Try older signatures until one matches reservation memo + fee + signers.
+    }
+  }
+
+  // Asset account exists but no finalized matching settlement was found yet.
+  // Do not rotate/rebuild the create instruction against an occupied address.
+  throw new SporeDomainError(
+    "settlement_not_ready",
+    "Settlement is confirming on-chain. Refresh and try again."
+  );
 }
 
 async function verifySettlementTransaction(input: {

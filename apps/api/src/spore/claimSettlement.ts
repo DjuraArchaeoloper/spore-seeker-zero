@@ -2,15 +2,15 @@ import type { AuthenticatedSeeker } from "../auth/session";
 import type { ClaimReservation } from "../models/ClaimReservation";
 import type { OrganismIndex } from "../models/OrganismIndex";
 import { finalizeClaimBirth } from "./finalizeBirth";
-import {
-  buildClaimSettlementTransaction,
-  confirmClaimSettlement,
-  type SettlementTransactionResult
-} from "./settlement";
+import { confirmClaimSettlement } from "./settlement";
 
 export {
   buildClaimSettlementTransaction,
   confirmClaimSettlement
+} from "./settlement";
+export type {
+  BuildClaimSettlementResult,
+  SettlementTransactionResult
 } from "./settlement";
 export { finalizeClaimBirth } from "./finalizeBirth";
 
@@ -33,5 +33,3 @@ export async function confirmAndFinalizeClaim(input: {
 
   return { reservation, organism };
 }
-
-export type { SettlementTransactionResult };

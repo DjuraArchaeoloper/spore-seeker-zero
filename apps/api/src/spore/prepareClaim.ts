@@ -31,6 +31,7 @@ import {
   sporeSecretMatches
 } from "./core";
 import { SporeDomainError } from "./errors";
+import { finalizeClaimBirth } from "./finalizeBirth";
 import {
   finalizedOrganismFilter,
   ensureReproductionFields
@@ -42,6 +43,8 @@ export type ClaimReservationResult = {
   parent: OrganismIndex;
   birthFeeLamports: string;
   treasury: string;
+  /** Present when the claim is already settled/finalized and recovery completed. */
+  organism?: OrganismIndex;
 };
 
 /**
@@ -103,10 +106,11 @@ export async function prepareClaimSpore(input: {
       existingReservation.status === CLAIM_RESERVATION_STATUS.settled ||
       existingReservation.status === CLAIM_RESERVATION_STATUS.finalized
     ) {
-      throw new SporeDomainError(
-        "claim_conflict",
-        "This claim was already settled."
-      );
+      return resumeCompletedReservation({
+        reservation: existingReservation,
+        seeker: input.seeker,
+        secret: input.secret
+      });
     }
 
     // Abandoned reservations may be recreated for the same deterministic id
@@ -372,6 +376,13 @@ async function resumeReservation(input: {
     );
   }
 
+  if (input.reservation.recipientWalletAddress !== input.seeker.walletAddress) {
+    throw new SporeDomainError(
+      "claim_conflict",
+      "This reservation is bound to a different wallet session."
+    );
+  }
+
   if (
     !sporeSecretMatches(
       input.secret,
@@ -429,6 +440,55 @@ async function resumeReservation(input: {
     parent,
     birthFeeLamports: species.birthFeeLamports,
     treasury: species.treasury
+  };
+}
+
+async function resumeCompletedReservation(input: {
+  reservation: ClaimReservation;
+  seeker: AuthenticatedSeeker;
+  secret: Uint8Array;
+}): Promise<ClaimReservationResult> {
+  if (input.reservation.recipientSgtMint !== input.seeker.sgtMint) {
+    throw new SporeDomainError(
+      "claim_conflict",
+      "This spore offer is already reserved."
+    );
+  }
+
+  if (input.reservation.recipientWalletAddress !== input.seeker.walletAddress) {
+    throw new SporeDomainError(
+      "claim_conflict",
+      "This reservation is bound to a different wallet session."
+    );
+  }
+
+  if (
+    !sporeSecretMatches(
+      input.secret,
+      hexToBytes(input.reservation.sporeCommitment)
+    )
+  ) {
+    throw new SporeDomainError(
+      "claim_conflict",
+      "A reservation already exists for a different offer."
+    );
+  }
+
+  const organism = await finalizeClaimBirth({
+    reservationId: input.reservation.reservationId
+  });
+  const parent = await loadFinalizedParent(input.reservation.parentOrganismPda);
+  const species = await getCanonicalSpecies();
+  const latest = await ClaimReservationModel.findOne({
+    reservationId: input.reservation.reservationId
+  }).lean();
+
+  return {
+    reservation: latest ?? input.reservation,
+    parent,
+    birthFeeLamports: species.birthFeeLamports,
+    treasury: species.treasury,
+    organism
   };
 }
 

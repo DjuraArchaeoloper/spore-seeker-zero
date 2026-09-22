@@ -508,8 +508,31 @@ export async function claimSporeWithSignature(
     });
     reservationId = reserved.reservationId;
 
+    if (reserved.organism) {
+      return {
+        slot: 0,
+        transactionSignature: reserved.transactionSignature ?? "",
+        organism: organismFromPublic(reserved.organism),
+        reservationId,
+      };
+    }
+
     const settlement = await fetchClaimSettlementViaApi(reservationId);
     settlementPrepared = true;
+
+    if (settlement.organism) {
+      return {
+        slot: 0,
+        transactionSignature: settlement.transactionSignature ?? "",
+        organism: organismFromPublic(settlement.organism),
+        reservationId,
+      };
+    }
+
+    if (!settlement.transaction || settlement.lastValidBlockHeight == null) {
+      throw new SporeFailure("Unable to prepare settlement.");
+    }
+
     const { signAndSendPreparedTransaction } = await import("../auth/wallet");
     const submitted = await signAndSendPreparedTransaction(
       connection(),
