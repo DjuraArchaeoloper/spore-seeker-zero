@@ -25,6 +25,7 @@ import {
 } from "../../assets/organisms/registry";
 import { AppText } from "../components/AppText";
 import { OrganismRenderer } from "../components/organism/OrganismRenderer";
+import { SporeLoader } from "../components/SporeLoader";
 import { tokens } from "../design/tokens";
 import type { Organism } from "./chain";
 
@@ -237,8 +238,8 @@ export function BirthRevealPendingStage({
       : "Waiting for the canonical birth record.";
 
   return (
-    <RevealShell>
-      <PendingOrb />
+    <RevealShell dark={false}>
+      <SporeLoader mode="screen" style={styles.pendingLoader} />
       <View style={styles.copy}>
         <AppText style={styles.title} variant="title">
           {label}
@@ -392,16 +393,6 @@ function RevealShell({
       ]}
     >
       {children}
-    </View>
-  );
-}
-
-function PendingOrb() {
-  return (
-    <View accessibilityLabel="Life forming" style={styles.pendingOrbStage}>
-      <View style={styles.pendingOrbHalo} />
-      <View style={styles.pendingOrbRing} />
-      <View style={styles.pendingOrbCore} />
     </View>
   );
 }
@@ -1372,42 +1363,8 @@ const styles = StyleSheet.create({
     paddingLeft: 2.2,
     textAlign: "center",
   },
-  pendingOrbStage: {
-    alignItems: "center",
-    height: 168,
-    justifyContent: "center",
-    position: "relative",
-    width: 168,
-  },
-  pendingOrbHalo: {
-    backgroundColor: "rgba(181, 238, 226, 0.1)",
-    borderRadius: tokens.radii.full,
-    height: 150,
-    opacity: 0.82,
-    shadowColor: tokens.specimen.mint,
-    shadowOffset: { height: 0, width: 0 },
-    shadowOpacity: 0.42,
-    shadowRadius: 26,
-    width: 150,
-  },
-  pendingOrbRing: {
-    borderColor: "rgba(181, 238, 226, 0.42)",
-    borderRadius: tokens.radii.full,
-    borderWidth: 1,
-    height: 94,
-    position: "absolute",
-    width: 94,
-  },
-  pendingOrbCore: {
-    backgroundColor: tokens.specimen.mint,
-    borderRadius: tokens.radii.full,
-    height: 44,
-    position: "absolute",
-    shadowColor: tokens.specimen.mint,
-    shadowOffset: { height: 0, width: 0 },
-    shadowOpacity: 0.72,
-    shadowRadius: 18,
-    width: 44,
+  pendingLoader: {
+    marginBottom: tokens.spacing.lg,
   },
   copy: {
     alignItems: "center",

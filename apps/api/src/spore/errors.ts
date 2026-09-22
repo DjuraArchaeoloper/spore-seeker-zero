@@ -21,6 +21,7 @@ export class SporeDomainError extends Error {
       | "settlement_invalid"
       | "settlement_expired"
       | "settlement_not_ready"
+      | "settlement_simulation_failed"
       | "finalization_conflict"
       | "server_misconfigured",
     message: string

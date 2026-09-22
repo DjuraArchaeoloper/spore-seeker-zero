@@ -19,6 +19,7 @@ type ErrorCode =
   | "settlement_invalid"
   | "settlement_expired"
   | "settlement_not_ready"
+  | "settlement_simulation_failed"
   | "finalization_conflict"
   | "species_not_ready";
 

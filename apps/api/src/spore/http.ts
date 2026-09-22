@@ -148,6 +148,12 @@ function mapSporeDomainError(error: SporeDomainError): {
       return { status: 409, code: "settlement_expired", message: error.message };
     case "settlement_not_ready":
       return { status: 409, code: "settlement_not_ready", message: error.message };
+    case "settlement_simulation_failed":
+      return {
+        status: 409,
+        code: "settlement_simulation_failed",
+        message: error.message
+      };
     case "finalization_conflict":
       return { status: 409, code: "finalization_conflict", message: error.message };
     case "species_not_ready":

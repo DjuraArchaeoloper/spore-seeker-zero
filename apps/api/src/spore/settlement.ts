@@ -1,8 +1,10 @@
 import crypto from "crypto";
 import {
+  Connection,
   PublicKey,
   SystemProgram,
-  Transaction
+  Transaction,
+  VersionedTransaction
 } from "@solana/web3.js";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
@@ -178,16 +180,16 @@ export async function buildClaimSettlementTransaction(input: {
     reservation.lastValidBlockHeight != null &&
     reservation.recentBlockhash === blockhash
   ) {
-    return {
-      kind: "needs_signature",
-      reservation,
+    return await finalizeNeedsSignatureAfterSimulation({
+      connection,
       transactionBase64: reservation.settlementTransactionBase64,
+      reservation,
       expectedCoreAsset: reservation.expectedCoreAsset,
       attemptId: reservation.settlementAttemptId,
       lastValidBlockHeight: reservation.lastValidBlockHeight,
       birthFeeLamports: species.birthFeeLamports,
       treasury: species.treasury
-    };
+    });
   }
 
   if (
@@ -203,16 +205,16 @@ export async function buildClaimSettlementTransaction(input: {
       reservation.expectedCoreAsset &&
       reservation.settlementAttemptId
     ) {
-      return {
-        kind: "needs_signature",
-        reservation,
+      return await finalizeNeedsSignatureAfterSimulation({
+        connection,
         transactionBase64: reservation.settlementTransactionBase64,
+        reservation,
         expectedCoreAsset: reservation.expectedCoreAsset,
         attemptId: reservation.settlementAttemptId,
         lastValidBlockHeight: reservation.lastValidBlockHeight,
         birthFeeLamports: species.birthFeeLamports,
         treasury: species.treasury
-      };
+      });
     }
   }
 
@@ -339,6 +341,16 @@ export async function buildClaimSettlementTransaction(input: {
   transaction.add(memoIx);
   transaction.partialSign(assetKeypair);
 
+  // TEMPORARY: simulate the exact prepared settlement tx before returning it.
+  await assertSettlementTransactionSimulates({
+    connection,
+    transaction,
+    reservationId: reservation.reservationId,
+    attemptId,
+    expectedCoreAsset: assetKeypair.publicKey.toBase58(),
+    lastValidBlockHeight
+  });
+
   const transactionBase64 = transaction
     .serialize({
       requireAllSignatures: false,
@@ -382,6 +394,146 @@ export async function buildClaimSettlementTransaction(input: {
     birthFeeLamports: species.birthFeeLamports,
     treasury: species.treasury
   };
+}
+
+/**
+ * TEMPORARY diagnostic gate: only return a cached/prepared settlement tx after
+ * simulating it with sigVerify disabled (recipient signature not present yet).
+ * On failure, keep the reservation recoverable in settling and do not abandon.
+ */
+async function finalizeNeedsSignatureAfterSimulation(input: {
+  connection: Connection;
+  transactionBase64: string;
+  reservation: ClaimReservation;
+  expectedCoreAsset: string;
+  attemptId: string;
+  lastValidBlockHeight: number;
+  birthFeeLamports: string;
+  treasury: string;
+}): Promise<Extract<BuildClaimSettlementResult, { kind: "needs_signature" }>> {
+  const transaction = Transaction.from(
+    Buffer.from(input.transactionBase64, "base64")
+  );
+
+  await assertSettlementTransactionSimulates({
+    connection: input.connection,
+    transaction,
+    reservationId: input.reservation.reservationId,
+    attemptId: input.attemptId,
+    expectedCoreAsset: input.expectedCoreAsset,
+    lastValidBlockHeight: input.lastValidBlockHeight
+  });
+
+  return {
+    kind: "needs_signature",
+    reservation: input.reservation,
+    transactionBase64: input.transactionBase64,
+    expectedCoreAsset: input.expectedCoreAsset,
+    attemptId: input.attemptId,
+    lastValidBlockHeight: input.lastValidBlockHeight,
+    birthFeeLamports: input.birthFeeLamports,
+    treasury: input.treasury
+  };
+}
+
+/**
+ * TEMPORARY: simulate the exact settlement transaction that would be sent to mobile.
+ * Does not mutate instructions, fee payer, blockhash, or signer layout.
+ * Uses VersionedTransaction + sigVerify:false because the recipient fee-payer
+ * signature is not present yet (legacy Transaction.simulateTransaction replaces blockhash).
+ */
+async function assertSettlementTransactionSimulates(input: {
+  connection: Connection;
+  transaction: Transaction;
+  reservationId: string;
+  attemptId: string;
+  expectedCoreAsset: string;
+  lastValidBlockHeight: number;
+}): Promise<void> {
+  const instructionProgramIds = input.transaction.instructions.map((ix) =>
+    ix.programId.toBase58()
+  );
+  const currentBlockHeight = await input.connection.getBlockHeight("confirmed");
+  const versioned = toVersionedTransactionForSimulation(input.transaction);
+
+  let simulation;
+  try {
+    simulation = await input.connection.simulateTransaction(versioned, {
+      sigVerify: false,
+      replaceRecentBlockhash: false,
+      commitment: "confirmed"
+    });
+  } catch (error) {
+    console.error("[SPØR SETTLEMENT SIM]", {
+      phase: "rpc_error",
+      reservationId: input.reservationId,
+      attemptId: input.attemptId,
+      expectedCoreAsset: input.expectedCoreAsset,
+      lastValidBlockHeight: input.lastValidBlockHeight,
+      currentBlockHeight,
+      instructionProgramIds,
+      rpcError:
+        error instanceof Error ? error.message : "unknown_simulation_rpc_error"
+    });
+    throw new SporeDomainError(
+      "settlement_simulation_failed",
+      "Settlement transaction failed simulation."
+    );
+  }
+
+  const { err, logs, unitsConsumed } = simulation.value;
+
+  console.error("[SPØR SETTLEMENT SIM]", {
+    phase: err ? "failed" : "ok",
+    reservationId: input.reservationId,
+    attemptId: input.attemptId,
+    expectedCoreAsset: input.expectedCoreAsset,
+    lastValidBlockHeight: input.lastValidBlockHeight,
+    currentBlockHeight,
+    instructionProgramIds,
+    err,
+    logs,
+    unitsConsumed,
+    slot: simulation.context.slot
+  });
+
+  if (err) {
+    throw new SporeDomainError(
+      "settlement_simulation_failed",
+      "Settlement transaction failed simulation."
+    );
+  }
+}
+
+/**
+ * Convert a partially signed legacy Transaction into VersionedTransaction for
+ * config-based simulation without replacing blockhash or mutating the original.
+ */
+function toVersionedTransactionForSimulation(
+  transaction: Transaction
+): VersionedTransaction {
+  if (!transaction.feePayer || !transaction.recentBlockhash) {
+    throw new SporeDomainError(
+      "settlement_simulation_failed",
+      "Settlement transaction failed simulation."
+    );
+  }
+
+  const message = transaction.compileMessage();
+  const versioned = new VersionedTransaction(message);
+
+  for (let i = 0; i < message.header.numRequiredSignatures; i += 1) {
+    const accountKey = message.accountKeys[i];
+    const signed = transaction.signatures.find((entry) =>
+      entry.publicKey.equals(accountKey)
+    );
+
+    if (signed?.signature) {
+      versioned.signatures[i] = signed.signature;
+    }
+  }
+
+  return versioned;
 }
 
 /**
