@@ -1,9 +1,10 @@
 /**
- * Server-only adapter over `@spore/core-wasm`.
- * No species-law logic — typed passthrough to canonical Rust spore-core.
+ * Server-only adapter over the canonical Rust spore-core WASM bindings.
+ * No species-law logic — typed passthrough to packages/spore-core-wasm/pkg.
  */
 
 import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
 
 import type * as SporeCoreWasm from "@spore/core-wasm";
@@ -12,9 +13,26 @@ if (typeof window !== "undefined") {
   throw new Error("spore-core WASM is server-only.");
 }
 
-// Resolve from the API package root so Vercel serverless traces stay stable.
+function resolveSporeCoreWasmEntry(): string {
+  const candidates = [
+    // Monorepo-root execution (Vercel / workspace root cwd).
+    path.resolve(process.cwd(), "packages/spore-core-wasm/pkg/spore_core_wasm.js"),
+    // apps/api execution (local next from apps/api).
+    path.resolve(process.cwd(), "../../packages/spore-core-wasm/pkg/spore_core_wasm.js"),
+  ];
+
+  const entry = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!entry) {
+    throw new Error(
+      "spore-core WASM runtime files are missing. Expected packages/spore-core-wasm/pkg/spore_core_wasm.js relative to process.cwd().",
+    );
+  }
+  return entry;
+}
+
+// Load wasm-bindgen Node output by absolute path — never resolve `@spore/core-wasm` at runtime.
 const require = createRequire(path.join(process.cwd(), "package.json"));
-const sporeCore = require("@spore/core-wasm") as typeof SporeCoreWasm;
+const sporeCore = require(resolveSporeCoreWasmEntry()) as typeof SporeCoreWasm;
 
 export interface MutateChildGenomeInput {
   parentGenome: Uint8Array;
