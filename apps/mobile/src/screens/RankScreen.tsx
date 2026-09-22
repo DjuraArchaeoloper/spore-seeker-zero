@@ -134,7 +134,6 @@ const styles = StyleSheet.create({
   headingText: {
     color: color.text,
     fontSize: 30,
-    fontWeight: "500",
     lineHeight: 38,
   },
   headingMeta: {
@@ -173,7 +172,6 @@ const styles = StyleSheet.create({
   organism: {
     color: color.text,
     fontSize: 19,
-    fontWeight: "500",
     lineHeight: 25,
   },
   generation: {
@@ -191,7 +189,6 @@ const styles = StyleSheet.create({
   descendantNumber: {
     color: color.text,
     fontSize: 22,
-    fontWeight: "500",
     lineHeight: 27,
   },
   descendantLabel: {

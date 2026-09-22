@@ -549,7 +549,6 @@ const styles = StyleSheet.create({
   bloodlineLineageNameCurrent: {
     color: color.text,
     fontSize: 21,
-    fontWeight: "600",
     lineHeight: 26,
   },
   bloodlineLineageMeta: {

@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Michroma_400Regular } from "@expo-google-fonts/michroma";
-import { useFonts } from "expo-font";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SEEKER_ZERO_GENOME_HEX, type GenomeInput } from "@spore/shared";
@@ -115,7 +113,6 @@ export function SpecimenScreen({
 }: SpecimenScreenProps) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const shareCardRef = useRef<View>(null);
   const [shareCardReadyKey, setShareCardReadyKey] = useState<string | null>(null);
@@ -148,7 +145,7 @@ export function SpecimenScreen({
       : releaseLabel;
   const actionDisabled = busy || (showViewSpore ? !canViewSpore : !canRelease);
   const actionPress = showViewSpore ? onViewSpore : onRelease;
-  const shareDisabled = busy || sharing || sharingUnavailable(fontsLoaded, shareCardReadyKey === shareCardKey);
+  const shareDisabled = busy || sharing || shareCardReadyKey !== shareCardKey;
   const visibleError = shareError ?? error;
   const markShareCardReady = useCallback(() => {
     setShareCardReadyKey(shareCardKey);
@@ -182,8 +179,6 @@ export function SpecimenScreen({
     }
   }
 
-  if (fontError) throw fontError;
-
   if (!specimen) {
     return (
       <View
@@ -194,7 +189,6 @@ export function SpecimenScreen({
             paddingLeft: insets.left,
             paddingRight: insets.right,
             paddingBottom: bottomSpace,
-            opacity: fontsLoaded ? 1 : 0,
           },
         ]}
       >
@@ -219,7 +213,6 @@ export function SpecimenScreen({
           paddingLeft: insets.left,
           paddingRight: insets.right,
           paddingBottom: bottomSpace,
-          opacity: fontsLoaded ? 1 : 0,
         },
       ]}
     >
@@ -317,10 +310,6 @@ export function SpecimenScreen({
   );
 }
 
-function sharingUnavailable(fontsLoaded: boolean, shareCardReady: boolean) {
-  return !fontsLoaded || !shareCardReady;
-}
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -340,11 +329,9 @@ const styles = StyleSheet.create({
   },
   identifier: {
     ...tokens.postAuth.smallText,
-    fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
     color: tokens.postAuth.secondary,
     fontSize: 14,
-    fontWeight: "600",
     letterSpacing: 2.6,
     paddingLeft: 2.6,
     lineHeight: 16,
@@ -359,9 +346,7 @@ const styles = StyleSheet.create({
   outbreak: {
     ...tokens.postAuth.smallText,
     color: tokens.postAuth.tertiary,
-    fontFamily: "Michroma_400Regular",
     fontSize: 9,
-    fontWeight: "400",
     includeFontPadding: false,
     letterSpacing: 1.7,
     lineHeight: 13,
@@ -388,19 +373,15 @@ const styles = StyleSheet.create({
   },
   name: {
     color: tokens.postAuth.primary,
-    fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
-    fontWeight: "400",
     lineHeight: 33,
     textAlign: "center",
   },
   subtitle: {
     ...tokens.postAuth.smallText,
-    fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
     color: tokens.postAuth.secondary,
     fontSize: 10,
-    fontWeight: "400",
     letterSpacing: 1.8,
     paddingLeft: 1.8,
     lineHeight: 16,
@@ -416,11 +397,9 @@ const styles = StyleSheet.create({
   },
   status: {
     ...tokens.postAuth.smallText,
-    fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
     color: tokens.postAuth.primary,
     fontSize: 12,
-    fontWeight: "400",
     letterSpacing: 2.1,
     lineHeight: 17,
     textAlign: "center",
@@ -461,7 +440,6 @@ const styles = StyleSheet.create({
     ...tokens.postAuth.smallText,
     color: tokens.postAuth.primary,
     fontSize: 12,
-    fontWeight: "400",
     lineHeight: 18,
     textAlign: "center",
   },

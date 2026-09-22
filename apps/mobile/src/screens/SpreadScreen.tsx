@@ -262,7 +262,6 @@ const styles = StyleSheet.create({
   populationNumber: {
     color: color.text,
     fontSize: 92,
-    fontWeight: "600",
     lineHeight: 98,
   },
   populationLabel: {
@@ -295,7 +294,6 @@ const styles = StyleSheet.create({
   generationValue: {
     color: color.text,
     fontSize: 21,
-    fontWeight: "500",
     lineHeight: 27,
   },
   origin: {
@@ -307,7 +305,6 @@ const styles = StyleSheet.create({
   originName: {
     color: color.text,
     fontSize: 21,
-    fontWeight: "500",
     lineHeight: 27,
   },
   originMeta: {

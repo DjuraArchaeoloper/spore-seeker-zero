@@ -83,10 +83,8 @@ const styles = StyleSheet.create({
   },
   specimenLabel: {
     color: tokens.specimen.primary,
-    fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
     fontSize: 12,
-    fontWeight: "400",
     letterSpacing: 2.7,
     paddingLeft: 2.7,
     lineHeight: 18,

@@ -1,3 +1,5 @@
+import { Michroma_400Regular } from "@expo-google-fonts/michroma";
+import { useFonts } from "expo-font";
 import { Image, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ComponentType } from "react";
@@ -56,6 +58,7 @@ export default function App() {
 }
 
 function SporeApp() {
+  const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
   const [authState, setAuthState] = useState<AuthState>({
     status: "restoring",
   });
@@ -146,6 +149,22 @@ function SporeApp() {
     if (signOutError) {
       throw new Error("Log out failed. Please try again.");
     }
+  }
+
+  // Never silently finish with substitute typography if the bundled font fails.
+  if (fontError) throw fontError;
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.app}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor="transparent"
+          translucent
+        />
+        <SporeLoader mode="screen" style={styles.fullSurfaceLoader} />
+      </View>
+    );
   }
 
   if (!VISUAL_PREVIEW && authState.status !== "authenticated") {

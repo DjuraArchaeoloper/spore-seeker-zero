@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Michroma_400Regular } from "@expo-google-fonts/michroma";
 import { Host, Icon } from "@expo/ui";
-import { useFonts } from "expo-font";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -63,18 +61,14 @@ type BottomNavigationProps = {
 
 export function BottomNavigation({ activeSurface, onSurfaceChange }: BottomNavigationProps) {
   const insets = useSafeAreaInsets();
-  const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
   const [trayWidth, setTrayWidth] = useState(0);
   const activeIndex = Math.max(0, surfaces.findIndex((surface) => surface.key === activeSurface));
-
-  if (fontError) throw fontError;
 
   return (
     <View style={[styles.navigation, {
       paddingBottom: insets.bottom + 18,
       paddingLeft: Math.max(insets.left, tokens.spacing.lg),
       paddingRight: Math.max(insets.right, tokens.spacing.lg),
-      opacity: fontsLoaded ? 1 : 0,
     }]}>
       <View
         onLayout={({ nativeEvent }) => setTrayWidth(nativeEvent.layout.width)}
@@ -275,9 +269,7 @@ const styles = StyleSheet.create({
   label: {
     ...tokens.postAuth.smallText,
     color: tokens.postAuth.secondary,
-    fontFamily: "Michroma_400Regular",
     fontSize: 8,
-    fontWeight: "400",
     includeFontPadding: false,
     letterSpacing: 0.8,
     paddingLeft: 1,

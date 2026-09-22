@@ -92,9 +92,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     color: tokens.postAuth.primary,
-    fontFamily: "Michroma_400Regular",
     fontSize: 13,
-    fontWeight: "400",
     includeFontPadding: false,
     letterSpacing: 2.8,
     lineHeight: 18,
@@ -102,9 +100,7 @@ const styles = StyleSheet.create({
   },
   origin: {
     color: tokens.postAuth.tertiary,
-    fontFamily: "Michroma_400Regular",
     fontSize: 7.5,
-    fontWeight: "400",
     includeFontPadding: false,
     letterSpacing: 1.7,
     lineHeight: 12,
@@ -130,9 +126,7 @@ const styles = StyleSheet.create({
   },
   organismNumber: {
     color: tokens.postAuth.primary,
-    fontFamily: "Michroma_400Regular",
     fontSize: 13,
-    fontWeight: "400",
     includeFontPadding: false,
     letterSpacing: 2.1,
     lineHeight: 18,
@@ -141,9 +135,7 @@ const styles = StyleSheet.create({
   },
   generation: {
     color: tokens.postAuth.secondary,
-    fontFamily: "Michroma_400Regular",
     fontSize: 8.5,
-    fontWeight: "400",
     includeFontPadding: false,
     letterSpacing: 1.7,
     lineHeight: 13,
@@ -152,9 +144,7 @@ const styles = StyleSheet.create({
   },
   lineage: {
     color: tokens.postAuth.tertiary,
-    fontFamily: "Michroma_400Regular",
     fontSize: 7.5,
-    fontWeight: "400",
     includeFontPadding: false,
     letterSpacing: 1.45,
     lineHeight: 12,
@@ -163,9 +153,7 @@ const styles = StyleSheet.create({
   },
   hook: {
     color: "rgba(247, 251, 251, 0.54)",
-    fontFamily: "Michroma_400Regular",
     fontSize: 7,
-    fontWeight: "400",
     includeFontPadding: false,
     letterSpacing: 1.65,
     lineHeight: 11,

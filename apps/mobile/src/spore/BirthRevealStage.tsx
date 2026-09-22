@@ -7,8 +7,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Michroma_400Regular } from "@expo-google-fonts/michroma";
-import { useFonts } from "expo-font";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -814,7 +812,6 @@ function FinalBirthText({
 }) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const [fontsLoaded] = useFonts({ Michroma_400Regular });
   const titleStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       progress.value,
@@ -859,7 +856,7 @@ function FinalBirthText({
       <Animated.View style={titleStyle}>
         <AppText
           maxFontSizeMultiplier={1.15}
-          style={[styles.itLives, fontsLoaded ? styles.revealFont : null]}
+          style={styles.itLives}
           variant="title"
         >
           IT LIVES.
@@ -868,10 +865,7 @@ function FinalBirthText({
       <Animated.View style={identityStyle}>
         <AppText
           maxFontSizeMultiplier={1.15}
-          style={[
-            styles.birthIdentity,
-            fontsLoaded ? styles.revealFont : null,
-          ]}
+          style={styles.birthIdentity}
           variant="metadata"
         >
           {identity}
@@ -1362,14 +1356,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: tokens.spacing.xl,
   },
-  revealFont: {
-    fontFamily: "Michroma_400Regular",
-    fontWeight: "400",
-  },
   itLives: {
     color: tokens.postAuth.primary,
     fontSize: 21,
-    fontWeight: "600",
     letterSpacing: 4,
     lineHeight: 28,
     paddingLeft: 4,
@@ -1378,7 +1367,6 @@ const styles = StyleSheet.create({
   birthIdentity: {
     color: tokens.postAuth.secondary,
     fontSize: 10,
-    fontWeight: "400",
     letterSpacing: 2.2,
     lineHeight: 15,
     paddingLeft: 2.2,

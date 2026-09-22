@@ -1,4 +1,3 @@
-import { Michroma_400Regular } from "@expo-google-fonts/michroma";
 import {
   BlurMask,
   Canvas,
@@ -10,13 +9,11 @@ import {
   Skia,
   useImage,
 } from "@shopify/react-native-skia";
-import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import {
   Image as StaticImage,
   Pressable,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -33,6 +30,7 @@ import {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppText } from "../components/AppText";
 import { SporeLoader } from "../components/SporeLoader";
 
 type AuthEntryScreenProps = {
@@ -234,7 +232,6 @@ export function AuthEntryScreen({
   } | null>(null);
   const { width, height } = viewport ?? window;
   const insets = useSafeAreaInsets();
-  const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
   const reduceMotion = useReducedMotion();
   const disabled = status !== "unauthenticated";
   const authenticating = status === "authenticating";
@@ -266,9 +263,6 @@ export function AuthEntryScreen({
     height - insets.bottom - buttonHeight - 24,
   );
 
-  // Never silently finish with substitute typography if the bundled font fails.
-  if (fontError) throw fontError;
-
   return (
     <View
       style={styles.screen}
@@ -289,180 +283,178 @@ export function AuthEntryScreen({
         reduceMotion={reduceMotion}
         width={width}
       />
-      {fontsLoaded ? (
-        restoring ? (
-          <View style={styles.authLoading}>
-            <SporeLoader mode="screen" label="RESTORING SESSION" />
+      {restoring ? (
+        <View style={styles.authLoading}>
+          <SporeLoader mode="screen" label="RESTORING SESSION" />
+        </View>
+      ) : (
+        <>
+          <View style={[styles.lockup, { top: titleTop }]}>
+            <AppText
+              accessibilityRole="header"
+              maxFontSizeMultiplier={1.2}
+              style={[
+                styles.text,
+                styles.title,
+                {
+                  fontSize: 78 * scale,
+                  lineHeight: 82 * scale,
+                  letterSpacing: 22 * scale,
+                  paddingLeft: 12 * scale,
+                },
+              ]}
+            >
+              SPØR
+            </AppText>
+            <AppText
+              maxFontSizeMultiplier={1.2}
+              style={[
+                styles.text,
+                styles.secondary,
+                {
+                  marginTop: 12 * scale,
+                  fontSize: 26 * scale,
+                  lineHeight: 30 * scale,
+                  letterSpacing: 9 * scale,
+                  paddingLeft: 9 * scale,
+                },
+              ]}
+            >
+              SEEKER ZERO
+            </AppText>
+            <AppText
+              maxFontSizeMultiplier={1.2}
+              style={[
+                styles.text,
+                styles.secondary,
+                {
+                  marginTop: 23 * scale,
+                  fontSize: 15 * scale,
+                  lineHeight: 24 * scale,
+                  letterSpacing: 5 * scale,
+                  paddingLeft: 5 * scale,
+                },
+              ]}
+            >
+              THE SPECIES DOESN'T END HERE.
+            </AppText>
           </View>
-        ) : (
-          <>
-            <View style={[styles.lockup, { top: titleTop }]}>
-              <Text
-                accessibilityRole="header"
+          <View style={[styles.action, { top: actionTop, width: buttonWidth }]}>
+            {error ? (
+              <AppText
+                accessibilityLiveRegion="polite"
                 maxFontSizeMultiplier={1.2}
                 style={[
                   styles.text,
-                  styles.title,
-                  {
-                    fontSize: 78 * scale,
-                    lineHeight: 82 * scale,
-                    letterSpacing: 22 * scale,
-                    paddingLeft: 12 * scale,
-                  },
+                  styles.error,
+                  { bottom: buttonHeight + 16 },
                 ]}
               >
-                SPØR
-              </Text>
-              <Text
-                maxFontSizeMultiplier={1.2}
-                style={[
-                  styles.text,
-                  styles.secondary,
-                  {
-                    marginTop: 12 * scale,
-                    fontSize: 26 * scale,
-                    lineHeight: 30 * scale,
-                    letterSpacing: 9 * scale,
-                    paddingLeft: 9 * scale,
-                  },
-                ]}
-              >
-                SEEKER ZERO
-              </Text>
-              <Text
-                maxFontSizeMultiplier={1.2}
-                style={[
-                  styles.text,
-                  styles.secondary,
-                  {
-                    marginTop: 23 * scale,
-                    fontSize: 15 * scale,
-                    lineHeight: 24 * scale,
-                    letterSpacing: 5 * scale,
-                    paddingLeft: 5 * scale,
-                  },
-                ]}
-              >
-                THE SPECIES DOESN'T END HERE.
-              </Text>
-            </View>
-            <View style={[styles.action, { top: actionTop, width: buttonWidth }]}>
-              {error ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  maxFontSizeMultiplier={1.2}
-                  style={[
-                    styles.text,
-                    styles.error,
-                    { bottom: buttonHeight + 16 },
-                  ]}
-                >
-                  SEEKER VERIFICATION FAILED.
-                </Text>
-              ) : null}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="ENTER SPØR"
-                accessibilityState={{ disabled, busy: disabled }}
-                accessibilityValue={{
-                  text: authenticating ? "Verifying Seeker" : "Ready",
-                }}
-                disabled={disabled}
-                onPress={onEnter}
-                style={({ pressed }) => [
-                  styles.button,
-                  {
-                    height: buttonHeight,
-                    borderRadius: 38 * buttonScale,
-                    borderWidth: 1.5 * buttonScale,
-                    // Reference-pixel edge lighting scales with the membrane itself.
-                    boxShadow: [
-                      {
-                        offsetX: 12 * buttonScale,
-                        offsetY: 0,
-                        blurRadius: 24 * buttonScale,
-                        spreadDistance: -4 * buttonScale,
-                        color: "rgba(136, 235, 220, 0.30)",
-                        inset: true,
-                      },
-                      {
-                        offsetX: -14 * buttonScale,
-                        offsetY: 0,
-                        blurRadius: 24 * buttonScale,
-                        spreadDistance: -4 * buttonScale,
-                        color: "rgba(149, 243, 227, 0.38)",
-                        inset: true,
-                      },
-                      {
-                        offsetX: 0,
-                        offsetY: 2 * buttonScale,
-                        blurRadius: 8 * buttonScale,
-                        spreadDistance: 0,
-                        color: "rgba(156, 237, 222, 0.24)",
-                        inset: true,
-                      },
-                      {
-                        offsetX: 0,
-                        offsetY: -1 * buttonScale,
-                        blurRadius: 6 * buttonScale,
-                        spreadDistance: 0,
-                        color: "rgba(111, 224, 207, 0.12)",
-                      },
-                    ],
-                    opacity: authenticating
-                      ? 0.86
-                      : disabled
-                        ? 0.35
-                        : pressed
-                          ? 0.88
-                          : 1,
-                  },
-                ]}
-              >
-                {authenticating ? (
-                  <View style={styles.buttonPendingRow}>
-                    <SporeLoader
-                      mode="button"
-                      size={Math.max(17, 24 * buttonScale)}
-                    />
-                    <Text
-                      maxFontSizeMultiplier={1.2}
-                      style={[
-                        styles.text,
-                        styles.buttonText,
-                        {
-                          fontSize: 24 * buttonScale,
-                          lineHeight: 34 * buttonScale,
-                          letterSpacing: 3.6 * buttonScale,
-                          paddingLeft: 3.6 * buttonScale,
-                        },
-                      ]}
-                    >
-                      VERIFYING
-                    </Text>
-                  </View>
-                ) : (
-                  <Text
+                SEEKER VERIFICATION FAILED.
+              </AppText>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="ENTER SPØR"
+              accessibilityState={{ disabled, busy: disabled }}
+              accessibilityValue={{
+                text: authenticating ? "Verifying Seeker" : "Ready",
+              }}
+              disabled={disabled}
+              onPress={onEnter}
+              style={({ pressed }) => [
+                styles.button,
+                {
+                  height: buttonHeight,
+                  borderRadius: 38 * buttonScale,
+                  borderWidth: 1.5 * buttonScale,
+                  // Reference-pixel edge lighting scales with the membrane itself.
+                  boxShadow: [
+                    {
+                      offsetX: 12 * buttonScale,
+                      offsetY: 0,
+                      blurRadius: 24 * buttonScale,
+                      spreadDistance: -4 * buttonScale,
+                      color: "rgba(136, 235, 220, 0.30)",
+                      inset: true,
+                    },
+                    {
+                      offsetX: -14 * buttonScale,
+                      offsetY: 0,
+                      blurRadius: 24 * buttonScale,
+                      spreadDistance: -4 * buttonScale,
+                      color: "rgba(149, 243, 227, 0.38)",
+                      inset: true,
+                    },
+                    {
+                      offsetX: 0,
+                      offsetY: 2 * buttonScale,
+                      blurRadius: 8 * buttonScale,
+                      spreadDistance: 0,
+                      color: "rgba(156, 237, 222, 0.24)",
+                      inset: true,
+                    },
+                    {
+                      offsetX: 0,
+                      offsetY: -1 * buttonScale,
+                      blurRadius: 6 * buttonScale,
+                      spreadDistance: 0,
+                      color: "rgba(111, 224, 207, 0.12)",
+                    },
+                  ],
+                  opacity: authenticating
+                    ? 0.86
+                    : disabled
+                      ? 0.35
+                      : pressed
+                        ? 0.88
+                        : 1,
+                },
+              ]}
+            >
+              {authenticating ? (
+                <View style={styles.buttonPendingRow}>
+                  <SporeLoader
+                    mode="button"
+                    size={Math.max(17, 24 * buttonScale)}
+                  />
+                  <AppText
                     maxFontSizeMultiplier={1.2}
                     style={[
                       styles.text,
                       styles.buttonText,
                       {
-                        fontSize: 34 * buttonScale,
-                        lineHeight: 46 * buttonScale,
-                        letterSpacing: 4.5 * buttonScale,
-                        paddingLeft: 4.5 * buttonScale,
+                        fontSize: 24 * buttonScale,
+                        lineHeight: 34 * buttonScale,
+                        letterSpacing: 3.6 * buttonScale,
+                        paddingLeft: 3.6 * buttonScale,
                       },
                     ]}
                   >
-                    ENTER
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-          </>
-        )
-      ) : null}
+                    VERIFYING
+                  </AppText>
+                </View>
+              ) : (
+                <AppText
+                  maxFontSizeMultiplier={1.2}
+                  style={[
+                    styles.text,
+                    styles.buttonText,
+                    {
+                      fontSize: 34 * buttonScale,
+                      lineHeight: 46 * buttonScale,
+                      letterSpacing: 4.5 * buttonScale,
+                      paddingLeft: 4.5 * buttonScale,
+                    },
+                  ]}
+                >
+                  ENTER
+                </AppText>
+              )}
+            </Pressable>
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -713,7 +705,6 @@ const styles = StyleSheet.create({
   },
   lockup: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   text: {
-    fontFamily: "Michroma_400Regular",
     includeFontPadding: false,
     textAlign: "center",
   },

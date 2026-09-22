@@ -1,5 +1,3 @@
-import { Michroma_400Regular } from "@expo-google-fonts/michroma";
-import { useFonts } from "expo-font";
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { tokens } from "../design/tokens";
@@ -24,9 +22,6 @@ export function AuthenticatedLogoutControl({
   onPress,
   style,
 }: AuthenticatedLogoutControlProps) {
-  const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
-  if (fontError) throw fontError;
-
   return (
     <Pressable
       accessibilityLabel="Log out of SPØR"
@@ -39,7 +34,6 @@ export function AuthenticatedLogoutControl({
         style,
         disabled && styles.disabled,
         pressed && !disabled && styles.pressed,
-        !fontsLoaded && styles.hidden,
       ]}
     >
       {({ pressed }) => (
@@ -65,9 +59,6 @@ const styles = StyleSheet.create({
     minWidth: 90,
     zIndex: 20,
   },
-  hidden: {
-    opacity: 0,
-  },
   disabled: {
     opacity: 0.46,
   },
@@ -92,9 +83,7 @@ const styles = StyleSheet.create({
   label: {
     ...tokens.postAuth.smallText,
     color: tokens.postAuth.primary,
-    fontFamily: "Michroma_400Regular",
     fontSize: 10,
-    fontWeight: "400",
     letterSpacing: 1.15,
     lineHeight: 15,
     paddingLeft: 1.15,

@@ -1138,6 +1138,7 @@ export default function Reproduction({
           <View style={styles.acceptLifeActions}>
             <PrimaryButton
               disabled={busy}
+              appearance="specimen"
               label="ACCEPT LIFE"
               loading={busy}
               loadingLabel="ACCEPTING LIFE"
@@ -1236,6 +1237,7 @@ export default function Reproduction({
         ) : (
           <View style={styles.homeActions}>
             <PrimaryButton
+              appearance="specimen"
               label="SCAN SPORE"
               disabled={busy}
               onPress={() => {
@@ -1424,7 +1426,6 @@ const styles = StyleSheet.create({
   scanLiveTitle: {
     color: tokens.colors.textPrimary,
     fontSize: 22,
-    fontWeight: "700",
     letterSpacing: 2,
     lineHeight: 28,
     textAlign: "center",
@@ -1543,7 +1544,6 @@ const styles = StyleSheet.create({
   offerTitle: {
     color: tokens.colors.textPrimary,
     fontSize: 24,
-    fontWeight: "700",
     letterSpacing: 1.8,
     lineHeight: 30,
     textAlign: "center",
@@ -1569,7 +1569,6 @@ const styles = StyleSheet.create({
     color: tokens.specimen.mint,
     fontSize: 12,
     fontVariant: ["tabular-nums"],
-    fontWeight: "600",
     letterSpacing: 2.2,
     lineHeight: 17,
     textAlign: "center",

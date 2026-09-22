@@ -19,7 +19,10 @@ const textColor: Record<TextTone, TextStyle> = {
 
 export function AppText({ children, style, tone = "primary", variant = "body", ...props }: AppTextProps) {
   return (
-    <Text {...props} style={[styles.base, tokens.typography[variant], textColor[tone], style]}>
+    <Text
+      {...props}
+      style={[styles.base, tokens.typography[variant], textColor[tone], style, styles.michroma]}
+    >
       {children}
     </Text>
   );
@@ -27,6 +30,13 @@ export function AppText({ children, style, tone = "primary", variant = "body", .
 
 const styles = StyleSheet.create({
   base: {
-    letterSpacing: 0
-  }
+    includeFontPadding: false,
+    letterSpacing: 0,
+  },
+  // Michroma only ships regular/400. Applied last so local styles cannot
+  // introduce unsupported synthetic weights against the registered family.
+  michroma: {
+    fontFamily: "Michroma_400Regular",
+    fontWeight: "400",
+  },
 });

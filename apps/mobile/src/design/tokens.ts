@@ -4,8 +4,6 @@ export const tokens = {
     secondary: "#B8CED3",
     tertiary: "#87A1A8",
     smallText: {
-      fontFamily: "Michroma_400Regular",
-      fontWeight: "400",
       includeFontPadding: false,
       textShadowColor: "rgba(0, 0, 0, 0.68)",
       textShadowOffset: { width: 0, height: 1 },
@@ -35,33 +33,26 @@ export const tokens = {
     display: {
       fontSize: 42,
       lineHeight: 48,
-      fontWeight: "700"
     },
     title: {
       fontSize: 22,
       lineHeight: 28,
-      fontWeight: "700"
     },
     body: {
       fontSize: 15,
       lineHeight: 22,
-      fontWeight: "400"
     },
     metadata: {
       fontSize: 12,
       lineHeight: 16,
-      fontWeight: "600"
     },
     label: {
       fontSize: 14,
       lineHeight: 18,
-      fontWeight: "700"
     },
     identifier: {
-      fontFamily: "monospace",
       fontSize: 13,
       lineHeight: 18,
-      fontWeight: "600"
     }
   },
   spacing: {

@@ -1,6 +1,4 @@
 import { Platform, StatusBar, StyleSheet, View, type ViewProps } from "react-native";
-import { Michroma_400Regular } from "@expo-google-fonts/michroma";
-import { useFonts } from "expo-font";
 
 import { tokens } from "../design/tokens";
 import { AppText } from "./AppText";
@@ -13,11 +11,9 @@ type ScreenProps = ViewProps & {
 };
 
 export function Screen({ children, eyebrow, style, title, ...props }: ScreenProps) {
-  const [fontsLoaded, fontError] = useFonts({ Michroma_400Regular });
-  if (fontError) throw fontError;
   return (
     <View {...props} style={[styles.screen, style]}>
-      <View style={[styles.header, { opacity: fontsLoaded ? 1 : 0 }]}>
+      <View style={styles.header}>
         <SoftTextScrim style={styles.headerScrim} variant="header" />
         {eyebrow ? (
           <AppText style={styles.eyebrow} variant="metadata">
@@ -40,8 +36,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   title: {
-    fontFamily: "Michroma_400Regular",
-    fontWeight: "400",
     color: tokens.postAuth.primary,
     letterSpacing: 0.5,
     textShadowColor: "rgba(0, 0, 0, 0.62)",
