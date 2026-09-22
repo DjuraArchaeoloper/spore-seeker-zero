@@ -23,6 +23,12 @@ type RequiredEnvName =
 
 export type SolanaCluster = "mainnet" | "devnet";
 
+/** Canonical Solana genesis hashes used to detect cluster/RPC disagreement. */
+export const SOLANA_GENESIS_HASHES: Record<SolanaCluster, string> = {
+  mainnet: "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+  devnet: "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
+};
+
 export function getRequiredEnv(name: RequiredEnvName) {
   const value = process.env[name]?.trim();
 
@@ -48,8 +54,19 @@ export function getSiwsConfig() {
   };
 }
 
+/**
+ * Cluster-selected Helius RPC URL used by every server-side Solana call
+ * (settlement construction, simulation, verification, Core finalization).
+ * Controlled by SPORE_SOLANA_CLUSTER + HELIUS_API_KEY — never hardcode hosts elsewhere.
+ */
 export function getHeliusRpcUrl() {
-  const cluster = getSolanaCluster() === "devnet" ? "devnet" : "mainnet";
+  const cluster = getSolanaCluster();
+  const rpcUrl = buildHeliusRpcUrl(cluster);
+  assertRpcUrlMatchesCluster(rpcUrl, cluster);
+  return rpcUrl;
+}
+
+function buildHeliusRpcUrl(cluster: SolanaCluster) {
   return `https://${cluster}.helius-rpc.com/?api-key=${encodeURIComponent(getRequiredEnv("HELIUS_API_KEY"))}`;
 }
 
@@ -61,14 +78,87 @@ export function getHeliusWebhookAuth() {
   return getRequiredEnv("HELIUS_WEBHOOK_AUTH");
 }
 
+/**
+ * Explicit cluster selection. No silent mainnet default — Preview/devnet hosts
+ * must set SPORE_SOLANA_CLUSTER=devnet or settlement will build the wrong network.
+ */
 export function getSolanaCluster(): SolanaCluster {
-  const value = process.env.SPORE_SOLANA_CLUSTER?.trim() ?? "mainnet";
+  const value = process.env.SPORE_SOLANA_CLUSTER?.trim();
+
+  if (!value) {
+    throw new Error("Missing required environment variable: SPORE_SOLANA_CLUSTER");
+  }
 
   if (value !== "mainnet" && value !== "devnet") {
     throw new Error("SPORE_SOLANA_CLUSTER must be mainnet or devnet.");
   }
 
   return value;
+}
+
+/**
+ * Fail fast when the configured cluster and RPC endpoint disagree.
+ * Safe to call repeatedly; caches a successful check.
+ */
+let configuredNetworkAssert: Promise<void> | null = null;
+
+export async function assertConfiguredSolanaNetwork() {
+  if (!configuredNetworkAssert) {
+    configuredNetworkAssert = runConfiguredSolanaNetworkAssert().catch((error) => {
+      configuredNetworkAssert = null;
+      throw error;
+    });
+  }
+
+  await configuredNetworkAssert;
+}
+
+async function runConfiguredSolanaNetworkAssert() {
+  const cluster = getSolanaCluster();
+  const rpcUrl = getHeliusRpcUrl();
+  const mode = getSporeReproductionMode();
+
+  // Hostname alignment is already enforced by getHeliusRpcUrl().
+  // In server reproduction mode, also verify live RPC genesis so a wrong-network
+  // endpoint cannot silently produce mainnet settlement transactions on "devnet".
+  if (mode !== "server") {
+    return;
+  }
+
+  const { Connection } = await import("@solana/web3.js");
+  const connection = new Connection(rpcUrl, "confirmed");
+  const genesisHash = await connection.getGenesisHash();
+
+  if (genesisHash !== SOLANA_GENESIS_HASHES[cluster]) {
+    throw new Error(
+      `Solana cluster/RPC mismatch: SPORE_SOLANA_CLUSTER=${cluster} but the RPC genesis hash does not match that cluster.`
+    );
+  }
+}
+
+function assertRpcUrlMatchesCluster(rpcUrl: string, cluster: SolanaCluster) {
+  let hostname: string;
+
+  try {
+    hostname = new URL(rpcUrl).hostname.toLowerCase();
+  } catch {
+    throw new Error("Solana RPC configuration is invalid.");
+  }
+
+  if (cluster === "devnet") {
+    if (!hostname.includes("devnet")) {
+      throw new Error(
+        "Solana cluster/RPC mismatch: SPORE_SOLANA_CLUSTER is devnet but the RPC endpoint is not."
+      );
+    }
+    return;
+  }
+
+  if (hostname.includes("devnet") || !hostname.includes("mainnet")) {
+    throw new Error(
+      "Solana cluster/RPC mismatch: SPORE_SOLANA_CLUSTER is mainnet but the RPC endpoint is not."
+    );
+  }
 }
 
 export function getSgtVerificationConfig() {

@@ -31,7 +31,6 @@ import {
   verifySeekerGenesisToken
 } from "../auth/sgt";
 import { connectToDatabase } from "../db/mongoose";
-import { getHeliusRpcUrl } from "../env";
 import {
   ACTIVE_CLAIM_RESERVATION_STATUSES,
   CLAIM_RESERVATION_STATUS,
@@ -53,7 +52,7 @@ import {
   finalizedOrganismFilter
 } from "./organismState";
 import { deriveCoreAssetKeypair, getSporeServerAuthorityKeypair } from "./serverAuthority";
-import { getSolanaConnection } from "./solanaConnection";
+import { getVerifiedSolanaConnection } from "./solanaConnection";
 import { getCanonicalSpecies } from "./species";
 
 const MEMO_PREFIX = "spore-claim:";
@@ -135,7 +134,7 @@ export async function buildClaimSettlementTransaction(input: {
   await assertReservationOfferStillValid(reservation);
 
   const species = await getCanonicalSpecies();
-  const connection = getSolanaConnection();
+  const connection = await getVerifiedSolanaConnection();
 
   // Settling recovery: if a prior wallet broadcast already created the Core asset,
   // confirm+finalize instead of asking the wallet to sign again.
@@ -170,41 +169,23 @@ export async function buildClaimSettlementTransaction(input: {
     }
   }
 
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-
+  // Cached settling tx is only reusable when its blockhash is valid on THIS cluster.
+  // A mainnet-built cache (wrong network) fails isBlockhashValid on devnet and rebuilds
+  // with the same settlementAttemptId + expected Core asset.
   if (
     reservation.status === CLAIM_RESERVATION_STATUS.settling &&
     reservation.settlementAttemptId &&
     reservation.expectedCoreAsset &&
     reservation.settlementTransactionBase64 &&
-    reservation.lastValidBlockHeight != null &&
-    reservation.recentBlockhash === blockhash
-  ) {
-    return await finalizeNeedsSignatureAfterSimulation({
-      connection,
-      transactionBase64: reservation.settlementTransactionBase64,
-      reservation,
-      expectedCoreAsset: reservation.expectedCoreAsset,
-      attemptId: reservation.settlementAttemptId,
-      lastValidBlockHeight: reservation.lastValidBlockHeight,
-      birthFeeLamports: species.birthFeeLamports,
-      treasury: species.treasury
-    });
-  }
-
-  if (
-    reservation.status === CLAIM_RESERVATION_STATUS.settling &&
+    reservation.recentBlockhash &&
     reservation.lastValidBlockHeight != null
   ) {
-    const currentHeight = await connection.getBlockHeight("confirmed");
+    const blockhashValidity = await connection.isBlockhashValid(
+      reservation.recentBlockhash,
+      { commitment: "confirmed" }
+    );
 
-    // Blockhash still usable: never rotate the prepared settlement identity.
-    if (
-      currentHeight <= reservation.lastValidBlockHeight &&
-      reservation.settlementTransactionBase64 &&
-      reservation.expectedCoreAsset &&
-      reservation.settlementAttemptId
-    ) {
+    if (blockhashValidity.value) {
       return await finalizeNeedsSignatureAfterSimulation({
         connection,
         transactionBase64: reservation.settlementTransactionBase64,
@@ -216,7 +197,20 @@ export async function buildClaimSettlementTransaction(input: {
         treasury: species.treasury
       });
     }
+
+    console.error("[SPØR SETTLEMENT RECOVERY]", {
+      phase: "cached_blockhash_unusable",
+      reservationId: reservation.reservationId,
+      attemptId: reservation.settlementAttemptId,
+      expectedCoreAsset: reservation.expectedCoreAsset,
+      lastValidBlockHeight: reservation.lastValidBlockHeight,
+      slot: blockhashValidity.context.slot
+    });
   }
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(
+    "confirmed"
+  );
 
   // Preserve the same Core asset keypair across blockhash refreshes so a
   // late-landing settlement cannot be orphaned by attempt rotation.
@@ -286,7 +280,7 @@ export async function buildClaimSettlementTransaction(input: {
     throw new SporeDomainError("settlement_invalid", "Birth fee exceeds safe integer range.");
   }
 
-  const umi = createUmi(getHeliusRpcUrl()).use(mplCore());
+  const umi = createUmi(connection.rpcEndpoint).use(mplCore());
   umi.use(
     signerIdentity(createNoopSigner(fromWeb3JsPublicKey(recipient)), true)
   );
@@ -637,7 +631,7 @@ async function findLandedSettlementSignature(input: {
     return null;
   }
 
-  const connection = getSolanaConnection();
+  const connection = await getVerifiedSolanaConnection();
   const expectedAsset = new PublicKey(input.reservation.expectedCoreAsset);
   const account = await connection.getAccountInfo(expectedAsset, "confirmed");
 
@@ -695,7 +689,7 @@ async function verifySettlementTransaction(input: {
   treasury: string;
   birthFeeLamports: string;
 }) {
-  const connection = getSolanaConnection();
+  const connection = await getVerifiedSolanaConnection();
   const tx = await connection.getTransaction(input.transactionSignature, {
     commitment: "finalized",
     maxSupportedTransactionVersion: 0
@@ -817,7 +811,7 @@ async function verifySettlementTransaction(input: {
     );
   }
 
-  const umi = createUmi(getHeliusRpcUrl()).use(mplCore());
+  const umi = createUmi(connection.rpcEndpoint).use(mplCore());
   const asset = await fetchAsset(umi, umiPublicKey(expectedAsset.toBase58()));
 
   if (asset.owner !== umiPublicKey(recipient.toBase58())) {

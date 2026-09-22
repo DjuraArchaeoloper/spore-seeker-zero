@@ -16,7 +16,6 @@ import { base58 } from "@metaplex-foundation/umi/serializers";
 import { fromWeb3JsKeypair } from "@metaplex-foundation/umi-web3js-adapters";
 
 import { connectToDatabase } from "../db/mongoose";
-import { getHeliusRpcUrl } from "../env";
 import {
   CLAIM_RESERVATION_STATUS,
   ClaimReservationModel,
@@ -48,6 +47,7 @@ import {
   finalizedOrganismFilter
 } from "./organismState";
 import { getSporeServerAuthorityKeypair } from "./serverAuthority";
+import { getVerifiedSolanaConnection } from "./solanaConnection";
 import { getCanonicalSpecies } from "./species";
 
 /**
@@ -144,7 +144,8 @@ async function finalizeCoreBirthCertificate(input: {
 }): Promise<string> {
   const reservation = input.reservation;
   const serverAuthority = getSporeServerAuthorityKeypair();
-  const umi = createUmi(getHeliusRpcUrl()).use(mplCore());
+  const connection = await getVerifiedSolanaConnection();
+  const umi = createUmi(connection.rpcEndpoint).use(mplCore());
   const authoritySigner = createSignerFromKeypair(
     umi,
     fromWeb3JsKeypair(serverAuthority)
