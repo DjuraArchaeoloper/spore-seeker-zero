@@ -4,33 +4,31 @@ const fs = require("fs");
 const path = require("path");
 
 function resolvePkgEntry() {
-  const local = path.join(__dirname, "pkg", "spore_core_wasm.js");
-  if (fs.existsSync(local)) {
-    return local;
-  }
+  const candidates = [
+    // Vercel / Next workspace execution from apps/api.
+    path.resolve(
+      process.cwd(),
+      "../../packages/spore-core-wasm/pkg/spore_core_wasm.js",
+    ),
 
-  // Monorepo fallback when wasm-pack wrote into the crate pkg/ directory.
-  const monorepo = path.join(
-    __dirname,
-    "..",
-    "..",
-    "crates",
-    "spore-core-wasm",
-    "pkg",
-    "spore_core_wasm.js"
-  );
-  if (fs.existsSync(monorepo)) {
-    return monorepo;
-  }
+    // Monorepo-root execution.
+    path.resolve(
+      process.cwd(),
+      "packages/spore-core-wasm/pkg/spore_core_wasm.js",
+    ),
 
-  return null;
+    // Direct package execution / local fallback.
+    path.join(__dirname, "pkg", "spore_core_wasm.js"),
+  ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
 }
 
 const pkgEntry = resolvePkgEntry();
 
 if (!pkgEntry) {
   throw new Error(
-    "@spore/core-wasm is not built. From the monorepo root run: npm run build -w @spore/core-wasm (requires Rust, wasm-pack, and rustup target wasm32-unknown-unknown). Production deploys must ship packages/spore-core-wasm/pkg/ prebuilt — Rust is not required at runtime."
+    "@spore/core-wasm runtime files are missing. Production deploys must ship packages/spore-core-wasm/pkg/.",
   );
 }
 

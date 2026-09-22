@@ -1,28 +1,23 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
-const sporeCoreWasmPkg = "../../packages/spore-core-wasm/**/*";
+const sporeCoreWasmPkg = "../../packages/spore-core-wasm/pkg/**/*";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@spore/shared"],
+  transpilePackages: ["@spore/shared", "@spore/core-wasm"],
 
-  // Keep wasm-bindgen's Node loader + .wasm as a native Node package.
-  serverExternalPackages: ["@spore/core-wasm"],
-
-  // The API app lives under apps/api, while the local WASM package
-  // lives at packages/spore-core-wasm.
+  // Trace files from the monorepo root.
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
 
   outputFileTracingIncludes: {
     "/api/nft/[organismNumber]/image": [
       "../../packages/shared/assets/fonts/**/*",
-      "../../packages/shared/assets/organisms/**/*"
+      "../../packages/shared/assets/organisms/**/*",
     ],
 
-    // Ship the complete external workspace package, including its
-    // package.json, Node loader, generated JS and .wasm binary.
-    "/api/**/*": [sporeCoreWasmPkg]
-  }
+    // wasm-pack --target nodejs loads this binary from disk at runtime.
+    "/api/**/*": [sporeCoreWasmPkg],
+  },
 };
 
 export default nextConfig;
