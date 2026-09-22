@@ -448,6 +448,33 @@ async function assertSettlementTransactionSimulates(input: {
     ix.programId.toBase58()
   );
   const currentBlockHeight = await input.connection.getBlockHeight("confirmed");
+  const message = input.transaction.compileMessage();
+  const accountKeys = message.accountKeys.map((key) => key.toBase58());
+  const accountKeyIndex = Object.fromEntries(
+    accountKeys.map((pubkey, index) => [String(index), pubkey])
+  );
+  const accountIndex2Diagnostics = await diagnoseSettlementAccountAtIndex({
+    connection: input.connection,
+    transaction: input.transaction,
+    message,
+    accountIndex: 2,
+    expectedCoreAsset: input.expectedCoreAsset
+  });
+
+  console.error("[SPØR SETTLEMENT SIM]", {
+    phase: "account_keys",
+    reservationId: input.reservationId,
+    attemptId: input.attemptId,
+    expectedCoreAsset: input.expectedCoreAsset,
+    accountKeyIndex
+  });
+  console.error("[SPØR SETTLEMENT SIM]", {
+    phase: "account_index_2_pre_sim",
+    reservationId: input.reservationId,
+    attemptId: input.attemptId,
+    ...accountIndex2Diagnostics
+  });
+
   const versioned = toVersionedTransactionForSimulation(input.transaction);
 
   let simulation;
@@ -466,6 +493,8 @@ async function assertSettlementTransactionSimulates(input: {
       lastValidBlockHeight: input.lastValidBlockHeight,
       currentBlockHeight,
       instructionProgramIds,
+      accountKeyIndex,
+      accountIndex2: accountIndex2Diagnostics,
       rpcError:
         error instanceof Error ? error.message : "unknown_simulation_rpc_error"
     });
@@ -485,6 +514,8 @@ async function assertSettlementTransactionSimulates(input: {
     lastValidBlockHeight: input.lastValidBlockHeight,
     currentBlockHeight,
     instructionProgramIds,
+    accountKeyIndex,
+    accountIndex2: accountIndex2Diagnostics,
     err,
     logs,
     unitsConsumed,
@@ -497,6 +528,125 @@ async function assertSettlementTransactionSimulates(input: {
       "Settlement transaction failed simulation."
     );
   }
+}
+
+/**
+ * TEMPORARY: identify account_index N in the compiled settlement message and
+ * whether any instruction creates/funds it. Public keys / account meta only.
+ */
+async function diagnoseSettlementAccountAtIndex(input: {
+  connection: Connection;
+  transaction: Transaction;
+  message: ReturnType<Transaction["compileMessage"]>;
+  accountIndex: number;
+  expectedCoreAsset: string;
+}) {
+  const { message, accountIndex } = input;
+  const pubkey = message.accountKeys[accountIndex] ?? null;
+  const numRequiredSignatures = message.header.numRequiredSignatures;
+  const numReadonlySignedAccounts = message.header.numReadonlySignedAccounts;
+  const numReadonlyUnsignedAccounts = message.header.numReadonlyUnsignedAccounts;
+  const numSignedAccounts = numRequiredSignatures;
+  const numWritableSignedAccounts =
+    numRequiredSignatures - numReadonlySignedAccounts;
+  const numWritableUnsignedAccounts =
+    message.accountKeys.length -
+    numRequiredSignatures -
+    numReadonlyUnsignedAccounts;
+
+  const isSigner = pubkey
+    ? accountIndex < numRequiredSignatures
+    : false;
+  const isWritable = pubkey
+    ? accountIndex < numWritableSignedAccounts ||
+      (accountIndex >= numSignedAccounts &&
+        accountIndex < numSignedAccounts + numWritableUnsignedAccounts)
+    : false;
+
+  const pubkeyBase58 = pubkey?.toBase58() ?? null;
+  let lamports: number | null = null;
+  let dataLength: number | null = null;
+  let ownerProgram: string | null = null;
+  let rentExemptMinimum: number | null = null;
+  let accountExists = false;
+
+  if (pubkey) {
+    const info = await input.connection.getAccountInfo(pubkey, "confirmed");
+    if (info) {
+      accountExists = true;
+      lamports = info.lamports;
+      dataLength = info.data.length;
+      ownerProgram = info.owner.toBase58();
+      rentExemptMinimum = await input.connection.getMinimumBalanceForRentExemption(
+        info.data.length,
+        "confirmed"
+      );
+    } else {
+      // Uninitialized / newly created account — rent floor for empty data.
+      dataLength = 0;
+      rentExemptMinimum = await input.connection.getMinimumBalanceForRentExemption(
+        0,
+        "confirmed"
+      );
+    }
+  }
+
+  const feePayer = input.transaction.feePayer?.toBase58() ?? null;
+  const roleGuess =
+    pubkeyBase58 == null
+      ? "missing"
+      : pubkeyBase58 === feePayer
+        ? "fee_payer_recipient"
+        : pubkeyBase58 === input.expectedCoreAsset
+          ? "expected_core_asset"
+          : "other";
+
+  const creatingOrFundingInstructions = input.transaction.instructions
+    .map((ix, instructionIndex) => {
+      const keys = ix.keys.map((meta, metaIndex) => ({
+        metaIndex,
+        pubkey: meta.pubkey.toBase58(),
+        isSigner: meta.isSigner,
+        isWritable: meta.isWritable
+      }));
+      const mentions = keys.filter((key) => key.pubkey === pubkeyBase58);
+      if (mentions.length === 0) {
+        return null;
+      }
+
+      return {
+        instructionIndex,
+        programId: ix.programId.toBase58(),
+        mentions,
+        likelyCreatesOrFunds:
+          !accountExists &&
+          mentions.some((meta) => meta.isWritable) &&
+          (ix.programId.equals(SystemProgram.programId) ||
+            mentions.some((meta) => meta.isSigner && meta.isWritable))
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry != null);
+
+  return {
+    accountIndex,
+    publicKey: pubkeyBase58,
+    roleGuess,
+    accountExists,
+    lamports,
+    dataLength,
+    ownerProgram,
+    rentExemptMinimum,
+    isSigner,
+    isWritable,
+    messageHeader: {
+      numRequiredSignatures,
+      numReadonlySignedAccounts,
+      numReadonlyUnsignedAccounts,
+      numWritableSignedAccounts,
+      numWritableUnsignedAccounts
+    },
+    creatingOrFundingInstructions
+  };
 }
 
 /**
