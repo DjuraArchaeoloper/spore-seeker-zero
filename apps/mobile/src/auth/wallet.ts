@@ -11,13 +11,22 @@ import {
   type TransactionInstruction,
 } from "@solana/web3.js";
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
-import { sporeWalletChain } from "../spore/config";
+import { sporeCluster, sporeWalletChain } from "../spore/config";
 import { SporeFailure } from "../spore/payload";
 
 export type ConfirmedWalletTransaction = {
   signature: string;
   slot: number;
 };
+
+function logMwaAuthorizeChain(source: string, chain: string) {
+  if (!__DEV__) return;
+  console.warn("[SPØR MWA] authorize chain", {
+    source,
+    configuredCluster: sporeCluster(),
+    mwaChain: chain,
+  });
+}
 
 export async function sendWalletTransaction(connection: Connection, identity: AuthIdentity, instruction: TransactionInstruction) {
   const result = await sendWalletTransactionWithSignature(connection, identity, instruction);
@@ -30,8 +39,10 @@ export async function sendWalletTransactionWithSignature(connection: Connection,
   let signature: string | undefined;
   try {
     const submitted = await transact(async (wallet) => {
+      const chain = sporeWalletChain();
+      logMwaAuthorizeChain("sendWalletTransaction", chain);
       const authorization = await wallet.authorize({
-        chain: sporeWalletChain(),
+        chain,
         identity: { name: "SPØR", uri: process.env.EXPO_PUBLIC_SPORE_API_URL! },
       });
       const owner = new PublicKey(identity.walletAddress);
@@ -108,8 +119,10 @@ export async function signAndSendPreparedTransaction(
     }
 
     const submitted = await transact(async (wallet) => {
+      const chain = sporeWalletChain();
+      logMwaAuthorizeChain("signAndSendPreparedTransaction", chain);
       const authorization = await wallet.authorize({
-        chain: sporeWalletChain(),
+        chain,
         identity: { name: "SPØR", uri: process.env.EXPO_PUBLIC_SPORE_API_URL! },
       });
 
@@ -209,6 +222,7 @@ export async function requestWalletSignIn(
 ): Promise<MobileSignInResult> {
   try {
     const signInResult = await transact(async (wallet) => {
+      logMwaAuthorizeChain("requestWalletSignIn", signInPayload.chainId);
       const authorization = await wallet.authorize({
         chain: signInPayload.chainId,
         identity: {

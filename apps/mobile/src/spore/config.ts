@@ -13,7 +13,13 @@ const GENESIS_HASHES: Record<SporeCluster, string> = {
 };
 
 export function sporeCluster(): SporeCluster {
-  const cluster = process.env.EXPO_PUBLIC_SPORE_SOLANA_CLUSTER ?? "mainnet";
+  const cluster = process.env.EXPO_PUBLIC_SPORE_SOLANA_CLUSTER?.trim();
+
+  // No silent mainnet default — a missing bake-time env makes MWA authorize
+  // as solana:mainnet and Solflare reports Network Mismatch on a DEVNET wallet.
+  if (!cluster) {
+    throw new SporeFailure("SPØR Solana cluster is not configured.");
+  }
 
   if (cluster !== "mainnet" && cluster !== "devnet") {
     throw new SporeFailure("SPØR Solana cluster is not configured.");
@@ -26,6 +32,10 @@ export function sporeGenesisHash() {
   return GENESIS_HASHES[sporeCluster()];
 }
 
+/**
+ * MWA authorize `chain` value. With EXPO_PUBLIC_SPORE_SOLANA_CLUSTER=devnet
+ * this is exactly `solana:devnet` (CAIP-2 / MWA 2.0).
+ */
 export function sporeWalletChain() {
   return `solana:${sporeCluster()}` as const;
 }
