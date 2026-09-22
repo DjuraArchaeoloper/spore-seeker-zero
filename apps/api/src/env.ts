@@ -97,8 +97,18 @@ export function getSolanaCluster(): SolanaCluster {
 }
 
 /**
- * Fail fast when the configured cluster and RPC endpoint disagree.
- * Safe to call repeatedly; caches a successful check.
+ * Boot-safe checks only: cluster env + RPC URL hostname alignment.
+ * Does not perform any network/RPC fetches.
+ */
+export function assertSolanaStaticConfiguration() {
+  getSolanaCluster();
+  getHeliusRpcUrl();
+}
+
+/**
+ * Live cluster/genesis verification against the configured RPC.
+ * Lazy + cached per process; concurrent callers share one in-flight promise.
+ * Call only from Solana-dependent paths (e.g. getVerifiedSolanaConnection).
  */
 let configuredNetworkAssert: Promise<void> | null = null;
 
