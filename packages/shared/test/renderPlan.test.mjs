@@ -6,6 +6,7 @@ import { ORGANISM_RUNTIME_CANVAS } from "../src/organismArt.ts";
 import { createOrganismRenderModel } from "../src/organismRenderPlan.ts";
 
 const BASE_GENOME = Array.from(SEEKER_ZERO_GENOME);
+const ORGANISM_ONE_GENOME = Array.from(Buffer.from("53504f52459a00005345454b45520000", "hex"));
 
 const GENE_VISUAL_SELECTORS = [
   {
@@ -54,8 +55,11 @@ const GENE_VISUAL_SELECTORS = [
     name: "bioluminescence",
     select: (model) => ({
       colorPlan: model.colorPlan,
+      coreOpacity: model.plan.coreOpacity,
+      finAccentOpacity: model.plan.finAccentOpacity,
       glowOpacity: model.plan.glowOpacity,
-      glowTransform: model.plan.glowTransform
+      glowTransform: model.plan.glowTransform,
+      internalFilamentOpacity: model.plan.internalFilamentOpacity
     })
   },
   {
@@ -226,6 +230,19 @@ test("gene 14 changes both animated behavior and static pose", () => {
   assert.notDeepEqual(child.plan.rootFloatPx, parent.plan.rootFloatPx);
   assert.notDeepEqual(child.plan.rootSwayRad, parent.plan.rootSwayRad);
   assert.notDeepEqual(child.plan.biologicalTransform, parent.plan.biologicalTransform);
+});
+
+test("real organism 0 to 1 bioluminescence mutation changes perceptual luminous channels", () => {
+  const parent = renderModel(BASE_GENOME);
+  const child = renderModel(ORGANISM_ONE_GENOME);
+
+  assert.equal(parent.family.id, "silk-ray");
+  assert.equal(child.family.id, "silk-ray");
+  assert.ok(child.plan.glowOpacity - parent.plan.glowOpacity > 0.18);
+  assert.ok(child.plan.finAccentOpacity - parent.plan.finAccentOpacity > 0.06);
+  assert.ok(child.plan.internalFilamentOpacity - parent.plan.internalFilamentOpacity > 0.03);
+  assert.ok(child.plan.coreOpacity - parent.plan.coreOpacity > 0.08);
+  assert.ok(child.phenotype.bioluminescence.coreBrightness - parent.phenotype.bioluminescence.coreBrightness > 0.24);
 });
 
 test("cosmetic pigment mutation does not reroll shape or family", () => {

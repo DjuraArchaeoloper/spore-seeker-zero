@@ -241,7 +241,12 @@ export function createOrganismRenderPlan(
       { scaleY: finScaleY },
       { rotate: degToRad(membraneRotationDeg) }
     ],
-    finAccentOpacity: clamp(primaryFinOpacity * (0.15 + phenotype.membrane.edgeCurl * 0.05), 0.055, 0.22),
+    finAccentOpacity: clamp(
+      primaryFinOpacity * (0.15 + phenotype.membrane.edgeCurl * 0.05) +
+        phenotype.bioluminescence.membraneEdgeEmission,
+      0.055,
+      0.42
+    ),
     finAccentScaleX:
       1 +
       (finScaleX - 1) * FIN_ACCENT_TRANSFORM_MULTIPLIER +
@@ -286,13 +291,15 @@ export function createOrganismRenderPlan(
       { scaleY: phenotype.core.scaleY },
       { rotate: degToRad(phenotype.core.rotationDeg + phenotype.asymmetry.sideRotationDeg * 0.28) }
     ],
-    coreOpacity: phenotype.core.opacity,
+    coreOpacity: clamp(phenotype.core.opacity * phenotype.bioluminescence.coreEmission, 0.56, 1),
     surfaceOpacity: clamp(phenotype.surface.opacity * 1.05, 0.18, 0.9),
     surfaceLayers: createSurfaceLayers(phenotype, scale),
     internalFilamentOpacity: clamp(
-      phenotype.internalFilaments.opacity * INTERNAL_FILAMENT_OPACITY_MULTIPLIER,
+      phenotype.internalFilaments.opacity *
+        INTERNAL_FILAMENT_OPACITY_MULTIPLIER *
+        phenotype.bioluminescence.filamentIllumination,
       0.035,
-      0.24
+      0.32
     ),
     internalFilamentTransform: [
       { rotate: degToRad(phenotype.internalFilaments.weaveRotationDeg) },
@@ -301,7 +308,7 @@ export function createOrganismRenderPlan(
     ],
     haloBlur: phenotype.halo.blurPxAt1024 * scale * HALO_BLUR_MULTIPLIER,
     haloOpacity: phenotype.halo.opacity * HALO_OPACITY_MULTIPLIER,
-    glowOpacity: phenotype.bioluminescence.glowOpacity * GLOW_OPACITY_MULTIPLIER,
+    glowOpacity: clamp(phenotype.bioluminescence.glowOpacity * GLOW_OPACITY_MULTIPLIER, 0.12, 0.58),
     sensoryNodes,
     moustache: {
       centerX: moustache.center[0] * size,

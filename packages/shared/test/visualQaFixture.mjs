@@ -20,6 +20,7 @@ const core = require("../../../packages/spore-core-wasm");
 
 const OUTPUT_DIR = path.resolve("packages/shared/test/.generated/visual-qa");
 const ASSET_ROOT = path.resolve("packages/shared/assets/organisms");
+const ORGANISM_ONE_GENOME = Array.from(Buffer.from("53504f52459a00005345454b45520000", "hex"));
 const assetDataUriCache = new Map();
 const CARD_SIZE = 260;
 const CARD_BODY_SIZE = 214;
@@ -34,6 +35,10 @@ const CARD_STROKE = "rgba(181, 238, 226, 0.2)";
 const LABEL_PRIMARY = "#e8f5f2";
 const LABEL_SECONDARY = "#8aa4aa";
 const ENABLE_SVG_FILTERS = false;
+const SPECIMEN_BODY_SIZE = 440;
+const SPECIMEN_CARD_PADDING = 20;
+const SPECIMEN_CARD_WIDTH = SPECIMEN_BODY_SIZE + SPECIMEN_CARD_PADDING * 2;
+const SPECIMEN_CARD_HEIGHT = SPECIMEN_BODY_SIZE + 86;
 
 const STRUCTURAL_GENE_BY_PROFILE_KEY = {
   bodyForm: 0,
@@ -56,6 +61,7 @@ async function main() {
   };
 
   const outputs = [
+    await renderSpecimenPairSheet("organism-0-vs-1", organismZeroOneFixtures()),
     await renderSheet("gene-mutations", fixtures.genes, 4),
     await renderSheet("all-families", fixtures.families, 5),
     await renderSheet("seeker-zero-real-children", fixtures.seekerChildren, 4),
@@ -119,6 +125,13 @@ function geneMutationFixtures() {
 
     return pairFixture(`Gene ${gene}`, `parent → ${geneName(gene)}`, SEEKER_ZERO_GENOME, child);
   }).flat();
+}
+
+function organismZeroOneFixtures() {
+  return [
+    organismFixture("Organism #0", "silk-ray · parent · gene 5 = 00", SEEKER_ZERO_GENOME, SPECIMEN_BODY_SIZE),
+    organismFixture("Organism #1", "silk-ray · child · gene 5 = 9A", ORGANISM_ONE_GENOME, SPECIMEN_BODY_SIZE)
+  ];
 }
 
 function familyFixtures() {
@@ -208,15 +221,34 @@ function pairFixture(label, sublabel, parentGenome, childGenome) {
   ];
 }
 
-function organismFixture(label, sublabel, genome) {
+function organismFixture(label, sublabel, genome, renderSize = CARD_BODY_SIZE) {
   const genomeHex = genomeToHex(genome);
 
   return {
     genomeHex,
     label,
-    model: createOrganismRenderModel(genome, CARD_BODY_SIZE),
+    model: createOrganismRenderModel(genome, renderSize),
     sublabel
   };
+}
+
+async function renderSpecimenPairSheet(name, fixtures) {
+  const width = fixtures.length * SPECIMEN_CARD_WIDTH + (fixtures.length + 1) * SHEET_GAP;
+  const height = SPECIMEN_CARD_HEIGHT + SHEET_GAP * 2;
+  const body = fixtures
+    .map((fixture, index) => specimenCardSvg(fixture, SHEET_GAP + index * (SPECIMEN_CARD_WIDTH + SHEET_GAP), SHEET_GAP, `${name}-${index}`))
+    .join("\n");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="${width}" height="${height}" fill="${SHEET_BACKGROUND}"/>
+  ${body}
+</svg>`;
+  const svgPath = path.join(OUTPUT_DIR, `${name}.svg`);
+  const pngPath = path.join(OUTPUT_DIR, `${name}.png`);
+
+  await writeFile(svgPath, svg);
+  await sharp(Buffer.from(svg)).png().toFile(pngPath);
+
+  return { path: pngPath, title: name };
 }
 
 async function renderSheet(name, fixtures, columns) {
@@ -264,8 +296,26 @@ function cardSvg(fixture, x, y, idPrefix) {
   </g>`;
 }
 
+function specimenCardSvg(fixture, x, y, idPrefix) {
+  const innerX = x + SPECIMEN_CARD_PADDING;
+  const innerY = y + SPECIMEN_CARD_PADDING;
+  const labelY = y + SPECIMEN_BODY_SIZE + 42;
+
+  return `<g>
+    <rect x="${x}" y="${y}" width="${SPECIMEN_CARD_WIDTH}" height="${SPECIMEN_CARD_HEIGHT}" rx="8" fill="${CARD_BACKGROUND}" stroke="${CARD_STROKE}"/>
+    ${organismSvg(fixture.model, innerX, innerY, idPrefix)}
+    <text x="${innerX}" y="${labelY}" fill="${LABEL_PRIMARY}" font-family="Arial, sans-serif" font-size="16" letter-spacing="1.3">${escapeHtml(
+      fixture.label
+    )}</text>
+    <text x="${innerX}" y="${labelY + 24}" fill="${LABEL_SECONDARY}" font-family="Arial, sans-serif" font-size="12">${escapeHtml(
+      fixture.sublabel
+    )}</text>
+    <text x="${innerX}" y="${labelY + 45}" fill="${LABEL_SECONDARY}" font-family="Arial, sans-serif" font-size="10" letter-spacing="0.8">${fixture.genomeHex.toUpperCase()}</text>
+  </g>`;
+}
+
 function organismSvg(model, x, y, idPrefix) {
-  const size = CARD_BODY_SIZE;
+  const size = model.plan.size;
   const assets = {
     body: assetDataUri(model.family.layers.body),
     core: assetDataUri(model.family.layers.core),
@@ -418,7 +468,7 @@ function image(href, size) {
 
 function colorFilter(id, matrix, blur) {
   const input = blur && blur > 0 ? "blurred" : "SourceGraphic";
-  const extent = CARD_BODY_SIZE * 6;
+  const extent = Math.max(CARD_BODY_SIZE, SPECIMEN_BODY_SIZE) * 6;
 
   return `<filter id="${id}"${
     blur && blur > 0
@@ -431,7 +481,7 @@ function colorFilter(id, matrix, blur) {
 }
 
 function blurFilter(id, blur) {
-  const extent = CARD_BODY_SIZE * 6;
+  const extent = Math.max(CARD_BODY_SIZE, SPECIMEN_BODY_SIZE) * 6;
 
   return `<filter id="${id}" filterUnits="userSpaceOnUse" x="-${extent}" y="-${extent}" width="${
     extent * 2

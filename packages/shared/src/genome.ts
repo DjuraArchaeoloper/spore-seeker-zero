@@ -405,7 +405,7 @@ export function deriveSporePhenotype(genome: Uint8Array) {
   const membraneU = unit(g[2]);
   const densityU = unit(g[3]);
   const pigmentU = unit(g[4]);
-  const bioU = unit(g[5]);
+  const bioU = g[5] / 255;
   const coreMixed = mix8(g[6]);
   const coreMode = CORE_MODES[coreMixed >> 6];
   const coreFine = local64(g[6]);
@@ -472,9 +472,12 @@ export function deriveSporePhenotype(genome: Uint8Array) {
     },
 
     bioluminescence: {
-      glowOpacity: 0.2 + 0.72 * bioU,
-      glowScale: 1.0 + 0.07 * bioU,
-      coreBrightness: 0.85 + 0.35 * bioU
+      glowOpacity: 0.31576470588235295 + 0.82 * bioU,
+      glowScale: 1.0112549019607844 + 0.28 * bioU,
+      coreBrightness: 0.9062745098039215 + 0.68 * bioU,
+      coreEmission: 1 + 0.32 * bioU,
+      filamentIllumination: 1 + 1.5 * bioU,
+      membraneEdgeEmission: 0.28 * bioU
     },
 
     core: {
