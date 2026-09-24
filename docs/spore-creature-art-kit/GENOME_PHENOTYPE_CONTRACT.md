@@ -121,7 +121,7 @@ packages/shared/assets/organisms/<family-id>/
   glow.png
 ```
 
-Runtime biological assets are **1024×1024 transparent PNGs**.
+Runtime biological assets are transparent square PNGs rendered into a **1024×1024 logical registration canvas**. A family may use higher-resolution runtime exports as long as every layer in that family has the same pixel dimensions, origin, center, and transparent padding strategy.
 
 High-resolution source masters live under:
 
@@ -164,7 +164,7 @@ It is not a genome trait and must never appear in NFT trait metadata.
 
 All biological layer files in one family must share the exact same canvas:
 
-- runtime: 1024 x 1024 transparent PNG
+- runtime: transparent square PNG rendered into the 1024 x 1024 logical registration canvas
 - source master: 2048 x 2048 transparent PNG unless explicitly approved otherwise
 - same origin
 - same center

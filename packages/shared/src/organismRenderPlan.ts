@@ -29,11 +29,18 @@ export type SensoryNodeRenderPlan = {
   opacity: number;
 };
 
+export type SurfaceRenderLayerPlan = {
+  opacity: number;
+  transform: OrganismRenderTransform[];
+};
+
 export type OrganismRenderPlan = {
   size: number;
   center: OrganismPoint;
   biologicalTransform: OrganismRenderTransform[];
+  bodyTransform: OrganismRenderTransform[];
   baseAnatomyOpacity: number;
+  finTransform: OrganismRenderTransform[];
   finAccentOpacity: number;
   finAccentScaleX: number;
   finAccentScaleY: number;
@@ -41,12 +48,13 @@ export type OrganismRenderPlan = {
   glowTransform: OrganismRenderTransform[];
   haloTransform: OrganismRenderTransform[];
   tendrilOpacity: number;
-  tendrilScale: number;
+  tendrilTransform: OrganismRenderTransform[];
   rootFloatPx: number;
   rootSwayRad: number;
   coreTransform: OrganismRenderTransform[];
   coreOpacity: number;
   surfaceOpacity: number;
+  surfaceLayers: SurfaceRenderLayerPlan[];
   internalFilamentOpacity: number;
   internalFilamentTransform: OrganismRenderTransform[];
   haloBlur: number;
@@ -90,7 +98,7 @@ export type PresenceGlowPlan = {
   };
 };
 
-export const SPORE_ORGANISM_RENDERER_REVISION = "shared-organism-renderer-v1-family-map-v2";
+export const SPORE_ORGANISM_RENDERER_REVISION = "shared-organism-renderer-v2-expression-v1";
 export const SPORE_NFT_IMAGE_SIZE = 1200;
 
 export type OrganismRenderModel = {
@@ -108,14 +116,16 @@ export type OrganismRenderModel = {
 
 const ART_FRAME_SCALE = 0.88;
 const ART_FRAME_Y_OFFSET_RATIO = -0.034;
-const FIN_ACCENT_TRANSFORM_MULTIPLIER = 0.16;
-const HALO_BLUR_MULTIPLIER = 0.28;
-const HALO_OPACITY_MULTIPLIER = 0.24;
-const GLOW_OPACITY_MULTIPLIER = 0.46;
-const INTERNAL_FILAMENT_OPACITY_MULTIPLIER = 0.22;
+const FIN_ACCENT_TRANSFORM_MULTIPLIER = 0.24;
+const HALO_BLUR_MULTIPLIER = 0.5;
+const HALO_OPACITY_MULTIPLIER = 0.5;
+const GLOW_OPACITY_MULTIPLIER = 0.58;
+const INTERNAL_FILAMENT_OPACITY_MULTIPLIER = 0.34;
 const MOUSTACHE_VISUAL_SCALE = 0.75;
 const ROOT_FLOAT_BASE_PX_AT_1024 = 4;
 const ROOT_FLOAT_MOTION_PX_MULTIPLIER = 0.34;
+const PIGMENT_HUE_RENDER_MULTIPLIER = 1.32;
+const PIGMENT_SATURATION_RENDER_MULTIPLIER = 1.25;
 const PRESENCE_GLOW_CENTER_Y_RATIO = 0.48;
 const PRESENCE_GLOW_CORE_RADIUS_RATIO = 0.2;
 const PRESENCE_GLOW_CORE_BLUR_RATIO = 0.11;
@@ -154,27 +164,55 @@ export function createOrganismRenderPlan(
   size: number = ORGANISM_RUNTIME_CANVAS.width
 ): OrganismRenderPlan {
   const scale = size / ORGANISM_RUNTIME_CANVAS.width;
-  const biologicalScaleX = phenotype.body.formScaleX * phenotype.body.proportionScaleX;
-  const biologicalScaleY = phenotype.body.formScaleY * phenotype.body.proportionScaleY;
-  const appendageScale = phenotype.appendages.expressionScale;
+  const restPoseScaleX = 1 + (phenotype.motion.restPoseScaleX - 1) * 2.8;
+  const restPoseScaleY = 1 + (phenotype.motion.restPoseScaleY - 1) * 2.8;
+  const biologicalScaleX =
+    phenotype.body.formScaleX * phenotype.body.proportionScaleX * restPoseScaleX;
+  const biologicalScaleY =
+    phenotype.body.formScaleY * phenotype.body.proportionScaleY * restPoseScaleY;
+  const staticPoseTranslateX = phenotype.motion.restPoseOffsetPxAt1024 * 0.55 * scale;
+  const staticPoseRotation = degToRad(phenotype.motion.restPoseRotationDeg * 0.42);
+  const bodyScaleX = 1 + (phenotype.body.formScaleX - 1) * 1.45 + phenotype.asymmetry.sideScaleDelta * 0.18;
+  const bodyScaleY = 1 + (phenotype.body.formScaleY - 1) * 1.35;
+  const bodyRotation = degToRad(phenotype.asymmetry.sideRotationDeg * 0.18);
+  const appendageScale = phenotype.appendages.expressionScale * (1 + phenotype.appendages.extensionBias * 0.35);
+  const appendageMotionCoupling = phenotype.appendages.motionCoupling;
+  const membraneTensionScaleX = 0.96 + phenotype.membrane.tension * 0.09;
+  const membraneCurlScaleY = 1 + (phenotype.membrane.edgeCurl - 0.5) * 0.08;
   const finScaleX =
-    phenotype.membrane.scaleX * phenotype.appendages.finScaleXMul * appendageScale;
+    phenotype.membrane.primaryScaleX *
+    phenotype.appendages.finScaleXMul *
+    appendageScale *
+    phenotype.appendages.spread *
+    membraneTensionScaleX;
   const finScaleY =
-    phenotype.membrane.scaleY * phenotype.appendages.finScaleYMul * appendageScale;
+    phenotype.membrane.primaryScaleY *
+    phenotype.appendages.finScaleYMul *
+    appendageScale *
+    membraneCurlScaleY;
   const sideRotation = phenotype.asymmetry.sideRotationDeg;
   const opposingRotation = phenotype.membrane.opposingRotationDeg;
+  const membraneRotationDeg =
+    opposingRotation * 0.45 +
+    phenotype.appendages.orientationDeg * 0.35 +
+    phenotype.asymmetry.membraneSkewDeg * 0.3;
+  const finTranslateX =
+    (phenotype.appendages.attachmentOffsetPxAt1024 + phenotype.asymmetry.appendageOffsetPxAt1024 * 0.55) *
+    scale;
   const primaryFinOpacity = phenotype.membrane.opacity * phenotype.appendages.finOpacityMul;
   const tendrilOpacity =
     phenotype.appendages.tendrilOpacityMul * phenotype.appendages.expressionTendrilOpacityMul;
+  const tendrilScale = appendageScale * (0.96 + phenotype.appendages.familyDetail * 0.1);
+  const tendrilRotationDeg =
+    phenotype.appendages.orientationDeg * 0.38 +
+    phenotype.appendages.curlDeg * 0.34 +
+    phenotype.asymmetry.sideRotationDeg * 0.28;
+  const tendrilTranslateX =
+    (phenotype.appendages.attachmentOffsetPxAt1024 * 0.65 +
+      phenotype.asymmetry.appendageOffsetPxAt1024 * 0.75) *
+    scale;
   const moustache = registration.moustache;
-  const sensoryNodes = registration.sensoryAnchors
-    .slice(0, phenotype.sensoryNodes.count)
-    .map(([x, y]) => ({
-      x: x * size,
-      y: y * size,
-      radius: phenotype.sensoryNodes.radiusPxAt1024 * scale,
-      opacity: phenotype.sensoryNodes.opacity
-    }));
+  const sensoryNodes = createSensoryNodePlan(registration, phenotype, size, scale);
 
   return {
     size,
@@ -184,34 +222,83 @@ export function createOrganismRenderPlan(
     },
     biologicalTransform: [
       { translateY: size * ART_FRAME_Y_OFFSET_RATIO },
+      { translateX: staticPoseTranslateX },
       { scale: ART_FRAME_SCALE },
+      { rotate: staticPoseRotation },
       { scaleX: biologicalScaleX },
       { scaleY: biologicalScaleY }
     ],
-    baseAnatomyOpacity: clamp((phenotype.body.opacity + phenotype.membrane.opacity) * 0.5, 0.58, 0.96),
-    finAccentOpacity: clamp(primaryFinOpacity * 0.13, 0.04, 0.14),
-    finAccentScaleX: 1 + (finScaleX - 1) * FIN_ACCENT_TRANSFORM_MULTIPLIER,
-    finAccentScaleY: 1 + (finScaleY - 1) * FIN_ACCENT_TRANSFORM_MULTIPLIER,
-    finAccentRotation: degToRad((opposingRotation + sideRotation) * FIN_ACCENT_TRANSFORM_MULTIPLIER),
-    glowTransform: [{ scale: 1 + (phenotype.bioluminescence.glowScale - 1) * 0.48 }],
-    haloTransform: [{ scale: 1 + (phenotype.halo.scale - 1) * 0.32 }],
+    bodyTransform: [
+      { translateX: phenotype.asymmetry.appendageOffsetPxAt1024 * 0.08 * scale },
+      { scaleX: bodyScaleX },
+      { scaleY: bodyScaleY },
+      { rotate: bodyRotation }
+    ],
+    baseAnatomyOpacity: clamp((phenotype.body.opacity + phenotype.membrane.opacity) * 0.53, 0.62, 0.98),
+    finTransform: [
+      { translateX: finTranslateX },
+      { scaleX: finScaleX },
+      { scaleY: finScaleY },
+      { rotate: degToRad(membraneRotationDeg) }
+    ],
+    finAccentOpacity: clamp(primaryFinOpacity * (0.15 + phenotype.membrane.edgeCurl * 0.05), 0.055, 0.22),
+    finAccentScaleX:
+      1 +
+      (finScaleX - 1) * FIN_ACCENT_TRANSFORM_MULTIPLIER +
+      (phenotype.membrane.edgeCurl - 0.5) * 0.08,
+    finAccentScaleY:
+      1 +
+      (finScaleY - 1) * FIN_ACCENT_TRANSFORM_MULTIPLIER -
+      (phenotype.membrane.tension - 0.5) * 0.06,
+    finAccentRotation: degToRad(
+      (phenotype.membrane.rightRotationDeg - phenotype.membrane.leftRotationDeg) * 0.16 +
+        sideRotation * 0.45 +
+        phenotype.appendages.curlDeg * 0.14
+    ),
+    glowTransform: [
+      { scale: 1 + (phenotype.bioluminescence.glowScale - 1) * 0.74 },
+      { scaleY: 1 + (phenotype.motion.restPoseScaleY - 1) * 1.0 }
+    ],
+    haloTransform: [
+      { translateX: phenotype.halo.offsetPxAt1024 * scale * 0.48 },
+      { scale: 1 + (phenotype.halo.scale - 1) * 0.62 },
+      { scaleX: phenotype.halo.ringScaleX },
+      { scaleY: phenotype.halo.ringScaleY },
+      { rotate: degToRad((phenotype.halo.texturePhase - 0.5) * 6) }
+    ],
     tendrilOpacity: clamp(tendrilOpacity, 0.08, 1),
-    tendrilScale: appendageScale,
+    tendrilTransform: [
+      { translateX: tendrilTranslateX },
+      { scaleX: tendrilScale * (0.94 + phenotype.appendages.spread * 0.12) },
+      { scaleY: tendrilScale * (1 + phenotype.appendages.extensionBias * 0.6) },
+      { rotate: degToRad(tendrilRotationDeg) }
+    ],
     rootFloatPx:
       (ROOT_FLOAT_BASE_PX_AT_1024 +
-        phenotype.motion.tendrilDriftPxAt1024 * ROOT_FLOAT_MOTION_PX_MULTIPLIER) *
+        phenotype.motion.tendrilDriftPxAt1024 *
+          ROOT_FLOAT_MOTION_PX_MULTIPLIER *
+          appendageMotionCoupling) *
       scale,
-    rootSwayRad: degToRad(0.45 + phenotype.motion.finWaveDeg * 0.26),
+    rootSwayRad: degToRad(0.45 + phenotype.motion.finWaveDeg * 0.26 * appendageMotionCoupling),
     coreTransform: [
-      { translateX: phenotype.asymmetry.coreOffsetPxAt1024 * scale },
-      { scaleX: phenotype.core.scaleX },
+      { translateX: (phenotype.asymmetry.coreOffsetPxAt1024 + phenotype.motion.restPoseOffsetPxAt1024 * 0.35) * scale },
+      { scaleX: phenotype.core.scaleX * (1 + phenotype.asymmetry.sideScaleDelta * 0.16) },
       { scaleY: phenotype.core.scaleY },
-      { rotate: degToRad(phenotype.core.rotationDeg) }
+      { rotate: degToRad(phenotype.core.rotationDeg + phenotype.asymmetry.sideRotationDeg * 0.28) }
     ],
     coreOpacity: phenotype.core.opacity,
-    surfaceOpacity: phenotype.surface.opacity,
-    internalFilamentOpacity: phenotype.internalFilaments.opacity * INTERNAL_FILAMENT_OPACITY_MULTIPLIER,
-    internalFilamentTransform: [{ scale: phenotype.internalFilaments.scale }],
+    surfaceOpacity: clamp(phenotype.surface.opacity * 1.05, 0.18, 0.9),
+    surfaceLayers: createSurfaceLayers(phenotype, scale),
+    internalFilamentOpacity: clamp(
+      phenotype.internalFilaments.opacity * INTERNAL_FILAMENT_OPACITY_MULTIPLIER,
+      0.035,
+      0.24
+    ),
+    internalFilamentTransform: [
+      { rotate: degToRad(phenotype.internalFilaments.weaveRotationDeg) },
+      { scaleX: phenotype.internalFilaments.scale * phenotype.internalFilaments.strandSpread },
+      { scaleY: phenotype.internalFilaments.scale * phenotype.internalFilaments.strandLength }
+    ],
     haloBlur: phenotype.halo.blurPxAt1024 * scale * HALO_BLUR_MULTIPLIER,
     haloOpacity: phenotype.halo.opacity * HALO_OPACITY_MULTIPLIER,
     glowOpacity: phenotype.bioluminescence.glowOpacity * GLOW_OPACITY_MULTIPLIER,
@@ -225,13 +312,111 @@ export function createOrganismRenderPlan(
   };
 }
 
+function createSensoryNodePlan(
+  registration: CreatureFamilyArtDefinition,
+  phenotype: OrganismPhenotype,
+  size: number,
+  scale: number
+): SensoryNodeRenderPlan[] {
+  const count = Math.min(phenotype.sensoryNodes.count, registration.sensoryAnchors.length);
+  const twist = degToRad(phenotype.sensoryNodes.distributionTwistDeg);
+  const cos = Math.cos(twist);
+  const sin = Math.sin(twist);
+  const center = size * 0.5;
+  const jitter = phenotype.sensoryNodes.anchorJitterPxAt1024 * scale;
+
+  return registration.sensoryAnchors.slice(0, count).map(([anchorX, anchorY], index) => {
+    const localX = (anchorX - 0.5) * size;
+    const localY = (anchorY - 0.5) * size;
+    const rotatedX = localX * cos - localY * sin;
+    const rotatedY = localX * sin + localY * cos;
+    const depth = clamp(0.9 + (anchorY - 0.5) * phenotype.sensoryNodes.depthBias * 0.48, 0.74, 1.18);
+    const jitterX = seededSigned(phenotype.sensoryNodes.seed, index * 2 + 11) * jitter;
+    const jitterY = seededSigned(phenotype.sensoryNodes.seed, index * 2 + 23) * jitter;
+    const radiusJitter = 0.9 + seededUnit(phenotype.sensoryNodes.seed, index + 37) * 0.24;
+
+    return {
+      x: center + rotatedX + jitterX,
+      y: center + rotatedY + jitterY,
+      radius: phenotype.sensoryNodes.radiusPxAt1024 * scale * depth * radiusJitter,
+      opacity: clamp(phenotype.sensoryNodes.opacity * (0.84 + depth * 0.18), 0.12, 0.96)
+    };
+  });
+}
+
+function createSurfaceLayers(phenotype: OrganismPhenotype, scale: number): SurfaceRenderLayerPlan[] {
+  const opacity = clamp(phenotype.surface.opacity * 1.05, 0.18, 0.9);
+  const echoOffset = phenotype.surface.echoOffsetPxAt1024 * scale;
+  const phaseAngle = phenotype.surface.phase * Math.PI * 2;
+  const phaseX = Math.cos(phaseAngle) * echoOffset * 0.28;
+  const phaseY = Math.sin(phaseAngle) * echoOffset * 0.2;
+  const baseTransform: OrganismRenderTransform[] = [
+    { translateX: phaseX },
+    { translateY: phaseY },
+    { rotate: degToRad(phenotype.surface.rotationDeg * 0.58) },
+    { scale: phenotype.surface.detailScale }
+  ];
+
+  if (phenotype.surface.mode === "native") {
+    return [
+      {
+        opacity,
+        transform: baseTransform
+      }
+    ];
+  }
+
+  if (phenotype.surface.mode === "mirror-x") {
+    return [
+      {
+        opacity,
+        transform: [...baseTransform, { scaleX: -1 }]
+      }
+    ];
+  }
+
+  if (phenotype.surface.mode === "ghost-double") {
+    return [
+      {
+        opacity: opacity * 0.82,
+        transform: baseTransform
+      },
+      {
+        opacity: opacity * 0.22,
+        transform: [
+          { translateX: phaseX + Math.cos(phaseAngle + Math.PI * 0.34) * echoOffset },
+          { translateY: phaseY + Math.sin(phaseAngle + Math.PI * 0.34) * echoOffset * 0.78 },
+          { rotate: degToRad(phenotype.surface.rotationDeg * 0.72) },
+          { scale: 1.006 + phenotype.surface.patternDetail * 0.012 }
+        ]
+      }
+    ];
+  }
+
+  return [-1, 0, 1].map((turn) => ({
+    opacity: opacity * (turn === 0 ? 0.78 : 0.13),
+    transform: [
+      { translateX: phaseX + turn * echoOffset * 0.42 },
+      { translateY: phaseY - turn * echoOffset * 0.18 },
+      { rotate: degToRad(phenotype.surface.rotationDeg * 0.44 + turn * (2.4 + phenotype.surface.patternDetail * 3.2)) },
+      { scale: turn === 0 ? phenotype.surface.detailScale : 1.004 + phenotype.surface.patternDetail * 0.01 }
+    ]
+  }));
+}
+
 export function createOrganismColorPlan(phenotype: OrganismPhenotype): OrganismColorPlan {
+  const renderedHueShift = phenotype.pigment.hueShiftDeg * PIGMENT_HUE_RENDER_MULTIPLIER;
+  const renderedSaturation = clamp(
+    1 + (phenotype.pigment.saturation - 1) * PIGMENT_SATURATION_RENDER_MULTIPLIER,
+    0.84,
+    1.18
+  );
   const colorMatrix = createHueSaturationMatrix(
-    phenotype.pigment.hueShiftDeg,
-    phenotype.pigment.saturation
+    renderedHueShift,
+    renderedSaturation
   );
   const glowMatrix = multiplyColorMatrices(
-    createBrightnessMatrix(1.04 + (phenotype.bioluminescence.coreBrightness - 1) * 0.28),
+    createBrightnessMatrix(1.04 + (phenotype.bioluminescence.coreBrightness - 1) * 0.42),
     colorMatrix
   );
   const coreMatrix = multiplyColorMatrices(
@@ -244,12 +429,12 @@ export function createOrganismColorPlan(phenotype: OrganismPhenotype): OrganismC
   );
   const filamentMatrix = multiplyColorMatrices(
     createHueSaturationMatrix(
-      phenotype.pigment.hueShiftDeg + phenotype.internalFilaments.hueOffsetDeg,
-      phenotype.pigment.saturation
+      renderedHueShift + phenotype.internalFilaments.hueOffsetDeg * 1.2,
+      renderedSaturation
     ),
     createContrastMatrix(0.94)
   );
-  const nodeColor = hslToRgba(205 + phenotype.pigment.hueShiftDeg * 0.45, 0.74, 0.72, 1);
+  const nodeColor = hslToRgba(205 + renderedHueShift * 0.45, 0.74, 0.72, 1);
 
   return {
     colorMatrix,
@@ -481,6 +666,21 @@ function hueToRgb(p: number, q: number, t: number) {
   }
 
   return p;
+}
+
+function seededUnit(seed: number, salt: number) {
+  let value = (seed ^ Math.imul(salt + 1, 0x9e3779b1)) >>> 0;
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x7feb352d) >>> 0;
+  value ^= value >>> 15;
+  value = Math.imul(value, 0x846ca68b) >>> 0;
+  value ^= value >>> 16;
+
+  return value / 0xffffffff;
+}
+
+function seededSigned(seed: number, salt: number) {
+  return seededUnit(seed, salt) * 2 - 1;
 }
 
 function degToRad(degrees: number) {

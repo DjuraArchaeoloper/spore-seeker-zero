@@ -9,6 +9,7 @@ node_modules/
 out/
 dist/
 coverage/
+packages/shared/test/.generated/
 
 target/
 .anchor/

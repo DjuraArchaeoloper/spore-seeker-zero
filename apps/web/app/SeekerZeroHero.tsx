@@ -4,8 +4,7 @@ import {
   ORGANISM_RUNTIME_CANVAS,
   SEEKER_ZERO_GENOME,
   type OrganismRenderTransform,
-  type SensoryNodeRenderPlan,
-  type SurfaceMode
+  type SensoryNodeRenderPlan
 } from "@spore/shared";
 import { SEEKER_ZERO_CREATURE_WEB_ASSETS, type WebImageAsset } from "@spore/shared/web-assets";
 
@@ -44,27 +43,36 @@ export function SeekerZeroHero() {
             }}
           />
           <div className="baseAnatomy" style={{ opacity: format(plan.baseAnatomyOpacity) }}>
-            <CreatureImage asset={layers.fins} className="creatureLayer" />
+            <CreatureImage
+              asset={layers.fins}
+              className="creatureLayer"
+              style={{ transform: cssTransform(plan.finTransform) }}
+            />
             <CreatureImage
               asset={layers.fins}
               className="creatureLayer finAccent"
               style={{
                 opacity: format(plan.finAccentOpacity),
                 transform: cssTransform([
+                  ...plan.finTransform,
                   { scaleX: plan.finAccentScaleX },
                   { scaleY: plan.finAccentScaleY },
                   { rotate: plan.finAccentRotation }
                 ])
               }}
             />
-            <CreatureImage asset={layers.body} className="creatureLayer" />
+            <CreatureImage
+              asset={layers.body}
+              className="creatureLayer"
+              style={{ transform: cssTransform(plan.bodyTransform) }}
+            />
           </div>
           <CreatureImage
             asset={layers.tendrils}
             className="creatureLayer"
             style={{
               opacity: format(plan.tendrilOpacity),
-              transform: cssTransform([{ scale: plan.tendrilScale }])
+              transform: cssTransform(plan.tendrilTransform)
             }}
           />
           <CreatureImage
@@ -75,7 +83,7 @@ export function SeekerZeroHero() {
               transform: cssTransform(plan.coreTransform)
             }}
           />
-          <SurfaceLayers surfaceMode={model.phenotype.surface.mode} />
+          <SurfaceLayers />
           <SensoryNodes nodes={plan.sensoryNodes} />
           {model.showMoustache ? <Moustache /> : null}
         </div>
@@ -85,7 +93,7 @@ export function SeekerZeroHero() {
   );
 }
 
-function SurfaceLayers({ surfaceMode }: { surfaceMode: SurfaceMode }) {
+function SurfaceLayers() {
   const internal = (
     <CreatureImage
       asset={layers.surface}
@@ -97,77 +105,20 @@ function SurfaceLayers({ surfaceMode }: { surfaceMode: SurfaceMode }) {
     />
   );
 
-  if (surfaceMode === "mirror-x") {
-    return (
-      <>
-        {internal}
-        <CreatureImage
-          asset={layers.surface}
-          className="creatureLayer creatureSurface"
-          style={{
-            opacity: format(plan.surfaceOpacity),
-            transform: cssTransform([{ scaleX: -1 }])
-          }}
-        />
-      </>
-    );
-  }
-
-  if (surfaceMode === "ghost-double") {
-    return (
-      <>
-        {internal}
-        <CreatureImage
-          asset={layers.surface}
-          className="creatureLayer creatureSurface"
-          style={{ opacity: format(plan.surfaceOpacity * 0.86) }}
-        />
-        <CreatureImage
-          asset={layers.surface}
-          className="creatureLayer creatureSurface"
-          style={{
-            opacity: format(plan.surfaceOpacity * 0.12),
-            transform: cssTransform([
-              { translateX: plan.size * 0.004 },
-              { translateY: -plan.size * 0.003 },
-              { scale: 1.004 }
-            ])
-          }}
-        />
-      </>
-    );
-  }
-
-  if (surfaceMode === "radial-echo") {
-    return (
-      <>
-        {internal}
-        {[-1, 0, 1].map((turn) => (
-          <CreatureImage
-            key={turn}
-            asset={layers.surface}
-            className="creatureLayer creatureSurface"
-            style={{
-              opacity: format(plan.surfaceOpacity * (turn === 0 ? 0.84 : 0.08)),
-              transform: cssTransform([
-                { rotate: turn * 0.026 },
-                { scale: turn === 0 ? 1 : 1.003 }
-              ])
-            }}
-          />
-        ))}
-      </>
-    );
-  }
-
   return (
     <>
       {internal}
-      <CreatureImage
-        asset={layers.surface}
-        className="creatureLayer creatureSurface"
-        style={{ opacity: format(plan.surfaceOpacity) }}
-      />
+      {plan.surfaceLayers.map((layer, index) => (
+        <CreatureImage
+          key={`surface-layer-${index}`}
+          asset={layers.surface}
+          className="creatureLayer creatureSurface"
+          style={{
+            opacity: format(layer.opacity),
+            transform: cssTransform(layer.transform)
+          }}
+        />
+      ))}
     </>
   );
 }

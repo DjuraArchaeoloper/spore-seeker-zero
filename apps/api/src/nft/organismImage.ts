@@ -11,8 +11,7 @@ import {
   type OrganismPoint,
   type OrganismRenderPlan,
   type OrganismRenderTransform,
-  type PresenceGlowPlan,
-  type SurfaceMode
+  type PresenceGlowPlan
 } from "@spore/shared";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -60,8 +59,7 @@ export async function renderOrganismPng(genomeHex: string, identity: NftOrganism
     moustacheAspect,
     plan: model.plan,
     presenceGlow: model.presenceGlow,
-    showMoustache: model.showMoustache,
-    surfaceMode: model.phenotype.surface.mode
+    showMoustache: model.showMoustache
   });
 
   return sharp(Buffer.from(svg)).png().toBuffer();
@@ -75,8 +73,7 @@ function renderOrganismSvg({
   moustacheAspect,
   plan,
   presenceGlow,
-  showMoustache,
-  surfaceMode
+  showMoustache
 }: {
   assets: Record<"body" | "core" | "fins" | "glow" | "surface" | "tendrils", string> & {
     moustache: string | null;
@@ -88,7 +85,6 @@ function renderOrganismSvg({
   plan: OrganismRenderPlan;
   presenceGlow: PresenceGlowPlan;
   showMoustache: boolean;
-  surfaceMode: SurfaceMode;
 }) {
   const size = SPORE_NFT_IMAGE_SIZE;
   const card = createCardIdentity(identity, genomeHex);
@@ -128,8 +124,7 @@ function renderOrganismSvg({
       plan,
       presenceGlow,
       showMoustache,
-      size,
-      surfaceMode
+      size
     })}
   </g>
   <rect x="0" y="820" width="${size}" height="380" fill="url(#lowerQuiet)"/>
@@ -173,8 +168,7 @@ function organismArtworkSvg({
   plan,
   presenceGlow,
   showMoustache,
-  size,
-  surfaceMode
+  size
 }: {
   assets: Record<"body" | "core" | "fins" | "glow" | "surface" | "tendrils", string> & {
     moustache: string | null;
@@ -185,7 +179,6 @@ function organismArtworkSvg({
   presenceGlow: PresenceGlowPlan;
   showMoustache: boolean;
   size: number;
-  surfaceMode: SurfaceMode;
 }) {
   return `${presenceGlowSvg(presenceGlow)}
   <g ${transformAttribute(plan.biologicalTransform, plan.center)}>
@@ -208,9 +201,12 @@ function organismArtworkSvg({
       transform: plan.glowTransform
     })}
     <g opacity="${format(plan.baseAnatomyOpacity)}" filter="url(#color)">
-      ${image(assets.fins, size)}
+      <g ${transformAttribute(plan.finTransform, plan.center)}>
+        ${image(assets.fins, size)}
+      </g>
       <g opacity="${format(plan.finAccentOpacity)}" ${transformAttribute(
         [
+          ...plan.finTransform,
           { scaleX: plan.finAccentScaleX },
           { scaleY: plan.finAccentScaleY },
           { rotate: plan.finAccentRotation }
@@ -219,7 +215,9 @@ function organismArtworkSvg({
       )}>
         ${image(assets.fins, size)}
       </g>
-      ${image(assets.body, size)}
+      <g ${transformAttribute(plan.bodyTransform, plan.center)}>
+        ${image(assets.body, size)}
+      </g>
     </g>
     ${imageLayer({
       filterId: "color",
@@ -227,7 +225,7 @@ function organismArtworkSvg({
       opacity: plan.tendrilOpacity,
       origin: plan.center,
       size,
-      transform: [{ scale: plan.tendrilScale }]
+      transform: plan.tendrilTransform
     })}
     ${imageLayer({
       blendMode: "screen",
@@ -238,7 +236,7 @@ function organismArtworkSvg({
       size,
       transform: plan.coreTransform
     })}
-    ${surfaceSvg({ href: assets.surface, plan, size, surfaceMode })}
+    ${surfaceSvg({ href: assets.surface, plan, size })}
     ${sensoryNodesSvg(plan.sensoryNodes, colors.nodeColor)}
     ${showMoustache && assets.moustache ? moustacheSvg(assets.moustache, plan, moustacheAspect) : ""}
   </g>`;
@@ -260,13 +258,11 @@ function presenceGlowSvg(plan: PresenceGlowPlan) {
 function surfaceSvg({
   href,
   plan,
-  size,
-  surfaceMode
+  size
 }: {
   href: string;
   plan: OrganismRenderPlan;
   size: number;
-  surfaceMode: SurfaceMode;
 }) {
   const internal = imageLayer({
     blendMode: "screen",
@@ -278,50 +274,16 @@ function surfaceSvg({
     transform: plan.internalFilamentTransform
   });
 
-  if (surfaceMode === "native") {
-    return `${internal}
-    ${imageLayer({ filterId: "surface", href, opacity: plan.surfaceOpacity, size })}`;
-  }
-
-  if (surfaceMode === "mirror-x") {
-    return `${internal}
-    ${imageLayer({
-      filterId: "surface",
-      href,
-      opacity: plan.surfaceOpacity,
-      origin: plan.center,
-      size,
-      transform: [{ scaleX: -1 }]
-    })}`;
-  }
-
-  if (surfaceMode === "ghost-double") {
-    return `${internal}
-    ${imageLayer({ filterId: "surface", href, opacity: plan.surfaceOpacity * 0.86, size })}
-    ${imageLayer({
-      filterId: "surface",
-      href,
-      opacity: plan.surfaceOpacity * 0.12,
-      origin: plan.center,
-      size,
-      transform: [
-        { translateX: size * 0.004 },
-        { translateY: -size * 0.003 },
-        { scale: 1.004 }
-      ]
-    })}`;
-  }
-
   return `${internal}
-    ${[-1, 0, 1]
-      .map((turn) =>
+    ${plan.surfaceLayers
+      .map((layer) =>
         imageLayer({
           filterId: "surface",
           href,
-          opacity: plan.surfaceOpacity * (turn === 0 ? 0.84 : 0.08),
+          opacity: layer.opacity,
           origin: plan.center,
           size,
-          transform: [{ rotate: turn * 0.026 }, { scale: turn === 0 ? 1 : 1.003 }]
+          transform: layer.transform
         })
       )
       .join("\n    ")}`;

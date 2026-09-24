@@ -40,6 +40,15 @@ export type CreatureFamily =
   | "celestial-queen"
   | "ribbon-leviathan";
 
+export type MorphologyProfile = Readonly<{
+  bodyForm: number;
+  proportion: number;
+  membrane: number;
+  appendageFamily: number;
+  appendageExpression: number;
+  asymmetry: number;
+}>;
+
 export type CoreMode = "compact" | "tall" | "wide" | "full";
 export type AppendageMode = "wing" | "veil" | "filament" | "spine";
 export type SurfaceMode = "native" | "mirror-x" | "ghost-double" | "radial-echo";
@@ -83,8 +92,6 @@ const HEX_GENOME_PATTERN = /^[0-9a-fA-F]{32}$/;
 
 type BodyFamilySlot = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
-const BODY_FAMILY_SLOT_COUNT = 10;
-
 export const BODY_FAMILY_BY_SLOT: Record<BodyFamilySlot, CreatureFamily> = {
   0: "void-drifter",
   1: "crystal-bloom",
@@ -111,8 +118,110 @@ export const BODY_FAMILY_SLOTS: readonly CreatureFamily[] = [
   BODY_FAMILY_BY_SLOT[9]
 ] as const;
 
-export const BODY_FAMILY_BY_BUCKET = BODY_FAMILY_BY_SLOT;
-export const BODY_FAMILY_BUCKETS = BODY_FAMILY_SLOTS;
+export const STRUCTURAL_GENE_INDEXES = [0, 1, 2, 8, 9, 15] as const;
+
+const MORPHOLOGY_PROFILE_KEYS = [
+  "bodyForm",
+  "proportion",
+  "membrane",
+  "appendageFamily",
+  "appendageExpression",
+  "asymmetry"
+] as const satisfies readonly (keyof MorphologyProfile)[];
+
+const MORPHOLOGY_DISTANCE_EPSILON = 1e-12;
+
+const MORPHOLOGY_DISTANCE_WEIGHTS = {
+  bodyForm: 1.12,
+  proportion: 1.0,
+  membrane: 0.9,
+  appendageFamily: 0.88,
+  appendageExpression: 0.66,
+  asymmetry: 0.56
+} as const satisfies MorphologyProfile;
+
+export const MORPHOLOGY_PROFILE_BY_FAMILY = {
+  "void-drifter": {
+    bodyForm: 0.92,
+    proportion: 0.62,
+    membrane: 0.82,
+    appendageFamily: 0.76,
+    appendageExpression: 0.74,
+    asymmetry: 0.34
+  },
+  "crystal-bloom": {
+    bodyForm: 0.71,
+    proportion: 0.74,
+    membrane: 0.66,
+    appendageFamily: 0.84,
+    appendageExpression: 0.68,
+    asymmetry: 0.18
+  },
+  "nebula-spine": {
+    bodyForm: 0.7,
+    proportion: 0.28,
+    membrane: 0.35,
+    appendageFamily: 0.92,
+    appendageExpression: 0.88,
+    asymmetry: 0.78
+  },
+  "celestial-queen": {
+    bodyForm: 0.42,
+    proportion: 0.76,
+    membrane: 0.92,
+    appendageFamily: 0.38,
+    appendageExpression: 0.72,
+    asymmetry: 0.18
+  },
+  "pearl-medusa": {
+    bodyForm: 0.55,
+    proportion: 0.55,
+    membrane: 0.84,
+    appendageFamily: 0.28,
+    appendageExpression: 0.66,
+    asymmetry: 0.26
+  },
+  "prism-spine": {
+    bodyForm: 0.28,
+    proportion: 0.48,
+    membrane: 0.32,
+    appendageFamily: 0.18,
+    appendageExpression: 0.56,
+    asymmetry: 0.44
+  },
+  "astral-chrysalis": {
+    bodyForm: 0.35,
+    proportion: 0.9,
+    membrane: 0.48,
+    appendageFamily: 0.45,
+    appendageExpression: 0.38,
+    asymmetry: 0.12
+  },
+  "nova-urchin": {
+    bodyForm: 0.16,
+    proportion: 0.42,
+    membrane: 0.22,
+    appendageFamily: 0.12,
+    appendageExpression: 0.42,
+    asymmetry: 0.52
+  },
+  "silk-ray": {
+    bodyForm: 0.83,
+    proportion: 0.98,
+    membrane: 0.69,
+    appendageFamily: 0.83,
+    appendageExpression: 0.84,
+    asymmetry: 0.16
+  },
+  "ribbon-leviathan": {
+    bodyForm: 0.78,
+    proportion: 0.18,
+    membrane: 0.56,
+    appendageFamily: 0.88,
+    appendageExpression: 0.82,
+    asymmetry: 0.92
+  }
+} as const satisfies Record<CreatureFamily, MorphologyProfile>;
 
 const CORE_MODES: readonly CoreMode[] = ["compact", "tall", "wide", "full"] as const;
 const APPENDAGE_MODES: readonly AppendageMode[] = ["wing", "veil", "filament", "spine"] as const;
@@ -222,11 +331,57 @@ function normalizeGenomeInput(input: GenomeInput): GenomeBytes {
   return typeof input === "string" ? parseGenomeHex(input) : validateGenomeBytes(input);
 }
 
+export function morphologyFromGenome(input: GenomeInput): MorphologyProfile {
+  return deriveMorphologyProfile(normalizeGenomeInput(input));
+}
+
+function deriveMorphologyProfile(genome: ArrayLike<number>): MorphologyProfile {
+  return {
+    bodyForm: unit(genome[0]),
+    proportion: unit(genome[1]),
+    membrane: unit(genome[2]),
+    appendageFamily: unit(genome[8]),
+    appendageExpression: unit(genome[9]),
+    asymmetry: unit(genome[15])
+  };
+}
+
+export function morphologyDistanceSquared(left: MorphologyProfile, right: MorphologyProfile): number {
+  return MORPHOLOGY_PROFILE_KEYS.reduce((sum, key) => {
+    const delta = left[key] - right[key];
+
+    return sum + delta * delta * MORPHOLOGY_DISTANCE_WEIGHTS[key];
+  }, 0);
+}
+
+export function resolveCreatureFamilyFromMorphology(morphology: MorphologyProfile): CreatureFamily {
+  let bestFamily: CreatureFamily | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const family of Object.keys(MORPHOLOGY_PROFILE_BY_FAMILY) as CreatureFamily[]) {
+    const distance = morphologyDistanceSquared(morphology, MORPHOLOGY_PROFILE_BY_FAMILY[family]);
+    const isBetter =
+      distance < bestDistance - MORPHOLOGY_DISTANCE_EPSILON ||
+      (Math.abs(distance - bestDistance) <= MORPHOLOGY_DISTANCE_EPSILON &&
+        (bestFamily === null || family < bestFamily));
+
+    if (isBetter) {
+      bestFamily = family;
+      bestDistance = distance;
+    }
+  }
+
+  if (!bestFamily) {
+    throw new Error("No SPØR morphology profiles are available.");
+  }
+
+  return bestFamily;
+}
+
 export function resolveCreatureFamily(input: GenomeInput): CreatureFamily {
   const genome = normalizeGenomeInput(input);
-  const familySlot = Math.floor((mix8(genome[0]) * BODY_FAMILY_SLOT_COUNT) / 256) as BodyFamilySlot;
 
-  return BODY_FAMILY_BY_SLOT[familySlot];
+  return resolveCreatureFamilyFromMorphology(deriveMorphologyProfile(genome));
 }
 
 export function phenotypeFromGenome(input: GenomeInput): OrganismPhenotype {
@@ -242,8 +397,9 @@ export function deriveSporePhenotype(genome: Uint8Array) {
 
   const g = [...genome];
 
-  const family = resolveCreatureFamily(genome);
-  const formLocal = local64(g[0]);
+  const morphology = deriveMorphologyProfile(genome);
+  const family = resolveCreatureFamilyFromMorphology(morphology);
+  const formU = unit(g[0]);
 
   const bodyProportionU = unit(g[1]);
   const membraneU = unit(g[2]);
@@ -260,8 +416,12 @@ export function deriveSporePhenotype(genome: Uint8Array) {
     full: [1.03, 1.03]
   }[coreMode];
   const sensoryMixed = mix8(g[7]);
+  const sensoryFine = local64(g[7]);
+  const sensorySeed = ((g[7] << 8) | mix8(g[7] ^ 0xc3)) >>> 0;
   const appendageMixed = mix8(g[8]);
   const appendageMode = APPENDAGE_MODES[appendageMixed >> 6];
+  const appendageFine = (appendageMixed & 63) / 63;
+  const appendageSigned = appendageFine * 2 - 1;
   const appendagePreset = {
     wing: { finOpacityMul: 1.0, tendrilOpacityMul: 0.45, finScaleXMul: 1.08, finScaleYMul: 1.0 },
     veil: { finOpacityMul: 0.9, tendrilOpacityMul: 0.75, finScaleXMul: 1.0, finScaleYMul: 1.08 },
@@ -269,19 +429,25 @@ export function deriveSporePhenotype(genome: Uint8Array) {
     spine: { finOpacityMul: 0.76, tendrilOpacityMul: 0.72, finScaleXMul: 0.92, finScaleYMul: 1.06 }
   }[appendageMode];
   const appendageExpressionU = unit(g[9]);
-  const surfaceMode = SURFACE_MODES[mix8(g[10]) >> 6];
+  const surfaceMixed = mix8(g[10]);
+  const surfaceMode = SURFACE_MODES[surfaceMixed >> 6];
+  const surfaceFine = (surfaceMixed & 63) / 63;
   const surfaceDensityU = unit(g[11]);
   const filamentU = unit(g[12]);
   const haloU = unit(g[13]);
   const motionU = unit(g[14]);
+  const restPoseU = g[14] / 255;
   const asymS = signed(g[15]);
+  const asymMagnitude = Math.abs(asymS);
+  const sideScaleDelta = 0.055 * asymS;
 
   return {
     family,
+    morphology,
 
     body: {
-      formScaleX: 0.94 + 0.12 * formLocal,
-      formScaleY: 1.03 - 0.06 * formLocal,
+      formScaleX: 0.94 + 0.12 * formU,
+      formScaleY: 1.03 - 0.06 * formU,
       proportionScaleX: 0.86 + 0.3 * bodyProportionU,
       proportionScaleY: 1.14 - 0.24 * bodyProportionU,
       opacity: 0.7 + 0.26 * densityU
@@ -290,7 +456,13 @@ export function deriveSporePhenotype(genome: Uint8Array) {
     membrane: {
       scaleX: 0.88 + 0.28 * membraneU,
       scaleY: 1.08 - 0.16 * membraneU,
+      primaryScaleX: 0.82 + 0.36 * membraneU,
+      primaryScaleY: 1.12 - 0.22 * membraneU,
       opposingRotationDeg: 7.0 * signed(g[2]),
+      leftRotationDeg: -8.0 * signed(g[2]),
+      rightRotationDeg: 8.0 * signed(g[2]),
+      edgeCurl: 0.16 + 0.68 * local64(g[2]),
+      tension: 0.28 + 0.56 * altUnit(g[2], 0x2d),
       opacity: 0.56 + 0.38 * densityU
     },
 
@@ -317,19 +489,36 @@ export function deriveSporePhenotype(genome: Uint8Array) {
       count: 2 + (sensoryMixed % 7),
       radiusPxAt1024: 1.4 + 2.6 * altUnit(g[7], 0xa7),
       opacity: 0.35 + 0.55 * altUnit(g[7], 0x5d),
-      seed: ((g[7] << 8) | mix8(g[7] ^ 0xc3)) >>> 0
+      seed: sensorySeed,
+      anchorJitterPxAt1024: 1.5 + 5.5 * sensoryFine,
+      distributionTwistDeg: -12 + 24 * altUnit(g[7], 0x71),
+      depthBias: altUnit(g[7], 0x39)
     },
 
     appendages: {
       mode: appendageMode,
-      ...appendagePreset,
+      finOpacityMul: appendagePreset.finOpacityMul * (0.92 + 0.16 * appendageFine),
+      tendrilOpacityMul: appendagePreset.tendrilOpacityMul * (0.88 + 0.24 * appendageFine),
+      finScaleXMul: appendagePreset.finScaleXMul * (0.94 + 0.12 * appendageFine),
+      finScaleYMul: appendagePreset.finScaleYMul * (1.06 - 0.12 * appendageFine),
+      familyDetail: appendageFine,
+      spread: 0.82 + 0.36 * appendageFine,
+      orientationDeg: 12 * appendageSigned,
+      attachmentOffsetPxAt1024: 9 * altSigned(g[8], 0x5a),
       expressionScale: 0.84 + 0.34 * appendageExpressionU,
       expressionTendrilOpacityMul: 0.55 + 0.55 * appendageExpressionU,
-      expressionMotionMul: 0.7 + 0.6 * appendageExpressionU
+      motionCoupling: 0.7 + 0.6 * appendageExpressionU,
+      extensionBias: -0.12 + 0.24 * appendageExpressionU,
+      curlDeg: -9 + 18 * altUnit(g[9], 0x36)
     },
 
     surface: {
       mode: surfaceMode,
+      patternDetail: surfaceFine,
+      rotationDeg: -9 + 18 * surfaceFine,
+      echoOffsetPxAt1024: 2 + 8 * surfaceFine,
+      detailScale: 0.96 + 0.1 * surfaceFine,
+      phase: altUnit(g[10], 0x64),
       opacity: 0.18 + 0.7 * surfaceDensityU,
       contrast: 0.86 + 0.42 * surfaceDensityU
     },
@@ -337,26 +526,42 @@ export function deriveSporePhenotype(genome: Uint8Array) {
     internalFilaments: {
       opacity: 0.12 + 0.48 * filamentU,
       scale: 0.96 + 0.06 * filamentU,
-      hueOffsetDeg: 10.0 * signed(g[12])
+      hueOffsetDeg: 10.0 * signed(g[12]),
+      strandSpread: 0.72 + 0.56 * filamentU,
+      strandLength: 0.84 + 0.32 * altUnit(g[12], 0xb4),
+      weaveRotationDeg: 14 * altSigned(g[12], 0x28)
     },
 
     halo: {
       opacity: 0.08 + 0.62 * haloU,
       scale: 1.0 + 0.11 * haloU,
-      blurPxAt1024: 6 + 16 * haloU
+      blurPxAt1024: 6 + 16 * haloU,
+      ringScaleX: 0.92 + 0.16 * altUnit(g[13], 0x44),
+      ringScaleY: 0.94 + 0.18 * altUnit(g[13], 0x88),
+      offsetPxAt1024: 10 * altSigned(g[13], 0x19),
+      texturePhase: altUnit(g[13], 0xd2)
     },
 
     motion: {
       periodMs: Math.round(5400 - 3300 * motionU),
       pulseScaleAmplitude: 0.006 + 0.024 * motionU,
       finWaveDeg: 0.6 + 3.0 * motionU,
-      tendrilDriftPxAt1024: 2 + 8 * motionU
+      tendrilDriftPxAt1024: 2 + 8 * motionU,
+      restPoseRotationDeg: -2.5 + 7.0 * restPoseU,
+      restPoseScaleX: 1 + 0.07 * restPoseU,
+      restPoseScaleY: 1 - 0.055 * restPoseU,
+      restPoseOffsetPxAt1024: 12 * restPoseU
     },
 
     asymmetry: {
-      sideScaleDelta: 0.055 * asymS,
+      sideScaleDelta,
+      leftScale: 1 + sideScaleDelta,
+      rightScale: 1 - sideScaleDelta,
       sideRotationDeg: 3.5 * asymS,
-      coreOffsetPxAt1024: 8.0 * asymS
+      coreOffsetPxAt1024: 8.0 * asymS,
+      membraneSkewDeg: 5.5 * asymS,
+      appendageOffsetPxAt1024: 9.0 * asymS,
+      intensity: asymMagnitude
     }
   } as const;
 }
@@ -399,3 +604,4 @@ const unit = (x: number): number => mix8(x) / 255;
 const signed = (x: number): number => unit(x) * 2 - 1;
 const local64 = (x: number): number => (mix8(x) & 63) / 63;
 const altUnit = (x: number, salt: number): number => mix8((x ^ salt) & 0xff) / 255;
+const altSigned = (x: number, salt: number): number => altUnit(x, salt) * 2 - 1;

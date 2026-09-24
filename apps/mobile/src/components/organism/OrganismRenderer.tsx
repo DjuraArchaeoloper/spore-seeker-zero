@@ -38,7 +38,6 @@ import {
   phenotypeFromGenome,
   validateGenomeBytes,
   type GenomeInput,
-  type OrganismPhenotype,
   type OrganismPoint,
   type OrganismRenderPlan,
   type OrganismRenderTransform,
@@ -153,8 +152,7 @@ function OrganismRendererCore({
     includeMoustache,
     moustacheImage,
     nodeColor,
-    surfaceMatrix,
-    surfaceMode: phenotype.surface.mode
+    surfaceMatrix
   });
   const reduceMotion = useReduceMotion();
   const motionEnabled = animated && !reduceMotion;
@@ -284,8 +282,7 @@ function FlattenedOrganismComposite({
   moustacheImage,
   nodeColor,
   plan,
-  surfaceMatrix,
-  surfaceMode
+  surfaceMatrix
 }: {
   colorMatrix: number[];
   coreMatrix: number[];
@@ -297,7 +294,6 @@ function FlattenedOrganismComposite({
   nodeColor: string;
   plan: RenderPlan;
   surfaceMatrix: number[];
-  surfaceMode: OrganismPhenotype["surface"]["mode"];
 }) {
   return (
     <Group origin={toSkiaPoint(plan.center)} transform={toSkiaTransforms(plan.biologicalTransform)}>
@@ -334,7 +330,7 @@ function FlattenedOrganismComposite({
         opacity={plan.tendrilOpacity}
         origin={plan.center}
         size={FLATTENED_CREATURE_ART_WIDTH}
-        transform={[{ scale: plan.tendrilScale }]}
+        transform={plan.tendrilTransform}
       />
       <ImageLayer
         blendMode="screen"
@@ -351,7 +347,6 @@ function FlattenedOrganismComposite({
         plan={plan}
         size={FLATTENED_CREATURE_ART_WIDTH}
         surfaceMatrix={surfaceMatrix}
-        surfaceMode={surfaceMode}
       />
       <SensoryNodes color={nodeColor} nodes={plan.sensoryNodes} />
       {includeMoustache ? <Moustache image={moustacheImage} plan={plan} /> : null}
@@ -370,8 +365,7 @@ function useFlattenedOrganismImage({
   includeMoustache,
   moustacheImage,
   nodeColor,
-  surfaceMatrix,
-  surfaceMode
+  surfaceMatrix
 }: {
   artRenderPlan: RenderPlan;
   cacheKey: string;
@@ -384,7 +378,6 @@ function useFlattenedOrganismImage({
   moustacheImage: SkImage | null;
   nodeColor: string;
   surfaceMatrix: number[];
-  surfaceMode: OrganismPhenotype["surface"]["mode"];
 }) {
   const [entry, setEntry] = useState<{ cacheKey: string; image: SkImage } | null>(() => {
     const cachedImage = getFlattenedCreatureFromCache(cacheKey);
@@ -426,7 +419,6 @@ function useFlattenedOrganismImage({
         nodeColor={nodeColor}
         plan={artRenderPlan}
         surfaceMatrix={surfaceMatrix}
-        surfaceMode={surfaceMode}
       />
     );
 
@@ -464,8 +456,7 @@ function useFlattenedOrganismImage({
     includeMoustache,
     moustacheImage,
     nodeColor,
-    surfaceMatrix,
-    surfaceMode
+    surfaceMatrix
   ]);
 
   return entry?.cacheKey === cacheKey ? entry.image : null;
@@ -517,7 +508,7 @@ function getLoadedCreatureImages(images: CreatureImages): LoadedCreatureImages |
   };
 }
 
-function createStaticFinAccentTransform(plan: RenderPlan): Transforms3d {
+function createStaticFinAccentTransform(plan: RenderPlan): OrganismRenderTransform[] {
   return [
     { scaleX: plan.finAccentScaleX },
     { scaleY: plan.finAccentScaleY },
@@ -633,7 +624,7 @@ function BaseAnatomyLayer({
 }: {
   bodyImage: SkImage | null;
   colorMatrix: number[];
-  finAccentTransform: SkiaTransform;
+  finAccentTransform: OrganismRenderTransform[];
   finsImage: SkImage | null;
   plan: RenderPlan;
   size: number;
@@ -645,13 +636,25 @@ function BaseAnatomyLayer({
   return (
     <Group opacity={plan.baseAnatomyOpacity}>
       <ColorMatrix matrix={colorMatrix} />
-      {finsImage ? <Image fit="fill" height={size} image={finsImage} width={size} x={0} y={0} /> : null}
-      {finsImage && plan.finAccentOpacity > 0 ? (
-        <Group opacity={plan.finAccentOpacity} origin={toSkiaPoint(plan.center)} transform={finAccentTransform}>
+      {finsImage ? (
+        <Group origin={toSkiaPoint(plan.center)} transform={toSkiaTransforms(plan.finTransform)}>
           <Image fit="fill" height={size} image={finsImage} width={size} x={0} y={0} />
         </Group>
       ) : null}
-      {bodyImage ? <Image fit="fill" height={size} image={bodyImage} width={size} x={0} y={0} /> : null}
+      {finsImage && plan.finAccentOpacity > 0 ? (
+        <Group
+          opacity={plan.finAccentOpacity}
+          origin={toSkiaPoint(plan.center)}
+          transform={toSkiaTransforms([...plan.finTransform, ...finAccentTransform])}
+        >
+          <Image fit="fill" height={size} image={finsImage} width={size} x={0} y={0} />
+        </Group>
+      ) : null}
+      {bodyImage ? (
+        <Group origin={toSkiaPoint(plan.center)} transform={toSkiaTransforms(plan.bodyTransform)}>
+          <Image fit="fill" height={size} image={bodyImage} width={size} x={0} y={0} />
+        </Group>
+      ) : null}
     </Group>
   );
 }
@@ -661,15 +664,13 @@ function SurfaceLayer({
   image,
   plan,
   size,
-  surfaceMatrix,
-  surfaceMode
+  surfaceMatrix
 }: {
   filamentMatrix: number[];
   image: SkImage | null;
   plan: RenderPlan;
   size: number;
   surfaceMatrix: number[];
-  surfaceMode: OrganismPhenotype["surface"]["mode"];
 }) {
   if (!image) {
     return null;
@@ -686,54 +687,17 @@ function SurfaceLayer({
         size={size}
         transform={plan.internalFilamentTransform}
       />
-      {surfaceMode === "native" ? (
-        <ImageLayer image={image} matrix={surfaceMatrix} opacity={plan.surfaceOpacity} size={size} />
-      ) : null}
-      {surfaceMode === "mirror-x" ? (
+      {plan.surfaceLayers.map((layer, index) => (
         <ImageLayer
+          key={`surface-layer-${index}`}
           image={image}
           matrix={surfaceMatrix}
-          opacity={plan.surfaceOpacity}
+          opacity={layer.opacity}
           origin={plan.center}
           size={size}
-          transform={[{ scaleX: -1 }]}
+          transform={layer.transform}
         />
-      ) : null}
-      {surfaceMode === "ghost-double" ? (
-        <>
-          <ImageLayer image={image} matrix={surfaceMatrix} opacity={plan.surfaceOpacity * 0.86} size={size} />
-          <ImageLayer
-            image={image}
-            matrix={surfaceMatrix}
-            opacity={plan.surfaceOpacity * 0.12}
-            origin={plan.center}
-            size={size}
-            transform={[
-              { translateX: size * 0.004 },
-              { translateY: -size * 0.003 },
-              { scale: 1.004 }
-            ]}
-          />
-        </>
-      ) : null}
-      {surfaceMode === "radial-echo" ? (
-        <>
-          {[-1, 0, 1].map((turn) => (
-            <ImageLayer
-              key={`surface-echo-${turn}`}
-              image={image}
-              matrix={surfaceMatrix}
-              opacity={plan.surfaceOpacity * (turn === 0 ? 0.84 : 0.08)}
-              origin={plan.center}
-              size={size}
-              transform={[
-                { rotate: turn * 0.026 },
-                { scale: turn === 0 ? 1 : 1.003 }
-              ]}
-            />
-          ))}
-        </>
-      ) : null}
+      ))}
     </>
   );
 }

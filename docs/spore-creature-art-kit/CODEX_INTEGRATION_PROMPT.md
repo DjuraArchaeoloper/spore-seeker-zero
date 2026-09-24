@@ -57,7 +57,7 @@ Metadata:
 
 `packages/shared/src/genome.ts` is the only genome-to-phenotype source of truth. Shared art metadata, canonical PNG assets, and platform-neutral render-plan math live in `packages/shared`. `registry.ts` is a mobile-only Metro adapter that maps shared family definitions to static `require()` asset IDs. Do not build runtime logic from `registry.json`.
 
-The mobile runtime files are 1024×1024 transparent PNGs with a shared registration canvas.
+The mobile runtime renders into a 1024×1024 logical registration canvas. Runtime PNGs may be higher-resolution square exports when all layers in that family share the same canvas and registration.
 
 High-resolution files under `docs/spore-creature-art-kit/` are references/source material only.
 DO NOT import those into the mobile runtime.
@@ -217,7 +217,7 @@ Do not cover the creature with debug labels.
 
 ## Performance
 
-The runtime images are intentionally 1024px, not the 2048px art-source files.
+The runtime images are intentionally smaller than the 2048px art-source masters and are rendered into a 1024px logical registration canvas.
 
 Avoid loading all ten families' decoded images simultaneously if the existing architecture allows loading only the selected family.
 

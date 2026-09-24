@@ -11,7 +11,7 @@ It contains the four approved anatomy foundations:
 - 04 Crystal Bloom
 - 06 Nebula Spine
 
-The mobile runtime uses modular 1024×1024 transparent PNG layers.
+The mobile runtime renders every family into a 1024×1024 logical registration canvas. Runtime PNG layers may be higher-resolution square exports when all layers in that family share the same canvas and registration.
 The 2048×2048 source art stays under `docs/` so it is not accidentally bundled into the mobile app.
 
 ## What you do
