@@ -2,7 +2,7 @@ import {
   Keypair,
   PublicKey,
   Transaction,
-  type Connection
+  type Connection,
 } from "@solana/web3.js";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
@@ -13,48 +13,45 @@ import {
   safeFetchAssetV1,
   update,
   updateAuthority,
-  type AssetV1
+  type AssetV1,
 } from "@metaplex-foundation/mpl-core";
 import {
   createSignerFromKeypair,
   publicKey as umiPublicKey,
   signerIdentity,
   some,
-  type Umi
+  type Umi,
 } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import {
   fromWeb3JsKeypair,
   fromWeb3JsPublicKey,
-  toWeb3JsInstruction
+  toWeb3JsInstruction,
 } from "@metaplex-foundation/umi-web3js-adapters";
 import { SEEKER_ZERO_GENOME_HEX } from "@spore/shared";
 
 import {
   SgtVerificationUnavailableError,
-  verifySeekerGenesisToken
+  verifySeekerGenesisToken,
 } from "../auth/sgt";
 import { connectToDatabase } from "../db/mongoose";
 import {
   ORGANISM_STATUS,
   OrganismIndexModel,
-  type OrganismIndex
+  type OrganismIndex,
 } from "../models/OrganismIndex";
 import { SpeciesStateModel } from "../models/SpeciesState";
-import {
-  EMPTY_SPORE_COMMITMENT_HEX,
-  dateFromUnixSeconds
-} from "./bytes";
+import { EMPTY_SPORE_COMMITMENT_HEX, dateFromUnixSeconds } from "./bytes";
 import {
   formatOrganismName,
   formatOrganismUri,
-  isValidMetadataBaseUri
+  isValidMetadataBaseUri,
 } from "./core";
 import { deriveOrganismIdentity } from "./encoding";
 import { SporeDomainError } from "./errors";
 import {
   deriveCoreAssetKeypair,
-  getSporeServerAuthorityKeypair
+  getSporeServerAuthorityKeypair,
 } from "./serverAuthority";
 import { getSolanaConnection } from "./solanaConnection";
 import { insertCanonicalSpeciesOnce } from "./species";
@@ -102,13 +99,13 @@ export async function bootstrapSeekerZero(input: {
   const metadataBaseUri = input.metadataBaseUri.replace(/\/+$/, "");
   const assetKeypair = deriveCoreAssetKeypair({
     reservationId: BOOTSTRAP_RESERVATION_ID,
-    attemptId: BOOTSTRAP_ATTEMPT_ID
+    attemptId: BOOTSTRAP_ATTEMPT_ID,
   });
   const expectedCoreAsset = assetKeypair.publicKey.toBase58();
   const serverAuthority = getSporeServerAuthorityKeypair();
 
   const existingZero = await OrganismIndexModel.findOne({
-    organismNumber: SEEKER_ZERO_NUMBER
+    organismNumber: SEEKER_ZERO_NUMBER,
   }).lean();
 
   if (existingZero) {
@@ -116,22 +113,21 @@ export async function bootstrapSeekerZero(input: {
       organismPda,
       sgtMint,
       expectedCoreAsset,
-      wallet
+      wallet,
     });
   }
 
   const existingBySgt = await OrganismIndexModel.findOne({ sgtMint }).lean();
-  if (
-    existingBySgt &&
-    existingBySgt.organismNumber !== SEEKER_ZERO_NUMBER
-  ) {
+  if (existingBySgt && existingBySgt.organismNumber !== SEEKER_ZERO_NUMBER) {
     throw new SporeDomainError(
       "organism_already_exists",
-      "This SGT already has a non-zero organism."
+      "This SGT already has a non-zero organism.",
     );
   }
 
-  const existingSpecies = await SpeciesStateModel.findOne({ key: "canonical" }).lean();
+  const existingSpecies = await SpeciesStateModel.findOne({
+    key: "canonical",
+  }).lean();
   if (
     existingSpecies &&
     existingSpecies.seekerZeroOrganismPda &&
@@ -139,7 +135,7 @@ export async function bootstrapSeekerZero(input: {
   ) {
     throw new SporeDomainError(
       "species_not_ready",
-      "Canonical species state already exists for a different Seeker Zero."
+      "Canonical species state already exists for a different Seeker Zero.",
     );
   }
 
@@ -148,7 +144,7 @@ export async function bootstrapSeekerZero(input: {
     serverAuthority,
     ownerWallet: wallet,
     metadataBaseUri,
-    sgtMint
+    sgtMint,
   });
 
   let organism =
@@ -157,18 +153,19 @@ export async function bootstrapSeekerZero(input: {
       organismPda,
       sgtMint,
       coreAsset: expectedCoreAsset,
-      transactionSignature: coreFinalizationSignature
+      transactionSignature: coreFinalizationSignature,
     }));
 
   if (
     existingZero &&
-    (existingZero.coreAsset !== expectedCoreAsset || !existingZero.transactionSignature)
+    (existingZero.coreAsset !== expectedCoreAsset ||
+      !existingZero.transactionSignature)
   ) {
     const updated = await OrganismIndexModel.findOneAndUpdate(
       {
         organismNumber: SEEKER_ZERO_NUMBER,
         organismPda,
-        sgtMint
+        sgtMint,
       },
       {
         $set: {
@@ -176,10 +173,10 @@ export async function bootstrapSeekerZero(input: {
           ...(existingZero.transactionSignature
             ? {}
             : { transactionSignature: coreFinalizationSignature }),
-          status: ORGANISM_STATUS.finalized
-        }
+          status: ORGANISM_STATUS.finalized,
+        },
       },
-      { new: true }
+      { returnDocument: "after" },
     ).lean();
 
     if (updated) {
@@ -194,7 +191,7 @@ export async function bootstrapSeekerZero(input: {
       totalOrganisms: "1",
       treasury,
       birthFeeLamports: input.birthFeeLamports,
-      metadataBaseUri
+      metadataBaseUri,
     });
   }
 
@@ -202,7 +199,7 @@ export async function bootstrapSeekerZero(input: {
     organism,
     speciesKey: "canonical",
     coreAsset: expectedCoreAsset,
-    coreFinalizationSignature
+    coreFinalizationSignature,
   };
 }
 
@@ -217,19 +214,19 @@ async function ensureSeekerZeroCoreCertificate(input: {
   const umi = createUmi(connection.rpcEndpoint).use(mplCore());
   const authoritySigner = createSignerFromKeypair(
     umi,
-    fromWeb3JsKeypair(input.serverAuthority)
+    fromWeb3JsKeypair(input.serverAuthority),
   );
   umi.use(signerIdentity(authoritySigner));
 
   const assetSigner = createSignerFromKeypair(
     umi,
-    fromWeb3JsKeypair(input.assetKeypair)
+    fromWeb3JsKeypair(input.assetKeypair),
   );
   // Single source of truth: the deterministic asset signer pubkey.
   const assetAddress = umiPublicKey(assetSigner.publicKey);
   const expectedCoreAsset = String(assetSigner.publicKey);
   const serverAuthorityPubkey = umiPublicKey(
-    input.serverAuthority.publicKey.toBase58()
+    input.serverAuthority.publicKey.toBase58(),
   );
   const name = formatOrganismName(0n);
   const uri = formatOrganismUri(input.metadataBaseUri, 0n);
@@ -238,7 +235,7 @@ async function ensureSeekerZeroCoreCertificate(input: {
 
   // 1) Core asset exists (create once; never remint on retry).
   let asset = await safeFetchAssetV1(umi, assetAddress, {
-    commitment: "confirmed"
+    commitment: "confirmed",
   });
 
   if (!asset) {
@@ -252,7 +249,7 @@ async function ensureSeekerZeroCoreCertificate(input: {
       name,
       uri,
       sgtMint: input.sgtMint,
-      bornAtUnix
+      bornAtUnix,
     });
     signatures.push(createSignature);
 
@@ -266,7 +263,7 @@ async function ensureSeekerZeroCoreCertificate(input: {
       uri,
       ownerWallet: input.ownerWallet,
       sgtMint: input.sgtMint,
-      expectedCoreAsset
+      expectedCoreAsset,
     });
     return signatures.length > 0
       ? signatures.join(",")
@@ -282,7 +279,7 @@ async function ensureSeekerZeroCoreCertificate(input: {
       name,
       uri,
       authority: authoritySigner,
-      payer: authoritySigner
+      payer: authoritySigner,
     }).sendAndConfirm(umi, { confirm: { commitment: "confirmed" } });
 
     signatures.push(base58.deserialize(renamed.signature)[0]);
@@ -293,7 +290,7 @@ async function ensureSeekerZeroCoreCertificate(input: {
   if (asset.name !== name || asset.uri !== uri) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core name/URI finalization did not apply."
+      "Seeker Zero Core name/URI finalization did not apply.",
     );
   }
 
@@ -307,10 +304,10 @@ async function ensureSeekerZeroCoreCertificate(input: {
         type: "Attributes",
         attributeList: buildSeekerZeroAttributes({
           sgtMint: input.sgtMint,
-          bornAtUnix
+          bornAtUnix,
         }),
-        authority: { type: "None" }
-      }
+        authority: { type: "None" },
+      },
     }).sendAndConfirm(umi, { confirm: { commitment: "confirmed" } });
 
     signatures.push(base58.deserialize(added.signature)[0]);
@@ -319,14 +316,14 @@ async function ensureSeekerZeroCoreCertificate(input: {
   } else if (asset.attributes.authority.type !== "None") {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core Attributes exist without None authority."
+      "Seeker Zero Core Attributes exist without None authority.",
     );
   }
 
   if (!asset.attributes || asset.attributes.authority.type !== "None") {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core Attributes are not permanently immutable."
+      "Seeker Zero Core Attributes are not permanently immutable.",
     );
   }
   assertSeekerZeroAttributes(asset, input.sgtMint);
@@ -342,18 +339,21 @@ async function ensureSeekerZeroCoreCertificate(input: {
     asset,
     authoritySigner,
     serverAuthority: input.serverAuthority,
-    serverAuthorityPubkey
+    serverAuthorityPubkey,
   });
   signatures.push(revokeSignature);
 
   // 6) Refetch and verify root UA is actually None (and full final state).
-  const finalAsset = await waitForRootUpdateAuthorityNone(umi, expectedCoreAsset);
+  const finalAsset = await waitForRootUpdateAuthorityNone(
+    umi,
+    expectedCoreAsset,
+  );
   assertFinalizedSeekerZeroCore(finalAsset, {
     name,
     uri,
     ownerWallet: input.ownerWallet,
     sgtMint: input.sgtMint,
-    expectedCoreAsset
+    expectedCoreAsset,
   });
 
   return signatures.join(",");
@@ -367,17 +367,14 @@ async function revokeRootUpdateAuthorityToNone(input: {
   serverAuthority: Keypair;
   serverAuthorityPubkey: ReturnType<typeof umiPublicKey>;
 }): Promise<string> {
-  assertServerStillUpdateAuthority(
-    input.asset,
-    input.serverAuthorityPubkey
-  );
+  assertServerStillUpdateAuthority(input.asset, input.serverAuthorityPubkey);
 
   // Dedicated immutability update — only newUpdateAuthority, no other mutations.
   const revokeBuilder = update(input.umi, {
     asset: input.asset,
     newUpdateAuthority: some(updateAuthority("None")),
     authority: input.authoritySigner,
-    payer: input.authoritySigner
+    payer: input.authoritySigner,
   });
 
   const { blockhash, lastValidBlockHeight } =
@@ -386,7 +383,7 @@ async function revokeRootUpdateAuthorityToNone(input: {
   const transaction = new Transaction({
     feePayer: input.serverAuthority.publicKey,
     blockhash,
-    lastValidBlockHeight
+    lastValidBlockHeight,
   });
 
   for (const ix of revokeBuilder.getInstructions()) {
@@ -400,19 +397,19 @@ async function revokeRootUpdateAuthorityToNone(input: {
     transaction.serialize(),
     {
       skipPreflight: false,
-      preflightCommitment: "confirmed"
-    }
+      preflightCommitment: "confirmed",
+    },
   );
 
   const confirmation = await input.connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },
-    "confirmed"
+    "confirmed",
   );
 
   if (confirmation.value.err) {
     throw new SporeDomainError(
       "finalization_conflict",
-      `Seeker Zero Core update-authority revoke failed: ${JSON.stringify(confirmation.value.err)}`
+      `Seeker Zero Core update-authority revoke failed: ${JSON.stringify(confirmation.value.err)}`,
     );
   }
 
@@ -433,7 +430,7 @@ async function createAndConfirmSeekerZeroAsset(input: {
 }): Promise<string> {
   const authoritySigner = createSignerFromKeypair(
     input.umi,
-    fromWeb3JsKeypair(input.serverAuthority)
+    fromWeb3JsKeypair(input.serverAuthority),
   );
 
   // Build against the SAME asset signer that will sign the web3.js transaction.
@@ -449,17 +446,17 @@ async function createAndConfirmSeekerZeroAsset(input: {
       {
         type: "PermanentFreezeDelegate",
         frozen: true,
-        authority: { type: "None" }
+        authority: { type: "None" },
       },
       {
         type: "Attributes",
         attributeList: buildSeekerZeroAttributes({
           sgtMint: input.sgtMint,
-          bornAtUnix: input.bornAtUnix
+          bornAtUnix: input.bornAtUnix,
         }),
-        authority: { type: "None" }
-      }
-    ]
+        authority: { type: "None" },
+      },
+    ],
   });
 
   const { blockhash, lastValidBlockHeight } =
@@ -468,7 +465,7 @@ async function createAndConfirmSeekerZeroAsset(input: {
   const transaction = new Transaction({
     feePayer: input.serverAuthority.publicKey,
     blockhash,
-    lastValidBlockHeight
+    lastValidBlockHeight,
   });
 
   for (const ix of createBuilder.getInstructions()) {
@@ -482,29 +479,32 @@ async function createAndConfirmSeekerZeroAsset(input: {
     transaction.serialize(),
     {
       skipPreflight: false,
-      preflightCommitment: "confirmed"
-    }
+      preflightCommitment: "confirmed",
+    },
   );
 
   const confirmation = await input.connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },
-    "confirmed"
+    "confirmed",
   );
 
   if (confirmation.value.err) {
     throw new SporeDomainError(
       "finalization_conflict",
-      `Seeker Zero Core create transaction failed: ${JSON.stringify(confirmation.value.err)}`
+      `Seeker Zero Core create transaction failed: ${JSON.stringify(confirmation.value.err)}`,
     );
   }
 
   return signature;
 }
 
-async function waitForCoreAsset(umi: Umi, assetAddress: string): Promise<AssetV1> {
+async function waitForCoreAsset(
+  umi: Umi,
+  assetAddress: string,
+): Promise<AssetV1> {
   for (let attempt = 0; attempt < CORE_ACCOUNT_POLL_ATTEMPTS; attempt += 1) {
     const asset = await safeFetchAssetV1(umi, umiPublicKey(assetAddress), {
-      commitment: "confirmed"
+      commitment: "confirmed",
     });
 
     if (asset) {
@@ -516,17 +516,17 @@ async function waitForCoreAsset(umi: Umi, assetAddress: string): Promise<AssetV1
 
   throw new SporeDomainError(
     "finalization_conflict",
-    `Seeker Zero Core asset was not found after confirmed create at ${assetAddress}.`
+    `Seeker Zero Core asset was not found after confirmed create at ${assetAddress}.`,
   );
 }
 
 async function waitForRootUpdateAuthorityNone(
   umi: Umi,
-  assetAddress: string
+  assetAddress: string,
 ): Promise<AssetV1> {
   for (let attempt = 0; attempt < CORE_ACCOUNT_POLL_ATTEMPTS; attempt += 1) {
     const asset = await fetchAsset(umi, umiPublicKey(assetAddress), {
-      commitment: "confirmed"
+      commitment: "confirmed",
     });
 
     if (isRootUpdateAuthorityNone(asset)) {
@@ -538,7 +538,7 @@ async function waitForRootUpdateAuthorityNone(
 
   throw new SporeDomainError(
     "finalization_conflict",
-    "Seeker Zero Core update authority was not revoked to None."
+    "Seeker Zero Core update authority was not revoked to None.",
   );
 }
 
@@ -548,12 +548,12 @@ function isRootUpdateAuthorityNone(asset: AssetV1): boolean {
 
 function assertServerStillUpdateAuthority(
   asset: AssetV1,
-  serverAuthorityPubkey: ReturnType<typeof umiPublicKey>
+  serverAuthorityPubkey: ReturnType<typeof umiPublicKey>,
 ) {
   if (isRootUpdateAuthorityNone(asset)) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core update authority is already None; cannot modify further."
+      "Seeker Zero Core update authority is already None; cannot modify further.",
     );
   }
 
@@ -563,7 +563,7 @@ function assertServerStillUpdateAuthority(
   ) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core update authority is not the server authority; cannot safely finalize."
+      "Seeker Zero Core update authority is not the server authority; cannot safely finalize.",
     );
   }
 }
@@ -574,7 +574,7 @@ function assertPermanentFreeze(asset: AssetV1) {
   if (!freeze || freeze.frozen !== true || freeze.authority.type !== "None") {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core PermanentFreezeDelegate is not permanently frozen."
+      "Seeker Zero Core PermanentFreezeDelegate is not permanently frozen.",
     );
   }
 }
@@ -605,7 +605,7 @@ async function insertSeekerZeroOrganism(input: {
     transactionSignature: input.transactionSignature,
     ancestorNumbers: [],
     indexedAt: new Date(),
-    createdAt: new Date()
+    createdAt: new Date(),
   };
 
   try {
@@ -613,7 +613,7 @@ async function insertSeekerZeroOrganism(input: {
   } catch (error) {
     if (isDuplicateKeyError(error)) {
       const existing = await OrganismIndexModel.findOne({
-        organismNumber: SEEKER_ZERO_NUMBER
+        organismNumber: SEEKER_ZERO_NUMBER,
       }).lean();
 
       if (existing) {
@@ -621,7 +621,7 @@ async function insertSeekerZeroOrganism(input: {
           organismPda: input.organismPda,
           sgtMint: input.sgtMint,
           expectedCoreAsset: input.coreAsset,
-          wallet: null
+          wallet: null,
         });
         return existing;
       }
@@ -645,13 +645,13 @@ function buildSeekerZeroAttributes(input: {
     { key: "generation", value: String(SEEKER_ZERO_GENERATION) },
     { key: "genome", value: SEEKER_ZERO_GENOME_HEX },
     { key: "born_at", value: String(input.bornAtUnix) },
-    { key: "mutation_slot", value: "" }
+    { key: "mutation_slot", value: "" },
   ];
 }
 
 function assertSeekerZeroAttributes(asset: AssetV1, sgtMint: string) {
   const attributeMap = new Map(
-    asset.attributes!.attributeList.map((entry) => [entry.key, entry.value])
+    asset.attributes!.attributeList.map((entry) => [entry.key, entry.value]),
   );
 
   if (
@@ -665,7 +665,7 @@ function assertSeekerZeroAttributes(asset: AssetV1, sgtMint: string) {
   ) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Existing Seeker Zero Core Attributes do not match canonical identity."
+      "Existing Seeker Zero Core Attributes do not match canonical identity.",
     );
   }
 }
@@ -678,33 +678,36 @@ function assertFinalizedSeekerZeroCore(
     ownerWallet: string;
     sgtMint: string;
     expectedCoreAsset: string;
-  }
+  },
 ) {
   if (String(finalAsset.publicKey) !== input.expectedCoreAsset) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core address does not match the deterministic asset signer."
+      "Seeker Zero Core address does not match the deterministic asset signer.",
     );
   }
 
   if (finalAsset.name !== input.name || finalAsset.uri !== input.uri) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core name/URI finalization did not apply."
+      "Seeker Zero Core name/URI finalization did not apply.",
     );
   }
 
   if (!isRootUpdateAuthorityNone(finalAsset)) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core update authority was not revoked to None."
+      "Seeker Zero Core update authority was not revoked to None.",
     );
   }
 
-  if (!finalAsset.attributes || finalAsset.attributes.authority.type !== "None") {
+  if (
+    !finalAsset.attributes ||
+    finalAsset.attributes.authority.type !== "None"
+  ) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core Attributes are not permanently immutable."
+      "Seeker Zero Core Attributes are not permanently immutable.",
     );
   }
 
@@ -714,7 +717,7 @@ function assertFinalizedSeekerZeroCore(
   if (finalAsset.owner !== umiPublicKey(input.ownerWallet)) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Seeker Zero Core owner is not the configured wallet."
+      "Seeker Zero Core owner is not the configured wallet.",
     );
   }
 }
@@ -726,7 +729,7 @@ function assertExistingSeekerZero(
     sgtMint: string;
     expectedCoreAsset: string;
     wallet: string | null;
-  }
+  },
 ) {
   if (
     existing.organismPda !== input.organismPda ||
@@ -737,14 +740,14 @@ function assertExistingSeekerZero(
   ) {
     throw new SporeDomainError(
       "organism_already_exists",
-      "Organism #0 already exists with a conflicting identity."
+      "Organism #0 already exists with a conflicting identity.",
     );
   }
 
   if (existing.coreAsset && existing.coreAsset !== input.expectedCoreAsset) {
     throw new SporeDomainError(
       "organism_already_exists",
-      "Organism #0 already exists with a different Core asset."
+      "Organism #0 already exists with a different Core asset.",
     );
   }
 
@@ -756,13 +759,13 @@ async function assertConfiguredSgtOwnership(wallet: string, sgtMint: string) {
 
   try {
     verified = await verifySeekerGenesisToken(wallet, {
-      expectedMintAddress: sgtMint
+      expectedMintAddress: sgtMint,
     });
   } catch (error) {
     if (error instanceof SgtVerificationUnavailableError) {
       throw new SporeDomainError(
         "verification_unavailable",
-        "SGT verification is unavailable."
+        "SGT verification is unavailable.",
       );
     }
 
@@ -772,7 +775,7 @@ async function assertConfiguredSgtOwnership(wallet: string, sgtMint: string) {
   if (!verified || verified.mintAddress !== sgtMint) {
     throw new SporeDomainError(
       "not_seeker",
-      "Configured Seeker Zero wallet does not hold the configured SGT."
+      "Configured Seeker Zero wallet does not hold the configured SGT.",
     );
   }
 }
@@ -789,7 +792,7 @@ function assertBirthFee(value: string) {
   if (!/^(0|[1-9][0-9]*)$/.test(value)) {
     throw new SporeDomainError(
       "server_misconfigured",
-      "Invalid SPORE_BIRTH_FEE_LAMPORTS."
+      "Invalid SPORE_BIRTH_FEE_LAMPORTS.",
     );
   }
 
@@ -797,7 +800,7 @@ function assertBirthFee(value: string) {
   if (fee > 10_000_000n) {
     throw new SporeDomainError(
       "server_misconfigured",
-      "SPORE_BIRTH_FEE_LAMPORTS exceeds protocol maximum."
+      "SPORE_BIRTH_FEE_LAMPORTS exceeds protocol maximum.",
     );
   }
 }
@@ -807,7 +810,7 @@ function assertMetadataBaseUri(value: string) {
   if (!isValidMetadataBaseUri(normalized)) {
     throw new SporeDomainError(
       "server_misconfigured",
-      "Invalid SPORE_METADATA_BASE_URI."
+      "Invalid SPORE_METADATA_BASE_URI.",
     );
   }
 }

@@ -4,18 +4,18 @@ import mongoose from "mongoose";
 import type { AuthenticatedSeeker } from "../auth/session";
 import {
   SgtVerificationUnavailableError,
-  verifySeekerGenesisToken
+  verifySeekerGenesisToken,
 } from "../auth/sgt";
 import { connectToDatabase } from "../db/mongoose";
 import {
   ACTIVE_CLAIM_RESERVATION_STATUSES,
   CLAIM_RESERVATION_STATUS,
   ClaimReservationModel,
-  type ClaimReservation
+  type ClaimReservation,
 } from "../models/ClaimReservation";
 import {
   OrganismIndexModel,
-  type OrganismIndex
+  type OrganismIndex,
 } from "../models/OrganismIndex";
 import {
   EMPTY_SPORE_COMMITMENT_HEX,
@@ -23,18 +23,14 @@ import {
   bytesToHex,
   hexToBytes,
   unixSecondsFromDate,
-  unixSecondsNow
+  unixSecondsNow,
 } from "./bytes";
-import {
-  commitSporeSecret,
-  hasLiveSpore,
-  sporeSecretMatches
-} from "./core";
+import { commitSporeSecret, hasLiveSpore, sporeSecretMatches } from "./core";
 import { SporeDomainError } from "./errors";
 import { finalizeClaimBirth } from "./finalizeBirth";
 import {
   finalizedOrganismFilter,
-  ensureReproductionFields
+  ensureReproductionFields,
 } from "./organismState";
 import { getCanonicalSpecies } from "./species";
 
@@ -69,13 +65,13 @@ export async function prepareClaimSpore(input: {
 
   const existingOrganism = await OrganismIndexModel.findOne({
     sgtMint: input.seeker.sgtMint,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (existingOrganism) {
     throw new SporeDomainError(
       "organism_already_exists",
-      "This Seeker already owns an organism."
+      "This Seeker already owns an organism.",
     );
   }
 
@@ -83,11 +79,11 @@ export async function prepareClaimSpore(input: {
   const reservationId = buildReservationId({
     parentOrganismPda: input.parentOrganismPda,
     sporeCommitment: offerCommitmentHex,
-    recipientSgtMint: input.seeker.sgtMint
+    recipientSgtMint: input.seeker.sgtMint,
   });
 
   const existingReservation = await ClaimReservationModel.findOne({
-    reservationId
+    reservationId,
   }).lean();
 
   if (existingReservation) {
@@ -98,7 +94,7 @@ export async function prepareClaimSpore(input: {
       return resumeReservation({
         reservation: existingReservation,
         seeker: input.seeker,
-        secret: input.secret
+        secret: input.secret,
       });
     }
 
@@ -109,7 +105,7 @@ export async function prepareClaimSpore(input: {
       return resumeCompletedReservation({
         reservation: existingReservation,
         seeker: input.seeker,
-        secret: input.secret
+        secret: input.secret,
       });
     }
 
@@ -132,13 +128,13 @@ export async function prepareClaimSpore(input: {
   ) {
     const foreign = await ClaimReservationModel.findOne({
       reservationId: parent.activeClaimReservationId,
-      status: { $in: [...ACTIVE_CLAIM_RESERVATION_STATUSES] }
+      status: { $in: [...ACTIVE_CLAIM_RESERVATION_STATUSES] },
     }).lean();
 
     if (foreign) {
       throw new SporeDomainError(
         "claim_conflict",
-        "This spore offer is already reserved."
+        "This spore offer is already reserved.",
       );
     }
   }
@@ -150,7 +146,11 @@ export async function prepareClaimSpore(input: {
     let result: ClaimReservationResult | null = null;
 
     await session.withTransaction(async () => {
-      await clearStaleParentReservation(parent.organismPda, reservationId, session);
+      await clearStaleParentReservation(
+        parent.organismPda,
+        reservationId,
+        session,
+      );
 
       const lockNow = new Date();
       const reservedParent = await OrganismIndexModel.findOneAndUpdate(
@@ -163,21 +163,21 @@ export async function prepareClaimSpore(input: {
           $or: [
             { activeClaimReservationId: null },
             { activeClaimReservationId: { $exists: false } },
-            { activeClaimReservationId: reservationId }
-          ]
+            { activeClaimReservationId: reservationId },
+          ],
         },
         {
           $set: {
-            activeClaimReservationId: reservationId
-          }
+            activeClaimReservationId: reservationId,
+          },
         },
-        { new: true, session }
+        { returnDocument: "after", session },
       ).lean();
 
       if (!reservedParent) {
         throw new SporeDomainError(
           "claim_conflict",
-          "This spore offer is no longer available."
+          "This spore offer is no longer available.",
         );
       }
 
@@ -205,27 +205,27 @@ export async function prepareClaimSpore(input: {
         bornAt: null,
         mutationSlot: null,
         childOrganismPda: null,
-        coreFinalizationSignature: null
+        coreFinalizationSignature: null,
       };
 
       try {
         await ClaimReservationModel.findOneAndUpdate(
           { reservationId },
           {
-            $set: reservationDocument
+            $set: reservationDocument,
           },
           {
             upsert: true,
-            new: true,
+            returnDocument: "after",
             session,
-            setDefaultsOnInsert: true
-          }
+            setDefaultsOnInsert: true,
+          },
         );
       } catch (error) {
         if (isDuplicateKeyError(error)) {
           throw new SporeDomainError(
             "claim_conflict",
-            "This spore offer is already reserved."
+            "This spore offer is already reserved.",
           );
         }
 
@@ -236,7 +236,7 @@ export async function prepareClaimSpore(input: {
         reservation: reservationDocument,
         parent: await ensureReproductionFields(reservedParent),
         birthFeeLamports: species.birthFeeLamports,
-        treasury: species.treasury
+        treasury: species.treasury,
       };
     });
 
@@ -274,7 +274,7 @@ export async function abandonPreparedClaim(input: {
     await session.withTransaction(async () => {
       const existing = await ClaimReservationModel.findOne({
         reservationId: input.reservationId,
-        recipientSgtMint: input.seeker.sgtMint
+        recipientSgtMint: input.seeker.sgtMint,
       })
         .session(session)
         .lean();
@@ -282,7 +282,7 @@ export async function abandonPreparedClaim(input: {
       if (!existing) {
         throw new SporeDomainError(
           "organism_not_found",
-          "No claim reservation found to abandon."
+          "No claim reservation found to abandon.",
         );
       }
 
@@ -292,7 +292,7 @@ export async function abandonPreparedClaim(input: {
       ) {
         throw new SporeDomainError(
           "claim_conflict",
-          "A settled birth cannot be abandoned."
+          "A settled birth cannot be abandoned.",
         );
       }
 
@@ -301,14 +301,14 @@ export async function abandonPreparedClaim(input: {
       if (existing.status !== CLAIM_RESERVATION_STATUS.reserved) {
         throw new SporeDomainError(
           "claim_conflict",
-          "Settlement already prepared; confirm instead of abandoning."
+          "Settlement already prepared; confirm instead of abandoning.",
         );
       }
 
       if (existing.settlementSignature) {
         throw new SporeDomainError(
           "claim_conflict",
-          "A settled birth cannot be abandoned."
+          "A settled birth cannot be abandoned.",
         );
       }
 
@@ -316,36 +316,36 @@ export async function abandonPreparedClaim(input: {
         {
           reservationId: input.reservationId,
           recipientSgtMint: input.seeker.sgtMint,
-          status: CLAIM_RESERVATION_STATUS.reserved
+          status: CLAIM_RESERVATION_STATUS.reserved,
         },
         {
           $set: {
             status: CLAIM_RESERVATION_STATUS.abandoned,
             settlementTransactionBase64: null,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         },
-        { new: true, session }
+        { returnDocument: "after", session },
       ).lean();
 
       if (!reservation) {
         throw new SporeDomainError(
           "organism_not_found",
-          "No active claim reservation found to abandon."
+          "No active claim reservation found to abandon.",
         );
       }
 
       await OrganismIndexModel.updateOne(
         {
           organismPda: reservation.parentOrganismPda,
-          activeClaimReservationId: reservation.reservationId
+          activeClaimReservationId: reservation.reservationId,
         },
         {
           $set: {
-            activeClaimReservationId: null
-          }
+            activeClaimReservationId: null,
+          },
         },
-        { session }
+        { session },
       );
 
       abandoned = reservation;
@@ -354,7 +354,7 @@ export async function abandonPreparedClaim(input: {
     if (!abandoned) {
       throw new SporeDomainError(
         "organism_not_found",
-        "No active claim reservation found to abandon."
+        "No active claim reservation found to abandon.",
       );
     }
 
@@ -372,26 +372,26 @@ async function resumeReservation(input: {
   if (input.reservation.recipientSgtMint !== input.seeker.sgtMint) {
     throw new SporeDomainError(
       "claim_conflict",
-      "This spore offer is already reserved."
+      "This spore offer is already reserved.",
     );
   }
 
   if (input.reservation.recipientWalletAddress !== input.seeker.walletAddress) {
     throw new SporeDomainError(
       "claim_conflict",
-      "This reservation is bound to a different wallet session."
+      "This reservation is bound to a different wallet session.",
     );
   }
 
   if (
     !sporeSecretMatches(
       input.secret,
-      hexToBytes(input.reservation.sporeCommitment)
+      hexToBytes(input.reservation.sporeCommitment),
     )
   ) {
     throw new SporeDomainError(
       "claim_conflict",
-      "A reservation already exists for a different offer."
+      "A reservation already exists for a different offer.",
     );
   }
 
@@ -410,7 +410,7 @@ async function resumeReservation(input: {
   ) {
     throw new SporeDomainError(
       "claim_conflict",
-      "This spore offer is already reserved."
+      "This spore offer is already reserved.",
     );
   }
 
@@ -422,14 +422,14 @@ async function resumeReservation(input: {
         $or: [
           { activeClaimReservationId: null },
           { activeClaimReservationId: { $exists: false } },
-          { activeClaimReservationId: input.reservation.reservationId }
-        ]
+          { activeClaimReservationId: input.reservation.reservationId },
+        ],
       },
       {
         $set: {
-          activeClaimReservationId: input.reservation.reservationId
-        }
-      }
+          activeClaimReservationId: input.reservation.reservationId,
+        },
+      },
     );
   }
 
@@ -439,7 +439,7 @@ async function resumeReservation(input: {
     reservation: input.reservation,
     parent,
     birthFeeLamports: species.birthFeeLamports,
-    treasury: species.treasury
+    treasury: species.treasury,
   };
 }
 
@@ -451,36 +451,36 @@ async function resumeCompletedReservation(input: {
   if (input.reservation.recipientSgtMint !== input.seeker.sgtMint) {
     throw new SporeDomainError(
       "claim_conflict",
-      "This spore offer is already reserved."
+      "This spore offer is already reserved.",
     );
   }
 
   if (input.reservation.recipientWalletAddress !== input.seeker.walletAddress) {
     throw new SporeDomainError(
       "claim_conflict",
-      "This reservation is bound to a different wallet session."
+      "This reservation is bound to a different wallet session.",
     );
   }
 
   if (
     !sporeSecretMatches(
       input.secret,
-      hexToBytes(input.reservation.sporeCommitment)
+      hexToBytes(input.reservation.sporeCommitment),
     )
   ) {
     throw new SporeDomainError(
       "claim_conflict",
-      "A reservation already exists for a different offer."
+      "A reservation already exists for a different offer.",
     );
   }
 
   const organism = await finalizeClaimBirth({
-    reservationId: input.reservation.reservationId
+    reservationId: input.reservation.reservationId,
   });
   const parent = await loadFinalizedParent(input.reservation.parentOrganismPda);
   const species = await getCanonicalSpecies();
   const latest = await ClaimReservationModel.findOne({
-    reservationId: input.reservation.reservationId
+    reservationId: input.reservation.reservationId,
   }).lean();
 
   return {
@@ -488,16 +488,18 @@ async function resumeCompletedReservation(input: {
     parent,
     birthFeeLamports: species.birthFeeLamports,
     treasury: species.treasury,
-    organism
+    organism,
   };
 }
 
 async function clearStaleParentReservation(
   parentOrganismPda: string,
   nextReservationId: string,
-  session: mongoose.ClientSession
+  session: mongoose.ClientSession,
 ) {
-  const parent = await OrganismIndexModel.findOne({ organismPda: parentOrganismPda })
+  const parent = await OrganismIndexModel.findOne({
+    organismPda: parentOrganismPda,
+  })
     .session(session)
     .lean();
 
@@ -510,7 +512,7 @@ async function clearStaleParentReservation(
   }
 
   const existing = await ClaimReservationModel.findOne({
-    reservationId: parent.activeClaimReservationId
+    reservationId: parent.activeClaimReservationId,
   })
     .session(session)
     .lean();
@@ -518,34 +520,34 @@ async function clearStaleParentReservation(
   const isStale =
     !existing ||
     !ACTIVE_CLAIM_RESERVATION_STATUSES.includes(
-      existing.status as (typeof ACTIVE_CLAIM_RESERVATION_STATUSES)[number]
+      existing.status as (typeof ACTIVE_CLAIM_RESERVATION_STATUSES)[number],
     );
 
   if (!isStale) {
     throw new SporeDomainError(
       "claim_conflict",
-      "This spore offer is already reserved."
+      "This spore offer is already reserved.",
     );
   }
 
   await OrganismIndexModel.updateOne(
     {
       organismPda: parentOrganismPda,
-      activeClaimReservationId: parent.activeClaimReservationId
+      activeClaimReservationId: parent.activeClaimReservationId,
     },
     {
       $set: {
-        activeClaimReservationId: null
-      }
+        activeClaimReservationId: null,
+      },
     },
-    { session }
+    { session },
   );
 }
 
 async function loadFinalizedParent(parentOrganismPda: string) {
   const parent = await OrganismIndexModel.findOne({
     organismPda: parentOrganismPda,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (!parent) {
@@ -564,7 +566,7 @@ function buildReservationId(input: {
     .createHash("sha256")
     .update(
       `${input.parentOrganismPda}:${input.sporeCommitment}:${input.recipientSgtMint}`,
-      "utf8"
+      "utf8",
     )
     .digest("hex");
 }
@@ -581,16 +583,19 @@ function assertSpeciesReadyForReproduction(species: {
   ) {
     throw new SporeDomainError(
       "species_not_ready",
-      "Species is not ready for reproduction."
+      "Species is not ready for reproduction.",
     );
   }
 }
 
-function assertNotSelfReproduction(parentSgtMint: string, recipientSgtMint: string) {
+function assertNotSelfReproduction(
+  parentSgtMint: string,
+  recipientSgtMint: string,
+) {
   if (parentSgtMint === recipientSgtMint) {
     throw new SporeDomainError(
       "self_reproduction",
-      "An organism cannot reproduce into the same SGT."
+      "An organism cannot reproduce into the same SGT.",
     );
   }
 }
@@ -598,17 +603,23 @@ function assertNotSelfReproduction(parentSgtMint: string, recipientSgtMint: stri
 function assertParentOfferReady(
   parent: OrganismIndex,
   secret: Uint8Array,
-  nowSeconds: number
+  nowSeconds: number,
 ) {
   if (
     parent.activeSporeCommitment === EMPTY_SPORE_COMMITMENT_HEX ||
     unixSecondsFromDate(parent.activeSporeExpiresAt) === 0
   ) {
-    throw new SporeDomainError("no_active_spore", "No active spore is available.");
+    throw new SporeDomainError(
+      "no_active_spore",
+      "No active spore is available.",
+    );
   }
 
   if (nowSeconds > unixSecondsFromDate(parent.activeSporeExpiresAt)) {
-    throw new SporeDomainError("spore_offer_expired", "Spore offer has expired.");
+    throw new SporeDomainError(
+      "spore_offer_expired",
+      "Spore offer has expired.",
+    );
   }
 
   if (!sporeSecretMatches(secret, hexToBytes(parent.activeSporeCommitment))) {
@@ -616,17 +627,23 @@ function assertParentOfferReady(
   }
 
   if (nowSeconds < unixSecondsFromDate(parent.nextSporeAt)) {
-    throw new SporeDomainError("spore_not_ready", "Organism spore is not ready.");
+    throw new SporeDomainError(
+      "spore_not_ready",
+      "Organism spore is not ready.",
+    );
   }
 
   if (
     !hasLiveSpore(
       hexToBytes(parent.activeSporeCommitment),
       BigInt(unixSecondsFromDate(parent.activeSporeExpiresAt)),
-      BigInt(nowSeconds)
+      BigInt(nowSeconds),
     )
   ) {
-    throw new SporeDomainError("spore_offer_expired", "Spore offer has expired.");
+    throw new SporeDomainError(
+      "spore_offer_expired",
+      "Spore offer has expired.",
+    );
   }
 }
 
@@ -635,13 +652,13 @@ async function assertCurrentSgtOwnership(seeker: AuthenticatedSeeker) {
 
   try {
     verified = await verifySeekerGenesisToken(seeker.walletAddress, {
-      expectedMintAddress: seeker.sgtMint
+      expectedMintAddress: seeker.sgtMint,
     });
   } catch (error) {
     if (error instanceof SgtVerificationUnavailableError) {
       throw new SporeDomainError(
         "verification_unavailable",
-        "SGT verification is unavailable."
+        "SGT verification is unavailable.",
       );
     }
 
@@ -651,7 +668,7 @@ async function assertCurrentSgtOwnership(seeker: AuthenticatedSeeker) {
   if (!verified || verified.mintAddress !== seeker.sgtMint) {
     throw new SporeDomainError(
       "not_seeker",
-      "Wallet no longer holds this Seeker Genesis Token."
+      "Wallet no longer holds this Seeker Genesis Token.",
     );
   }
 }

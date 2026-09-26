@@ -5,12 +5,12 @@ import {
   fetchAsset,
   mplCore,
   update,
-  updateAuthority
+  updateAuthority,
 } from "@metaplex-foundation/mpl-core";
 import {
   createSignerFromKeypair,
   publicKey as umiPublicKey,
-  signerIdentity
+  signerIdentity,
 } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import { fromWeb3JsKeypair } from "@metaplex-foundation/umi-web3js-adapters";
@@ -19,32 +19,32 @@ import { connectToDatabase } from "../db/mongoose";
 import {
   CLAIM_RESERVATION_STATUS,
   ClaimReservationModel,
-  type ClaimReservation
+  type ClaimReservation,
 } from "../models/ClaimReservation";
 import {
   ORGANISM_STATUS,
   OrganismIndexModel,
-  type OrganismIndex
+  type OrganismIndex,
 } from "../models/OrganismIndex";
 import {
   CANONICAL_SPECIES_KEY,
-  SpeciesStateModel
+  SpeciesStateModel,
 } from "../models/SpeciesState";
 import {
   EMPTY_SPORE_COMMITMENT_HEX,
   dateFromUnixSeconds,
-  unixSecondsFromDate
+  unixSecondsFromDate,
 } from "./bytes";
 import {
   checkedIncrementU64,
   checkedNextSporeAt,
   formatOrganismName,
-  formatOrganismUri
+  formatOrganismUri,
 } from "./core";
 import { SporeDomainError } from "./errors";
 import {
   ensureReproductionFields,
-  finalizedOrganismFilter
+  finalizedOrganismFilter,
 } from "./organismState";
 import { getSporeServerAuthorityKeypair } from "./serverAuthority";
 import { getVerifiedSolanaConnection } from "./solanaConnection";
@@ -60,11 +60,14 @@ export async function finalizeClaimBirth(input: {
   await connectToDatabase();
 
   const reservation = await ClaimReservationModel.findOne({
-    reservationId: input.reservationId
+    reservationId: input.reservationId,
   }).lean();
 
   if (!reservation) {
-    throw new SporeDomainError("organism_not_found", "Claim reservation not found.");
+    throw new SporeDomainError(
+      "organism_not_found",
+      "Claim reservation not found.",
+    );
   }
 
   if (reservation.status === CLAIM_RESERVATION_STATUS.finalized) {
@@ -74,7 +77,7 @@ export async function finalizeClaimBirth(input: {
   if (reservation.status !== CLAIM_RESERVATION_STATUS.settled) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Reservation must be settled before Core/Mongo finalization."
+      "Reservation must be settled before Core/Mongo finalization.",
     );
   }
 
@@ -82,7 +85,7 @@ export async function finalizeClaimBirth(input: {
 
   const existing = await OrganismIndexModel.findOne({
     sgtMint: reservation.recipientSgtMint,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (existing) {
@@ -96,16 +99,16 @@ export async function finalizeClaimBirth(input: {
         {
           $set: {
             status: CLAIM_RESERVATION_STATUS.finalized,
-            updatedAt: new Date()
-          }
-        }
+            updatedAt: new Date(),
+          },
+        },
       );
       return ensureReproductionFields(existing);
     }
 
     throw new SporeDomainError(
       "organism_already_exists",
-      "This Seeker already owns an organism."
+      "This Seeker already owns an organism.",
     );
   }
 
@@ -115,21 +118,21 @@ export async function finalizeClaimBirth(input: {
   if (!working.coreFinalizationSignature) {
     const signature = await finalizeCoreBirthCertificate({
       reservation: working,
-      metadataBaseUri: species.metadataBaseUri
+      metadataBaseUri: species.metadataBaseUri,
     });
 
     const updated = await ClaimReservationModel.findOneAndUpdate(
       {
         reservationId: working.reservationId,
-        status: CLAIM_RESERVATION_STATUS.settled
+        status: CLAIM_RESERVATION_STATUS.settled,
       },
       {
         $set: {
           coreFinalizationSignature: signature,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       },
-      { new: true }
+      { returnDocument: "after" },
     ).lean();
 
     working = updated ?? { ...working, coreFinalizationSignature: signature };
@@ -148,7 +151,7 @@ async function finalizeCoreBirthCertificate(input: {
   const umi = createUmi(connection.rpcEndpoint).use(mplCore());
   const authoritySigner = createSignerFromKeypair(
     umi,
-    fromWeb3JsKeypair(serverAuthority)
+    fromWeb3JsKeypair(serverAuthority),
   );
   umi.use(signerIdentity(authoritySigner));
 
@@ -159,7 +162,7 @@ async function finalizeCoreBirthCertificate(input: {
 
   const parent = await OrganismIndexModel.findOne({
     organismPda: reservation.parentOrganismPda,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (!parent) {
@@ -177,17 +180,17 @@ async function finalizeCoreBirthCertificate(input: {
         attributeList: buildBirthAttributes({
           reservation,
           parentOrganismNumber: parent.organismNumber,
-          parentSgtMint: parent.sgtMint
+          parentSgtMint: parent.sgtMint,
         }),
-        authority: { type: "None" }
-      }
+        authority: { type: "None" },
+      },
     }).sendAndConfirm(umi);
 
     signatures.push(base58.deserialize(added.signature)[0]);
   } else if (asset.attributes.authority.type !== "None") {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Core Attributes plugin exists without None authority; cannot safely continue."
+      "Core Attributes plugin exists without None authority; cannot safely continue.",
     );
   }
 
@@ -202,7 +205,7 @@ async function finalizeCoreBirthCertificate(input: {
       asset: refreshed,
       name,
       uri,
-      newUpdateAuthority: updateAuthority("None")
+      newUpdateAuthority: updateAuthority("None"),
     }).sendAndConfirm(umi);
 
     signatures.push(base58.deserialize(updated.signature)[0]);
@@ -213,29 +216,31 @@ async function finalizeCoreBirthCertificate(input: {
   if (finalAsset.name !== name || finalAsset.uri !== uri) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Core asset name/URI finalization did not apply."
+      "Core asset name/URI finalization did not apply.",
     );
   }
 
   if (finalAsset.updateAuthority.type !== "None") {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Core update authority was not revoked to None."
+      "Core update authority was not revoked to None.",
     );
   }
 
-  if (!finalAsset.attributes || finalAsset.attributes.authority.type !== "None") {
+  if (
+    !finalAsset.attributes ||
+    finalAsset.attributes.authority.type !== "None"
+  ) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Core Attributes plugin is not permanently immutable."
+      "Core Attributes plugin is not permanently immutable.",
     );
   }
 
   const attributeMap = new Map(
-    finalAsset.attributes.attributeList.map((entry: { key: string; value: string }) => [
-      entry.key,
-      entry.value
-    ])
+    finalAsset.attributes.attributeList.map(
+      (entry: { key: string; value: string }) => [entry.key, entry.value],
+    ),
   );
 
   if (
@@ -251,7 +256,7 @@ async function finalizeCoreBirthCertificate(input: {
   ) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Core Attributes do not match the settled reservation."
+      "Core Attributes do not match the settled reservation.",
     );
   }
 
@@ -260,25 +265,28 @@ async function finalizeCoreBirthCertificate(input: {
   if (!freeze || freeze.frozen !== true || freeze.authority.type !== "None") {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Core PermanentFreezeDelegate is not permanently frozen."
+      "Core PermanentFreezeDelegate is not permanently frozen.",
     );
   }
 
   if (signatures.length === 0) {
-    return reservation.coreFinalizationSignature ?? `already-finalized:${reservation.reservationId}`;
+    return (
+      reservation.coreFinalizationSignature ??
+      `already-finalized:${reservation.reservationId}`
+    );
   }
 
   return signatures.join(",");
 }
 
 async function finalizeMongoOrganism(
-  reservation: ClaimReservation
+  reservation: ClaimReservation,
 ): Promise<OrganismIndex> {
   assertSettledFields(reservation);
 
   const parent = await OrganismIndexModel.findOne({
     organismPda: reservation.parentOrganismPda,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (!parent) {
@@ -301,18 +309,21 @@ async function finalizeMongoOrganism(
 
     await session.withTransaction(async () => {
       const liveReservation = await ClaimReservationModel.findOne({
-        reservationId: reservation.reservationId
+        reservationId: reservation.reservationId,
       })
         .session(session)
         .lean();
 
       if (!liveReservation) {
-        throw new SporeDomainError("claim_conflict", "Reservation disappeared.");
+        throw new SporeDomainError(
+          "claim_conflict",
+          "Reservation disappeared.",
+        );
       }
 
       if (liveReservation.status === CLAIM_RESERVATION_STATUS.finalized) {
         organism = await OrganismIndexModel.findOne({
-          sgtMint: liveReservation.recipientSgtMint
+          sgtMint: liveReservation.recipientSgtMint,
         })
           .session(session)
           .lean();
@@ -322,22 +333,32 @@ async function finalizeMongoOrganism(
       if (liveReservation.status !== CLAIM_RESERVATION_STATUS.settled) {
         throw new SporeDomainError(
           "finalization_conflict",
-          "Reservation is not settled."
+          "Reservation is not settled.",
         );
       }
 
-      const species = await SpeciesStateModel.findOne({ key: CANONICAL_SPECIES_KEY })
+      const species = await SpeciesStateModel.findOne({
+        key: CANONICAL_SPECIES_KEY,
+      })
         .session(session)
         .lean();
 
       if (!species) {
-        throw new SporeDomainError("species_not_ready", "Canonical species missing.");
+        throw new SporeDomainError(
+          "species_not_ready",
+          "Canonical species missing.",
+        );
       }
 
-      const totalOrganismsNext = checkedIncrementU64(BigInt(species.totalOrganisms));
+      const totalOrganismsNext = checkedIncrementU64(
+        BigInt(species.totalOrganisms),
+      );
 
       if (totalOrganismsNext === null) {
-        throw new SporeDomainError("math_overflow", "Species totalOrganisms overflow.");
+        throw new SporeDomainError(
+          "math_overflow",
+          "Species totalOrganisms overflow.",
+        );
       }
 
       const childDocument: OrganismIndex = {
@@ -359,10 +380,10 @@ async function finalizeMongoOrganism(
         transactionSignature: liveReservation.settlementSignature!,
         ancestorNumbers: [
           ...normalizedParent.ancestorNumbers,
-          normalizedParent.organismNumber
+          normalizedParent.organismNumber,
         ],
         indexedAt: new Date(),
-        createdAt: new Date()
+        createdAt: new Date(),
       };
 
       let createdNew = false;
@@ -377,7 +398,7 @@ async function finalizeMongoOrganism(
         }
 
         organism = await OrganismIndexModel.findOne({
-          sgtMint: liveReservation.recipientSgtMint
+          sgtMint: liveReservation.recipientSgtMint,
         })
           .session(session)
           .lean();
@@ -387,38 +408,38 @@ async function finalizeMongoOrganism(
       // even if the parent offer row was concurrently mutated.
       await OrganismIndexModel.updateOne(
         {
-          organismPda: liveReservation.parentOrganismPda
+          organismPda: liveReservation.parentOrganismPda,
         },
         {
           $set: {
             activeSporeCommitment: EMPTY_SPORE_COMMITMENT_HEX,
             activeSporeExpiresAt: dateFromUnixSeconds(0),
             activeClaimReservationId: null,
-            nextSporeAt: dateFromUnixSeconds(nextParentSporeAtSeconds)
-          }
+            nextSporeAt: dateFromUnixSeconds(nextParentSporeAtSeconds),
+          },
         },
-        { session }
+        { session },
       );
 
       if (createdNew) {
         const speciesUpdate = await SpeciesStateModel.updateOne(
           {
             key: CANONICAL_SPECIES_KEY,
-            totalOrganisms: species.totalOrganisms
+            totalOrganisms: species.totalOrganisms,
           },
           {
             $set: {
               totalOrganisms: totalOrganismsNext.toString(),
-              updatedAt: new Date()
-            }
+              updatedAt: new Date(),
+            },
           },
-          { session }
+          { session },
         );
 
         if (speciesUpdate.modifiedCount !== 1) {
           throw new SporeDomainError(
             "finalization_conflict",
-            "Species totalOrganisms update conflict."
+            "Species totalOrganisms update conflict.",
           );
         }
       }
@@ -426,22 +447,22 @@ async function finalizeMongoOrganism(
       await ClaimReservationModel.updateOne(
         {
           reservationId: liveReservation.reservationId,
-          status: CLAIM_RESERVATION_STATUS.settled
+          status: CLAIM_RESERVATION_STATUS.settled,
         },
         {
           $set: {
             status: CLAIM_RESERVATION_STATUS.finalized,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         },
-        { session }
+        { session },
       );
     });
 
     if (!organism) {
       throw new SporeDomainError(
         "finalization_conflict",
-        "Unable to finalize organism in Mongo."
+        "Unable to finalize organism in Mongo.",
       );
     }
 
@@ -465,9 +486,9 @@ function buildBirthAttributes(input: {
     { key: "genome", value: input.reservation.genome! },
     {
       key: "born_at",
-      value: String(unixSecondsFromDate(input.reservation.bornAt!))
+      value: String(unixSecondsFromDate(input.reservation.bornAt!)),
     },
-    { key: "mutation_slot", value: input.reservation.mutationSlot! }
+    { key: "mutation_slot", value: input.reservation.mutationSlot! },
   ];
 }
 
@@ -486,7 +507,7 @@ function assertSettledFields(reservation: ClaimReservation) {
   ) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Settled reservation is missing immutable birth fields."
+      "Settled reservation is missing immutable birth fields.",
     );
   }
 }
@@ -494,13 +515,13 @@ function assertSettledFields(reservation: ClaimReservation) {
 async function loadFinalizedOrganism(reservation: ClaimReservation) {
   const organism = await OrganismIndexModel.findOne({
     sgtMint: reservation.recipientSgtMint,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (!organism) {
     throw new SporeDomainError(
       "finalization_conflict",
-      "Reservation is finalized but organism record is missing."
+      "Reservation is finalized but organism record is missing.",
     );
   }
 

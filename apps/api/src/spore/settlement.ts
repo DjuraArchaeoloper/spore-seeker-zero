@@ -4,59 +4,63 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
-  VersionedTransaction
+  VersionedTransaction,
 } from "@solana/web3.js";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import {
-  create,
-  fetchAsset,
-  mplCore
-} from "@metaplex-foundation/mpl-core";
+import { create, fetchAsset, mplCore } from "@metaplex-foundation/mpl-core";
 import {
   createNoopSigner,
   createSignerFromKeypair,
   publicKey as umiPublicKey,
-  signerIdentity
+  signerIdentity,
 } from "@metaplex-foundation/umi";
 import {
   fromWeb3JsKeypair,
   fromWeb3JsPublicKey,
-  toWeb3JsInstruction
+  toWeb3JsInstruction,
 } from "@metaplex-foundation/umi-web3js-adapters";
 import { createMemoInstruction } from "@solana/spl-memo";
 
 import type { AuthenticatedSeeker } from "../auth/session";
 import {
   SgtVerificationUnavailableError,
-  verifySeekerGenesisToken
+  verifySeekerGenesisToken,
 } from "../auth/sgt";
 import { connectToDatabase } from "../db/mongoose";
 import {
   ACTIVE_CLAIM_RESERVATION_STATUSES,
   CLAIM_RESERVATION_STATUS,
   ClaimReservationModel,
-  type ClaimReservation
+  type ClaimReservation,
 } from "../models/ClaimReservation";
-import { OrganismIndexModel, type OrganismIndex } from "../models/OrganismIndex";
+import {
+  OrganismIndexModel,
+  type OrganismIndex,
+} from "../models/OrganismIndex";
 import {
   dateFromUnixSeconds,
   hexToBytes,
   unixSecondsFromDate,
-  unixSecondsNow
+  unixSecondsNow,
 } from "./bytes";
 import { hasLiveSpore } from "./core";
 import { SporeDomainError } from "./errors";
 import { finalizeClaimBirth } from "./finalizeBirth";
 import {
   ensureReproductionFields,
-  finalizedOrganismFilter
+  finalizedOrganismFilter,
 } from "./organismState";
-import { deriveCoreAssetKeypair, getSporeServerAuthorityKeypair } from "./serverAuthority";
+import {
+  deriveCoreAssetKeypair,
+  getSporeServerAuthorityKeypair,
+} from "./serverAuthority";
 import { getVerifiedSolanaConnection } from "./solanaConnection";
 import { getCanonicalSpecies } from "./species";
 
 const MEMO_PREFIX = "spore-claim:";
-const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+const MEMO_PROGRAM_ID = new PublicKey(
+  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+);
 const LANDED_SETTLEMENT_SIGNATURE_SCAN = 25;
 
 export type SettlementTransactionResult = {
@@ -93,13 +97,13 @@ export async function buildClaimSettlementTransaction(input: {
 
   let reservation = await loadActiveReservationForRecipient(
     input.reservationId,
-    input.seeker.sgtMint
+    input.seeker.sgtMint,
   );
 
   if (reservation.recipientWalletAddress !== input.seeker.walletAddress) {
     throw new SporeDomainError(
       "claim_conflict",
-      "This reservation is bound to a different wallet session."
+      "This reservation is bound to a different wallet session.",
     );
   }
 
@@ -108,16 +112,16 @@ export async function buildClaimSettlementTransaction(input: {
     reservation.status === CLAIM_RESERVATION_STATUS.finalized
   ) {
     const organism = await finalizeClaimBirth({
-      reservationId: reservation.reservationId
+      reservationId: reservation.reservationId,
     });
     const latest = await ClaimReservationModel.findOne({
-      reservationId: reservation.reservationId
+      reservationId: reservation.reservationId,
     }).lean();
 
     return {
       kind: "finalized",
       reservation: latest ?? reservation,
-      organism
+      organism,
     };
   }
 
@@ -127,7 +131,7 @@ export async function buildClaimSettlementTransaction(input: {
   ) {
     throw new SporeDomainError(
       "settlement_not_ready",
-      "Reservation is not available for settlement."
+      "Reservation is not available for settlement.",
     );
   }
 
@@ -145,26 +149,26 @@ export async function buildClaimSettlementTransaction(input: {
     const landedSignature = await findLandedSettlementSignature({
       reservation,
       treasury: species.treasury,
-      birthFeeLamports: species.birthFeeLamports
+      birthFeeLamports: species.birthFeeLamports,
     });
 
     if (landedSignature) {
       const settled = await confirmClaimSettlement({
         seeker: input.seeker,
         reservationId: reservation.reservationId,
-        transactionSignature: landedSignature
+        transactionSignature: landedSignature,
       });
       const organism = await finalizeClaimBirth({
-        reservationId: settled.reservationId
+        reservationId: settled.reservationId,
       });
       const latest = await ClaimReservationModel.findOne({
-        reservationId: settled.reservationId
+        reservationId: settled.reservationId,
       }).lean();
 
       return {
         kind: "finalized",
         reservation: latest ?? settled,
-        organism
+        organism,
       };
     }
   }
@@ -182,7 +186,7 @@ export async function buildClaimSettlementTransaction(input: {
   ) {
     const blockhashValidity = await connection.isBlockhashValid(
       reservation.recentBlockhash,
-      { commitment: "confirmed" }
+      { commitment: "confirmed" },
     );
 
     if (blockhashValidity.value) {
@@ -194,7 +198,7 @@ export async function buildClaimSettlementTransaction(input: {
         attemptId: reservation.settlementAttemptId,
         lastValidBlockHeight: reservation.lastValidBlockHeight,
         birthFeeLamports: species.birthFeeLamports,
-        treasury: species.treasury
+        treasury: species.treasury,
       });
     }
 
@@ -204,13 +208,12 @@ export async function buildClaimSettlementTransaction(input: {
       attemptId: reservation.settlementAttemptId,
       expectedCoreAsset: reservation.expectedCoreAsset,
       lastValidBlockHeight: reservation.lastValidBlockHeight,
-      slot: blockhashValidity.context.slot
+      slot: blockhashValidity.context.slot,
     });
   }
 
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(
-    "confirmed"
-  );
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash("confirmed");
 
   // Preserve the same Core asset keypair across blockhash refreshes so a
   // late-landing settlement cannot be orphaned by attempt rotation.
@@ -226,22 +229,22 @@ export async function buildClaimSettlementTransaction(input: {
         status: {
           $in: [
             CLAIM_RESERVATION_STATUS.reserved,
-            CLAIM_RESERVATION_STATUS.settling
-          ]
+            CLAIM_RESERVATION_STATUS.settling,
+          ],
         },
         $or: [
           { settlementAttemptId: null },
-          { settlementAttemptId: { $exists: false } }
-        ]
+          { settlementAttemptId: { $exists: false } },
+        ],
       },
       {
         $set: {
           settlementAttemptId: claimedAttemptId,
           status: CLAIM_RESERVATION_STATUS.settling,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       },
-      { new: true }
+      { returnDocument: "after" },
     ).lean();
 
     if (claimed?.settlementAttemptId) {
@@ -250,12 +253,12 @@ export async function buildClaimSettlementTransaction(input: {
     } else {
       const latest = await loadActiveReservationForRecipient(
         reservation.reservationId,
-        input.seeker.sgtMint
+        input.seeker.sgtMint,
       );
       if (!latest.settlementAttemptId) {
         throw new SporeDomainError(
           "claim_conflict",
-          "Unable to prepare settlement attempt."
+          "Unable to prepare settlement attempt.",
         );
       }
       attemptId = latest.settlementAttemptId;
@@ -265,7 +268,7 @@ export async function buildClaimSettlementTransaction(input: {
 
   const assetKeypair = deriveCoreAssetKeypair({
     reservationId: reservation.reservationId,
-    attemptId
+    attemptId,
   });
   const serverAuthority = getSporeServerAuthorityKeypair();
   const recipient = new PublicKey(reservation.recipientWalletAddress);
@@ -277,14 +280,20 @@ export async function buildClaimSettlementTransaction(input: {
   }
 
   if (birthFeeLamports > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new SporeDomainError("settlement_invalid", "Birth fee exceeds safe integer range.");
+    throw new SporeDomainError(
+      "settlement_invalid",
+      "Birth fee exceeds safe integer range.",
+    );
   }
 
   const umi = createUmi(connection.rpcEndpoint).use(mplCore());
   umi.use(
-    signerIdentity(createNoopSigner(fromWeb3JsPublicKey(recipient)), true)
+    signerIdentity(createNoopSigner(fromWeb3JsPublicKey(recipient)), true),
   );
-  const assetSigner = createSignerFromKeypair(umi, fromWeb3JsKeypair(assetKeypair));
+  const assetSigner = createSignerFromKeypair(
+    umi,
+    fromWeb3JsKeypair(assetKeypair),
+  );
   const provisionalName = "SPØR PENDING";
   const provisionalUri = `${species.metadataBaseUri}/api/nft/pending`;
 
@@ -298,12 +307,14 @@ export async function buildClaimSettlementTransaction(input: {
       {
         type: "PermanentFreezeDelegate",
         frozen: true,
-        authority: { type: "None" }
-      }
-    ]
+        authority: { type: "None" },
+      },
+    ],
   });
 
-  const createIx = createBuilder.getInstructions().map((ix) => toWeb3JsInstruction(ix));
+  const createIx = createBuilder
+    .getInstructions()
+    .map((ix) => toWeb3JsInstruction(ix));
 
   const feeIx =
     birthFeeLamports === 0n
@@ -311,17 +322,18 @@ export async function buildClaimSettlementTransaction(input: {
       : SystemProgram.transfer({
           fromPubkey: recipient,
           toPubkey: treasury,
-          lamports: Number(birthFeeLamports)
+          lamports: Number(birthFeeLamports),
         });
 
-  const memoIx = createMemoInstruction(`${MEMO_PREFIX}${reservation.reservationId}`, [
-    recipient
-  ]);
+  const memoIx = createMemoInstruction(
+    `${MEMO_PREFIX}${reservation.reservationId}`,
+    [recipient],
+  );
 
   const transaction = new Transaction({
     feePayer: recipient,
     blockhash,
-    lastValidBlockHeight
+    lastValidBlockHeight,
   });
 
   for (const ix of createIx) {
@@ -342,13 +354,13 @@ export async function buildClaimSettlementTransaction(input: {
     reservationId: reservation.reservationId,
     attemptId,
     expectedCoreAsset: assetKeypair.publicKey.toBase58(),
-    lastValidBlockHeight
+    lastValidBlockHeight,
   });
 
   const transactionBase64 = transaction
     .serialize({
       requireAllSignatures: false,
-      verifySignatures: false
+      verifySignatures: false,
     })
     .toString("base64");
 
@@ -357,8 +369,11 @@ export async function buildClaimSettlementTransaction(input: {
       reservationId: reservation.reservationId,
       recipientSgtMint: input.seeker.sgtMint,
       status: {
-        $in: [CLAIM_RESERVATION_STATUS.reserved, CLAIM_RESERVATION_STATUS.settling]
-      }
+        $in: [
+          CLAIM_RESERVATION_STATUS.reserved,
+          CLAIM_RESERVATION_STATUS.settling,
+        ],
+      },
     },
     {
       $set: {
@@ -368,14 +383,17 @@ export async function buildClaimSettlementTransaction(input: {
         recentBlockhash: blockhash,
         lastValidBlockHeight,
         settlementTransactionBase64: transactionBase64,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     },
-    { new: true }
+    { returnDocument: "after" },
   ).lean();
 
   if (!updated || !updated.expectedCoreAsset || !updated.settlementAttemptId) {
-    throw new SporeDomainError("claim_conflict", "Unable to prepare settlement attempt.");
+    throw new SporeDomainError(
+      "claim_conflict",
+      "Unable to prepare settlement attempt.",
+    );
   }
 
   return {
@@ -386,7 +404,7 @@ export async function buildClaimSettlementTransaction(input: {
     attemptId: updated.settlementAttemptId,
     lastValidBlockHeight,
     birthFeeLamports: species.birthFeeLamports,
-    treasury: species.treasury
+    treasury: species.treasury,
   };
 }
 
@@ -406,7 +424,7 @@ async function finalizeNeedsSignatureAfterSimulation(input: {
   treasury: string;
 }): Promise<Extract<BuildClaimSettlementResult, { kind: "needs_signature" }>> {
   const transaction = Transaction.from(
-    Buffer.from(input.transactionBase64, "base64")
+    Buffer.from(input.transactionBase64, "base64"),
   );
 
   await assertSettlementTransactionSimulates({
@@ -415,7 +433,7 @@ async function finalizeNeedsSignatureAfterSimulation(input: {
     reservationId: input.reservation.reservationId,
     attemptId: input.attemptId,
     expectedCoreAsset: input.expectedCoreAsset,
-    lastValidBlockHeight: input.lastValidBlockHeight
+    lastValidBlockHeight: input.lastValidBlockHeight,
   });
 
   return {
@@ -426,7 +444,7 @@ async function finalizeNeedsSignatureAfterSimulation(input: {
     attemptId: input.attemptId,
     lastValidBlockHeight: input.lastValidBlockHeight,
     birthFeeLamports: input.birthFeeLamports,
-    treasury: input.treasury
+    treasury: input.treasury,
   };
 }
 
@@ -445,20 +463,20 @@ async function assertSettlementTransactionSimulates(input: {
   lastValidBlockHeight: number;
 }): Promise<void> {
   const instructionProgramIds = input.transaction.instructions.map((ix) =>
-    ix.programId.toBase58()
+    ix.programId.toBase58(),
   );
   const currentBlockHeight = await input.connection.getBlockHeight("confirmed");
   const message = input.transaction.compileMessage();
   const accountKeys = message.accountKeys.map((key) => key.toBase58());
   const accountKeyIndex = Object.fromEntries(
-    accountKeys.map((pubkey, index) => [String(index), pubkey])
+    accountKeys.map((pubkey, index) => [String(index), pubkey]),
   );
   const accountIndex2Diagnostics = await diagnoseSettlementAccountAtIndex({
     connection: input.connection,
     transaction: input.transaction,
     message,
     accountIndex: 2,
-    expectedCoreAsset: input.expectedCoreAsset
+    expectedCoreAsset: input.expectedCoreAsset,
   });
 
   console.error("[SPØR SETTLEMENT SIM]", {
@@ -466,13 +484,13 @@ async function assertSettlementTransactionSimulates(input: {
     reservationId: input.reservationId,
     attemptId: input.attemptId,
     expectedCoreAsset: input.expectedCoreAsset,
-    accountKeyIndex
+    accountKeyIndex,
   });
   console.error("[SPØR SETTLEMENT SIM]", {
     phase: "account_index_2_pre_sim",
     reservationId: input.reservationId,
     attemptId: input.attemptId,
-    ...accountIndex2Diagnostics
+    ...accountIndex2Diagnostics,
   });
 
   const versioned = toVersionedTransactionForSimulation(input.transaction);
@@ -482,7 +500,7 @@ async function assertSettlementTransactionSimulates(input: {
     simulation = await input.connection.simulateTransaction(versioned, {
       sigVerify: false,
       replaceRecentBlockhash: false,
-      commitment: "confirmed"
+      commitment: "confirmed",
     });
   } catch (error) {
     console.error("[SPØR SETTLEMENT SIM]", {
@@ -496,11 +514,11 @@ async function assertSettlementTransactionSimulates(input: {
       accountKeyIndex,
       accountIndex2: accountIndex2Diagnostics,
       rpcError:
-        error instanceof Error ? error.message : "unknown_simulation_rpc_error"
+        error instanceof Error ? error.message : "unknown_simulation_rpc_error",
     });
     throw new SporeDomainError(
       "settlement_simulation_failed",
-      "Settlement transaction failed simulation."
+      "Settlement transaction failed simulation.",
     );
   }
 
@@ -519,13 +537,13 @@ async function assertSettlementTransactionSimulates(input: {
     err,
     logs,
     unitsConsumed,
-    slot: simulation.context.slot
+    slot: simulation.context.slot,
   });
 
   if (err) {
     throw new SporeDomainError(
       "settlement_simulation_failed",
-      "Settlement transaction failed simulation."
+      "Settlement transaction failed simulation.",
     );
   }
 }
@@ -545,7 +563,8 @@ async function diagnoseSettlementAccountAtIndex(input: {
   const pubkey = message.accountKeys[accountIndex] ?? null;
   const numRequiredSignatures = message.header.numRequiredSignatures;
   const numReadonlySignedAccounts = message.header.numReadonlySignedAccounts;
-  const numReadonlyUnsignedAccounts = message.header.numReadonlyUnsignedAccounts;
+  const numReadonlyUnsignedAccounts =
+    message.header.numReadonlyUnsignedAccounts;
   const numSignedAccounts = numRequiredSignatures;
   const numWritableSignedAccounts =
     numRequiredSignatures - numReadonlySignedAccounts;
@@ -554,9 +573,7 @@ async function diagnoseSettlementAccountAtIndex(input: {
     numRequiredSignatures -
     numReadonlyUnsignedAccounts;
 
-  const isSigner = pubkey
-    ? accountIndex < numRequiredSignatures
-    : false;
+  const isSigner = pubkey ? accountIndex < numRequiredSignatures : false;
   const isWritable = pubkey
     ? accountIndex < numWritableSignedAccounts ||
       (accountIndex >= numSignedAccounts &&
@@ -577,17 +594,19 @@ async function diagnoseSettlementAccountAtIndex(input: {
       lamports = info.lamports;
       dataLength = info.data.length;
       ownerProgram = info.owner.toBase58();
-      rentExemptMinimum = await input.connection.getMinimumBalanceForRentExemption(
-        info.data.length,
-        "confirmed"
-      );
+      rentExemptMinimum =
+        await input.connection.getMinimumBalanceForRentExemption(
+          info.data.length,
+          "confirmed",
+        );
     } else {
       // Uninitialized / newly created account — rent floor for empty data.
       dataLength = 0;
-      rentExemptMinimum = await input.connection.getMinimumBalanceForRentExemption(
-        0,
-        "confirmed"
-      );
+      rentExemptMinimum =
+        await input.connection.getMinimumBalanceForRentExemption(
+          0,
+          "confirmed",
+        );
     }
   }
 
@@ -607,7 +626,7 @@ async function diagnoseSettlementAccountAtIndex(input: {
         metaIndex,
         pubkey: meta.pubkey.toBase58(),
         isSigner: meta.isSigner,
-        isWritable: meta.isWritable
+        isWritable: meta.isWritable,
       }));
       const mentions = keys.filter((key) => key.pubkey === pubkeyBase58);
       if (mentions.length === 0) {
@@ -622,7 +641,7 @@ async function diagnoseSettlementAccountAtIndex(input: {
           !accountExists &&
           mentions.some((meta) => meta.isWritable) &&
           (ix.programId.equals(SystemProgram.programId) ||
-            mentions.some((meta) => meta.isSigner && meta.isWritable))
+            mentions.some((meta) => meta.isSigner && meta.isWritable)),
       };
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry != null);
@@ -643,9 +662,9 @@ async function diagnoseSettlementAccountAtIndex(input: {
       numReadonlySignedAccounts,
       numReadonlyUnsignedAccounts,
       numWritableSignedAccounts,
-      numWritableUnsignedAccounts
+      numWritableUnsignedAccounts,
     },
-    creatingOrFundingInstructions
+    creatingOrFundingInstructions,
   };
 }
 
@@ -654,12 +673,12 @@ async function diagnoseSettlementAccountAtIndex(input: {
  * config-based simulation without replacing blockhash or mutating the original.
  */
 function toVersionedTransactionForSimulation(
-  transaction: Transaction
+  transaction: Transaction,
 ): VersionedTransaction {
   if (!transaction.feePayer || !transaction.recentBlockhash) {
     throw new SporeDomainError(
       "settlement_simulation_failed",
-      "Settlement transaction failed simulation."
+      "Settlement transaction failed simulation.",
     );
   }
 
@@ -669,7 +688,7 @@ function toVersionedTransactionForSimulation(
   for (let i = 0; i < message.header.numRequiredSignatures; i += 1) {
     const accountKey = message.accountKeys[i];
     const signed = transaction.signatures.find((entry) =>
-      entry.publicKey.equals(accountKey)
+      entry.publicKey.equals(accountKey),
     );
 
     if (signed?.signature) {
@@ -694,13 +713,13 @@ export async function confirmClaimSettlement(input: {
 
   const reservation = await loadActiveReservationForRecipient(
     input.reservationId,
-    input.seeker.sgtMint
+    input.seeker.sgtMint,
   );
 
   if (reservation.recipientWalletAddress !== input.seeker.walletAddress) {
     throw new SporeDomainError(
       "claim_conflict",
-      "This reservation is bound to a different wallet session."
+      "This reservation is bound to a different wallet session.",
     );
   }
 
@@ -711,7 +730,7 @@ export async function confirmClaimSettlement(input: {
 
     throw new SporeDomainError(
       "settlement_invalid",
-      "Reservation already settled with a different signature."
+      "Reservation already settled with a different signature.",
     );
   }
 
@@ -722,7 +741,7 @@ export async function confirmClaimSettlement(input: {
     ) {
       throw new SporeDomainError(
         "settlement_invalid",
-        "Reservation already settled with a different signature."
+        "Reservation already settled with a different signature.",
       );
     }
 
@@ -735,14 +754,14 @@ export async function confirmClaimSettlement(input: {
   ) {
     throw new SporeDomainError(
       "settlement_not_ready",
-      "Reservation is not awaiting settlement."
+      "Reservation is not awaiting settlement.",
     );
   }
 
   if (!reservation.expectedCoreAsset || !reservation.settlementAttemptId) {
     throw new SporeDomainError(
       "settlement_not_ready",
-      "No settlement attempt is prepared."
+      "No settlement attempt is prepared.",
     );
   }
 
@@ -751,7 +770,7 @@ export async function confirmClaimSettlement(input: {
     reservation,
     transactionSignature: input.transactionSignature,
     treasury: species.treasury,
-    birthFeeLamports: species.birthFeeLamports
+    birthFeeLamports: species.birthFeeLamports,
   });
 
   // Allocation happens only after chain verification succeeds.
@@ -759,7 +778,7 @@ export async function confirmClaimSettlement(input: {
     reservation,
     settlementSignature: input.transactionSignature,
     settlementSlot: verified.slot,
-    settlementBlockTime: verified.blockTime
+    settlementBlockTime: verified.blockTime,
   });
 }
 
@@ -795,7 +814,7 @@ async function findLandedSettlementSignature(input: {
         reservation: input.reservation,
         transactionSignature: input.reservation.settlementSignature,
         treasury: input.treasury,
-        birthFeeLamports: input.birthFeeLamports
+        birthFeeLamports: input.birthFeeLamports,
       });
       return input.reservation.settlementSignature;
     } catch {
@@ -804,7 +823,7 @@ async function findLandedSettlementSignature(input: {
   }
 
   const signatures = await connection.getSignaturesForAddress(expectedAsset, {
-    limit: LANDED_SETTLEMENT_SIGNATURE_SCAN
+    limit: LANDED_SETTLEMENT_SIGNATURE_SCAN,
   });
 
   for (const entry of signatures) {
@@ -817,7 +836,7 @@ async function findLandedSettlementSignature(input: {
         reservation: input.reservation,
         transactionSignature: entry.signature,
         treasury: input.treasury,
-        birthFeeLamports: input.birthFeeLamports
+        birthFeeLamports: input.birthFeeLamports,
       });
       return entry.signature;
     } catch {
@@ -829,7 +848,7 @@ async function findLandedSettlementSignature(input: {
   // Do not rotate/rebuild the create instruction against an occupied address.
   throw new SporeDomainError(
     "settlement_not_ready",
-    "Settlement is confirming on-chain. Refresh and try again."
+    "Settlement is confirming on-chain. Refresh and try again.",
   );
 }
 
@@ -842,29 +861,32 @@ async function verifySettlementTransaction(input: {
   const connection = await getVerifiedSolanaConnection();
   const tx = await connection.getTransaction(input.transactionSignature, {
     commitment: "finalized",
-    maxSupportedTransactionVersion: 0
+    maxSupportedTransactionVersion: 0,
   });
 
   if (!tx) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Settlement transaction was not found as finalized."
+      "Settlement transaction was not found as finalized.",
     );
   }
 
   if (tx.meta?.err) {
-    throw new SporeDomainError("settlement_invalid", "Settlement transaction failed.");
+    throw new SporeDomainError(
+      "settlement_invalid",
+      "Settlement transaction failed.",
+    );
   }
 
   if (tx.blockTime == null || tx.blockTime <= 0) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Settlement transaction is missing blockTime."
+      "Settlement transaction is missing blockTime.",
     );
   }
 
   const accountKeys = tx.transaction.message.getAccountKeys({
-    accountKeysFromLookups: tx.meta?.loadedAddresses
+    accountKeysFromLookups: tx.meta?.loadedAddresses,
   });
   const recipient = new PublicKey(input.reservation.recipientWalletAddress);
   const expectedAsset = new PublicKey(input.reservation.expectedCoreAsset!);
@@ -888,14 +910,14 @@ async function verifySettlementTransaction(input: {
   if (recipientIndex < 0 || assetIndex < 0) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Settlement transaction is missing required accounts."
+      "Settlement transaction is missing required accounts.",
     );
   }
 
   if (feeLamports > 0n && treasuryIndex < 0) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Settlement transaction is missing the canonical treasury."
+      "Settlement transaction is missing the canonical treasury.",
     );
   }
 
@@ -903,14 +925,14 @@ async function verifySettlementTransaction(input: {
   if (recipientIndex >= header.numRequiredSignatures) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Recipient did not sign the settlement transaction."
+      "Recipient did not sign the settlement transaction.",
     );
   }
 
   if (assetIndex >= header.numRequiredSignatures) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Expected Core asset did not sign the settlement transaction."
+      "Expected Core asset did not sign the settlement transaction.",
     );
   }
 
@@ -921,21 +943,24 @@ async function verifySettlementTransaction(input: {
     if (pre == null || post == null || BigInt(post - pre) !== feeLamports) {
       throw new SporeDomainError(
         "settlement_invalid",
-        "Canonical treasury did not receive the exact birth fee."
+        "Canonical treasury did not receive the exact birth fee.",
       );
     }
   }
 
   const memo = claimMemoForReservation(input.reservation.reservationId);
-  const parsed = await connection.getParsedTransaction(input.transactionSignature, {
-    commitment: "finalized",
-    maxSupportedTransactionVersion: 0
-  });
+  const parsed = await connection.getParsedTransaction(
+    input.transactionSignature,
+    {
+      commitment: "finalized",
+      maxSupportedTransactionVersion: 0,
+    },
+  );
 
   if (!parsed) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Settlement transaction was not found as finalized."
+      "Settlement transaction was not found as finalized.",
     );
   }
 
@@ -957,7 +982,7 @@ async function verifySettlementTransaction(input: {
   if (!memoOk) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Settlement transaction is missing the reservation memo."
+      "Settlement transaction is missing the reservation memo.",
     );
   }
 
@@ -967,7 +992,7 @@ async function verifySettlementTransaction(input: {
   if (asset.owner !== umiPublicKey(recipient.toBase58())) {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Core asset owner is not the recipient."
+      "Core asset owner is not the recipient.",
     );
   }
 
@@ -976,20 +1001,20 @@ async function verifySettlementTransaction(input: {
   if (!freeze || freeze.frozen !== true || freeze.authority.type !== "None") {
     throw new SporeDomainError(
       "settlement_invalid",
-      "Core asset is missing a frozen PermanentFreezeDelegate."
+      "Core asset is missing a frozen PermanentFreezeDelegate.",
     );
   }
 
   if (freeze.authority.type !== "None") {
     throw new SporeDomainError(
       "settlement_invalid",
-      "PermanentFreezeDelegate authority must be None."
+      "PermanentFreezeDelegate authority must be None.",
     );
   }
 
   return {
     slot: BigInt(tx.slot),
-    blockTime: tx.blockTime
+    blockTime: tx.blockTime,
   };
 }
 
@@ -1000,18 +1025,16 @@ async function allocateSettledOrganismState(input: {
   settlementBlockTime: number;
 }): Promise<ClaimReservation> {
   const mongoose = await import("mongoose");
-  const {
-    checkedChildGeneration,
-    checkedIncrementU64,
-    mutateChildGenome
-  } = await import("./core");
+  const { checkedChildGeneration, checkedIncrementU64, mutateChildGenome } =
+    await import("./core");
   const { deriveOrganismIdentity, pubkeyToBytes } = await import("./encoding");
   const { bytesToHex, hexToBytes } = await import("./bytes");
-  const { CANONICAL_SPECIES_KEY, SpeciesStateModel } = await import("../models/SpeciesState");
+  const { CANONICAL_SPECIES_KEY, SpeciesStateModel } =
+    await import("../models/SpeciesState");
 
   const parent = await OrganismIndexModel.findOne({
     organismPda: input.reservation.parentOrganismPda,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (!parent) {
@@ -1026,23 +1049,29 @@ async function allocateSettledOrganismState(input: {
 
     await session.withTransaction(async () => {
       const live = await ClaimReservationModel.findOne({
-        reservationId: input.reservation.reservationId
+        reservationId: input.reservation.reservationId,
       })
         .session(session)
         .lean();
 
       if (!live) {
-        throw new SporeDomainError("claim_conflict", "Reservation disappeared.");
+        throw new SporeDomainError(
+          "claim_conflict",
+          "Reservation disappeared.",
+        );
       }
 
-      if (live.status === CLAIM_RESERVATION_STATUS.settled || live.status === CLAIM_RESERVATION_STATUS.finalized) {
+      if (
+        live.status === CLAIM_RESERVATION_STATUS.settled ||
+        live.status === CLAIM_RESERVATION_STATUS.finalized
+      ) {
         if (
           live.settlementSignature &&
           live.settlementSignature !== input.settlementSignature
         ) {
           throw new SporeDomainError(
             "settlement_invalid",
-            "Reservation already settled with a different signature."
+            "Reservation already settled with a different signature.",
           );
         }
         settled = live;
@@ -1051,7 +1080,7 @@ async function allocateSettledOrganismState(input: {
 
       const existingOrganism = await OrganismIndexModel.findOne({
         sgtMint: input.reservation.recipientSgtMint,
-        ...finalizedOrganismFilter
+        ...finalizedOrganismFilter,
       })
         .session(session)
         .lean();
@@ -1059,16 +1088,21 @@ async function allocateSettledOrganismState(input: {
       if (existingOrganism) {
         throw new SporeDomainError(
           "organism_already_exists",
-          "This Seeker already owns an organism."
+          "This Seeker already owns an organism.",
         );
       }
 
-      const species = await SpeciesStateModel.findOne({ key: CANONICAL_SPECIES_KEY })
+      const species = await SpeciesStateModel.findOne({
+        key: CANONICAL_SPECIES_KEY,
+      })
         .session(session)
         .lean();
 
       if (!species) {
-        throw new SporeDomainError("species_not_ready", "Canonical species state is not initialized.");
+        throw new SporeDomainError(
+          "species_not_ready",
+          "Canonical species state is not initialized.",
+        );
       }
 
       const childNumber = species.nextOrganismNumber;
@@ -1076,7 +1110,10 @@ async function allocateSettledOrganismState(input: {
       const generation = checkedChildGeneration(normalizedParent.generation);
 
       if (nextOrganismNumber === null || generation === null) {
-        throw new SporeDomainError("math_overflow", "Organism counter overflow.");
+        throw new SporeDomainError(
+          "math_overflow",
+          "Organism counter overflow.",
+        );
       }
 
       const bornAtUnix = input.settlementBlockTime;
@@ -1086,33 +1123,39 @@ async function allocateSettledOrganismState(input: {
         recipientSgtMint: pubkeyToBytes(input.reservation.recipientSgtMint),
         childNumber: BigInt(childNumber),
         slot: input.settlementSlot,
-        bornAt: BigInt(bornAtUnix)
+        bornAt: BigInt(bornAtUnix),
       });
 
       const speciesUpdate = await SpeciesStateModel.updateOne(
         {
           key: CANONICAL_SPECIES_KEY,
-          nextOrganismNumber: childNumber
+          nextOrganismNumber: childNumber,
         },
         {
           $set: {
             nextOrganismNumber: nextOrganismNumber.toString(),
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         },
-        { session }
+        { session },
       );
 
       if (speciesUpdate.modifiedCount !== 1) {
-        throw new SporeDomainError("claim_conflict", "Organism number allocation conflict.");
+        throw new SporeDomainError(
+          "claim_conflict",
+          "Organism number allocation conflict.",
+        );
       }
 
       const updated = await ClaimReservationModel.findOneAndUpdate(
         {
           reservationId: input.reservation.reservationId,
           status: {
-            $in: [CLAIM_RESERVATION_STATUS.settling, CLAIM_RESERVATION_STATUS.reserved]
-          }
+            $in: [
+              CLAIM_RESERVATION_STATUS.settling,
+              CLAIM_RESERVATION_STATUS.reserved,
+            ],
+          },
         },
         {
           $set: {
@@ -1125,22 +1168,30 @@ async function allocateSettledOrganismState(input: {
             genome: bytesToHex(genomeBytes),
             bornAt: dateFromUnixSeconds(bornAtUnix),
             mutationSlot: input.settlementSlot.toString(),
-            childOrganismPda: deriveOrganismIdentity(input.reservation.recipientSgtMint),
-            updatedAt: new Date()
-          }
+            childOrganismPda: deriveOrganismIdentity(
+              input.reservation.recipientSgtMint,
+            ),
+            updatedAt: new Date(),
+          },
         },
-        { new: true, session }
+        { returnDocument: "after", session },
       ).lean();
 
       if (!updated) {
-        throw new SporeDomainError("claim_conflict", "Unable to commit settled reservation.");
+        throw new SporeDomainError(
+          "claim_conflict",
+          "Unable to commit settled reservation.",
+        );
       }
 
       settled = updated;
     });
 
     if (!settled) {
-      throw new SporeDomainError("claim_conflict", "Unable to allocate organism state.");
+      throw new SporeDomainError(
+        "claim_conflict",
+        "Unable to allocate organism state.",
+      );
     }
 
     return settled;
@@ -1151,16 +1202,24 @@ async function allocateSettledOrganismState(input: {
 
 async function loadActiveReservationForRecipient(
   reservationId: string,
-  recipientSgtMint: string
+  recipientSgtMint: string,
 ) {
   const reservation = await ClaimReservationModel.findOne({
     reservationId,
     recipientSgtMint,
-    status: { $in: [...ACTIVE_CLAIM_RESERVATION_STATUSES, CLAIM_RESERVATION_STATUS.finalized] }
+    status: {
+      $in: [
+        ...ACTIVE_CLAIM_RESERVATION_STATUSES,
+        CLAIM_RESERVATION_STATUS.finalized,
+      ],
+    },
   }).lean();
 
   if (!reservation) {
-    throw new SporeDomainError("organism_not_found", "Claim reservation not found.");
+    throw new SporeDomainError(
+      "organism_not_found",
+      "Claim reservation not found.",
+    );
   }
 
   return reservation;
@@ -1169,7 +1228,7 @@ async function loadActiveReservationForRecipient(
 async function assertReservationOfferStillValid(reservation: ClaimReservation) {
   const parent = await OrganismIndexModel.findOne({
     organismPda: reservation.parentOrganismPda,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (!parent) {
@@ -1182,7 +1241,7 @@ async function assertReservationOfferStillValid(reservation: ClaimReservation) {
   if (normalized.activeSporeCommitment !== reservation.sporeCommitment) {
     throw new SporeDomainError(
       "claim_conflict",
-      "Parent spore offer no longer matches this reservation."
+      "Parent spore offer no longer matches this reservation.",
     );
   }
 
@@ -1192,7 +1251,7 @@ async function assertReservationOfferStillValid(reservation: ClaimReservation) {
   ) {
     throw new SporeDomainError(
       "claim_conflict",
-      "Parent spore offer is reserved by another claim."
+      "Parent spore offer is reserved by another claim.",
     );
   }
 
@@ -1202,7 +1261,7 @@ async function assertReservationOfferStillValid(reservation: ClaimReservation) {
     if (normalized.activeClaimReservationId !== reservation.reservationId) {
       throw new SporeDomainError(
         "claim_conflict",
-        "Parent spore offer is no longer locked to this reservation."
+        "Parent spore offer is no longer locked to this reservation.",
       );
     }
 
@@ -1213,10 +1272,13 @@ async function assertReservationOfferStillValid(reservation: ClaimReservation) {
     !hasLiveSpore(
       hexToBytes(normalized.activeSporeCommitment),
       BigInt(unixSecondsFromDate(normalized.activeSporeExpiresAt)),
-      BigInt(nowSeconds)
+      BigInt(nowSeconds),
     )
   ) {
-    throw new SporeDomainError("spore_offer_expired", "Spore offer has expired.");
+    throw new SporeDomainError(
+      "spore_offer_expired",
+      "Spore offer has expired.",
+    );
   }
 }
 
@@ -1225,13 +1287,13 @@ async function assertCurrentSgtOwnership(seeker: AuthenticatedSeeker) {
 
   try {
     verified = await verifySeekerGenesisToken(seeker.walletAddress, {
-      expectedMintAddress: seeker.sgtMint
+      expectedMintAddress: seeker.sgtMint,
     });
   } catch (error) {
     if (error instanceof SgtVerificationUnavailableError) {
       throw new SporeDomainError(
         "verification_unavailable",
-        "SGT verification is unavailable."
+        "SGT verification is unavailable.",
       );
     }
 
@@ -1241,7 +1303,7 @@ async function assertCurrentSgtOwnership(seeker: AuthenticatedSeeker) {
   if (!verified || verified.mintAddress !== seeker.sgtMint) {
     throw new SporeDomainError(
       "not_seeker",
-      "Wallet no longer holds this Seeker Genesis Token."
+      "Wallet no longer holds this Seeker Genesis Token.",
     );
   }
 }

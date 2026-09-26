@@ -1,13 +1,13 @@
 import type { AuthenticatedSeeker } from "../auth/session";
 import {
   SgtVerificationUnavailableError,
-  verifySeekerGenesisToken
+  verifySeekerGenesisToken,
 } from "../auth/sgt";
 import { connectToDatabase } from "../db/mongoose";
 import {
   ORGANISM_STATUS,
   OrganismIndexModel,
-  type OrganismIndex
+  type OrganismIndex,
 } from "../models/OrganismIndex";
 import {
   EMPTY_SPORE_COMMITMENT_HEX,
@@ -15,18 +15,14 @@ import {
   bytesToHex,
   dateFromUnixSeconds,
   unixSecondsFromDate,
-  unixSecondsNow
+  unixSecondsNow,
 } from "./bytes";
-import {
-  checkedOfferExpiresAt,
-  commitSporeSecret,
-  hasLiveSpore
-} from "./core";
+import { checkedOfferExpiresAt, commitSporeSecret, hasLiveSpore } from "./core";
 import { SporeDomainError } from "./errors";
 import {
   finalizedOrganismFilter,
   ensureReproductionFields,
-  normalizeOrganismReproductionState
+  normalizeOrganismReproductionState,
 } from "./organismState";
 
 export type ReleaseSporeResult = {
@@ -48,10 +44,7 @@ export async function releaseSpore(input: {
   try {
     assertSporeSecret(input.secret);
   } catch {
-    throw new SporeDomainError(
-      "invalid_spore_secret",
-      "Invalid spore secret."
-    );
+    throw new SporeDomainError("invalid_spore_secret", "Invalid spore secret.");
   }
 
   await assertCurrentSgtOwnership(input.seeker);
@@ -61,7 +54,7 @@ export async function releaseSpore(input: {
   if (commitmentHex === EMPTY_SPORE_COMMITMENT_HEX) {
     throw new SporeDomainError(
       "invalid_spore_commitment",
-      "Invalid spore commitment."
+      "Invalid spore commitment.",
     );
   }
 
@@ -74,32 +67,35 @@ export async function releaseSpore(input: {
 
   const organism = await OrganismIndexModel.findOne({
     sgtMint: input.seeker.sgtMint,
-    ...finalizedOrganismFilter
+    ...finalizedOrganismFilter,
   }).lean();
 
   if (!organism) {
     throw new SporeDomainError(
       "organism_not_found",
-      "No organism found for this Seeker."
+      "No organism found for this Seeker.",
     );
   }
 
   const normalized = await ensureReproductionFields(organism);
 
   if (nowSeconds < unixSecondsFromDate(normalized.nextSporeAt)) {
-    throw new SporeDomainError("spore_not_ready", "Organism spore is not ready.");
+    throw new SporeDomainError(
+      "spore_not_ready",
+      "Organism spore is not ready.",
+    );
   }
 
   if (
     hasLiveSpore(
       hexCommitmentBytes(normalized.activeSporeCommitment),
       BigInt(unixSecondsFromDate(normalized.activeSporeExpiresAt)),
-      BigInt(nowSeconds)
+      BigInt(nowSeconds),
     )
   ) {
     throw new SporeDomainError(
       "active_spore_already_released",
-      "An active spore is already released."
+      "An active spore is already released.",
     );
   }
 
@@ -108,13 +104,13 @@ export async function releaseSpore(input: {
       await import("../models/ClaimReservation");
     const locked = await ClaimReservationModel.findOne({
       reservationId: normalized.activeClaimReservationId,
-      status: { $in: [...ACTIVE_CLAIM_RESERVATION_STATUSES] }
+      status: { $in: [...ACTIVE_CLAIM_RESERVATION_STATUSES] },
     }).lean();
 
     if (locked) {
       throw new SporeDomainError(
         "claim_conflict",
-        "An active claim still holds this spore."
+        "An active claim still holds this spore.",
       );
     }
   }
@@ -130,8 +126,8 @@ export async function releaseSpore(input: {
         {
           $or: [
             { activeClaimReservationId: null },
-            { activeClaimReservationId: { $exists: false } }
-          ]
+            { activeClaimReservationId: { $exists: false } },
+          ],
         },
         {
           $or: [
@@ -139,10 +135,10 @@ export async function releaseSpore(input: {
             { activeSporeCommitment: { $exists: false } },
             { activeSporeExpiresAt: { $lt: nowDate } },
             { activeSporeExpiresAt: dateFromUnixSeconds(0) },
-            { activeSporeExpiresAt: { $exists: false } }
-          ]
-        }
-      ]
+            { activeSporeExpiresAt: { $exists: false } },
+          ],
+        },
+      ],
     },
     {
       $set: {
@@ -150,22 +146,22 @@ export async function releaseSpore(input: {
         activeSporeExpiresAt: expiresAt,
         nextSporeAt: normalized.nextSporeAt,
         status: ORGANISM_STATUS.finalized,
-        activeClaimReservationId: null
-      }
+        activeClaimReservationId: null,
+      },
     },
-    { new: true }
+    { returnDocument: "after" },
   ).lean();
 
   if (!updated) {
     const latest = await OrganismIndexModel.findOne({
       sgtMint: input.seeker.sgtMint,
-      ...finalizedOrganismFilter
+      ...finalizedOrganismFilter,
     }).lean();
 
     if (!latest) {
       throw new SporeDomainError(
         "organism_not_found",
-        "No organism found for this Seeker."
+        "No organism found for this Seeker.",
       );
     }
 
@@ -173,32 +169,35 @@ export async function releaseSpore(input: {
     const latestNow = unixSecondsNow();
 
     if (latestNow < unixSecondsFromDate(latestNormalized.nextSporeAt)) {
-      throw new SporeDomainError("spore_not_ready", "Organism spore is not ready.");
+      throw new SporeDomainError(
+        "spore_not_ready",
+        "Organism spore is not ready.",
+      );
     }
 
     if (
       hasLiveSpore(
         hexCommitmentBytes(latestNormalized.activeSporeCommitment),
         BigInt(unixSecondsFromDate(latestNormalized.activeSporeExpiresAt)),
-        BigInt(latestNow)
+        BigInt(latestNow),
       )
     ) {
       throw new SporeDomainError(
         "active_spore_already_released",
-        "An active spore is already released."
+        "An active spore is already released.",
       );
     }
 
     throw new SporeDomainError(
       "claim_conflict",
-      "Unable to release spore due to a concurrent update."
+      "Unable to release spore due to a concurrent update.",
     );
   }
 
   return {
     organism: normalizeOrganismReproductionState(updated),
     activeSporeCommitment: commitmentHex,
-    activeSporeExpiresAt: expiresAt
+    activeSporeExpiresAt: expiresAt,
   };
 }
 
@@ -207,13 +206,13 @@ async function assertCurrentSgtOwnership(seeker: AuthenticatedSeeker) {
 
   try {
     verified = await verifySeekerGenesisToken(seeker.walletAddress, {
-      expectedMintAddress: seeker.sgtMint
+      expectedMintAddress: seeker.sgtMint,
     });
   } catch (error) {
     if (error instanceof SgtVerificationUnavailableError) {
       throw new SporeDomainError(
         "verification_unavailable",
-        "SGT verification is unavailable."
+        "SGT verification is unavailable.",
       );
     }
 
@@ -223,7 +222,7 @@ async function assertCurrentSgtOwnership(seeker: AuthenticatedSeeker) {
   if (!verified || verified.mintAddress !== seeker.sgtMint) {
     throw new SporeDomainError(
       "not_seeker",
-      "Wallet no longer holds this Seeker Genesis Token."
+      "Wallet no longer holds this Seeker Genesis Token.",
     );
   }
 }

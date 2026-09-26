@@ -596,7 +596,7 @@ async function saveAssignment(
         },
       },
       {
-        new: true,
+        returnDocument: "after",
         upsert: true,
       },
     ).lean();
@@ -656,7 +656,7 @@ async function ensureDevnetSolFunding(
       },
     },
     {
-      new: true,
+      returnDocument: "after",
     },
   ).lean();
 

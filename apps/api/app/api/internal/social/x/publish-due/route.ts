@@ -7,7 +7,7 @@ import {
   isDefiniteXRejection,
   logXPublishError,
   publishTextToX,
-  sanitizeXPublishError
+  sanitizeXPublishError,
 } from "../../../../../../src/social/xPublish";
 
 export const runtime = "nodejs";
@@ -24,22 +24,22 @@ export async function GET(request: Request) {
     const claimed = await SocialPostModel.findOneAndUpdate(
       {
         status: "pending",
-        scheduledFor: { $lte: now }
+        scheduledFor: { $lte: now },
       },
       {
         $set: { status: "publishing" },
-        $unset: { lastError: 1 }
+        $unset: { lastError: 1 },
       },
       {
         sort: { scheduledFor: 1 },
-        new: true
-      }
+        returnDocument: "after",
+      },
     );
 
     if (!claimed) {
       return jsonOk({
         ok: true,
-        published: false
+        published: false,
       });
     }
 
@@ -56,20 +56,30 @@ export async function GET(request: Request) {
           {
             $set: {
               status: "failed",
-              lastError: sanitizeXPublishError(publishError)
-            }
-          }
+              lastError: sanitizeXPublishError(publishError),
+            },
+          },
         );
 
         return jsonError(502, "x_publish_failed", "Unable to publish post.");
       }
 
-      console.error("SPØR social publish outcome ambiguous; left as publishing", {
-        id: String(claimed._id)
-      });
+      console.error(
+        "SPØR social publish outcome ambiguous; left as publishing",
+        {
+          id: String(claimed._id),
+        },
+      );
 
-      if (publishError instanceof Error && publishError.message.startsWith("Missing required")) {
-        return jsonError(503, "server_misconfigured", "Social publishing is unavailable.");
+      if (
+        publishError instanceof Error &&
+        publishError.message.startsWith("Missing required")
+      ) {
+        return jsonError(
+          503,
+          "server_misconfigured",
+          "Social publishing is unavailable.",
+        );
       }
 
       return jsonError(502, "x_publish_failed", "Unable to publish post.");
@@ -82,20 +92,20 @@ export async function GET(request: Request) {
           $set: {
             status: "posted",
             xPostId: published.id,
-            postedAt: new Date()
+            postedAt: new Date(),
           },
-          $unset: { lastError: 1 }
-        }
+          $unset: { lastError: 1 },
+        },
       );
     } catch {
       console.error("SPØR social post published to X but Mongo update failed", {
-        id: String(claimed._id)
+        id: String(claimed._id),
       });
 
       return jsonError(
         503,
         "server_misconfigured",
-        "Post may have published; manual reconciliation required."
+        "Post may have published; manual reconciliation required.",
       );
     }
 
@@ -103,16 +113,27 @@ export async function GET(request: Request) {
       ok: true,
       published: true,
       id: String(claimed._id),
-      xPostId: published.id
+      xPostId: published.id,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Missing required")) {
-      return jsonError(503, "server_misconfigured", "Social publishing is unavailable.");
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Missing required")
+    ) {
+      return jsonError(
+        503,
+        "server_misconfigured",
+        "Social publishing is unavailable.",
+      );
     }
 
     console.error("SPØR internal social publish-due failed");
 
-    return jsonError(503, "server_misconfigured", "Social publishing is unavailable.");
+    return jsonError(
+      503,
+      "server_misconfigured",
+      "Social publishing is unavailable.",
+    );
   }
 }
 

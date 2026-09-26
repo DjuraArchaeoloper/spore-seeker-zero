@@ -3,10 +3,16 @@ import mongoose from "mongoose";
 import { connectToDatabase } from "../../../../../../../src/db/mongoose";
 import { getSporSocialSecret } from "../../../../../../../src/env";
 import { isBearerSecretAuthorized } from "../../../../../../../src/http/bearerSecret";
-import { RequestBodyError, readJsonObject } from "../../../../../../../src/http/request";
+import {
+  RequestBodyError,
+  readJsonObject,
+} from "../../../../../../../src/http/request";
 import { jsonError, jsonOk } from "../../../../../../../src/http/responses";
 import { SocialPostModel } from "../../../../../../../src/models/SocialPost";
-import { PostTextError, parsePostText } from "../../../../../../../src/social/postText";
+import {
+  PostTextError,
+  parsePostText,
+} from "../../../../../../../src/social/postText";
 
 export const runtime = "nodejs";
 
@@ -42,14 +48,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     const updated = await SocialPostModel.findOneAndUpdate(
       {
         _id: objectId,
-        status: "pending"
+        status: "pending",
       },
       {
-        $set: updates
+        $set: updates,
       },
       {
-        new: true
-      }
+        returnDocument: "after",
+      },
     ).lean();
 
     if (!updated) {
@@ -63,8 +69,8 @@ export async function PATCH(request: Request, context: RouteContext) {
         text: updated.text,
         scheduledFor: updated.scheduledFor.toISOString(),
         status: updated.status,
-        createdAt: updated.createdAt.toISOString()
-      }
+        createdAt: updated.createdAt.toISOString(),
+      },
     });
   } catch (error) {
     if (error instanceof RequestBodyError) {
@@ -75,13 +81,24 @@ export async function PATCH(request: Request, context: RouteContext) {
       return jsonError(400, "bad_request", error.message);
     }
 
-    if (error instanceof Error && error.message.startsWith("Missing required")) {
-      return jsonError(503, "server_misconfigured", "Social queue is unavailable.");
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Missing required")
+    ) {
+      return jsonError(
+        503,
+        "server_misconfigured",
+        "Social queue is unavailable.",
+      );
     }
 
     console.error("SPØR internal social queue patch failed");
 
-    return jsonError(503, "server_misconfigured", "Social queue is unavailable.");
+    return jsonError(
+      503,
+      "server_misconfigured",
+      "Social queue is unavailable.",
+    );
   }
 }
 
@@ -102,7 +119,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
     const deleted = await SocialPostModel.findOneAndDelete({
       _id: objectId,
-      status: "pending"
+      status: "pending",
     }).lean();
 
     if (!deleted) {
@@ -112,16 +129,27 @@ export async function DELETE(request: Request, context: RouteContext) {
     return jsonOk({
       ok: true,
       deleted: true,
-      id: String(deleted._id)
+      id: String(deleted._id),
     });
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Missing required")) {
-      return jsonError(503, "server_misconfigured", "Social queue is unavailable.");
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Missing required")
+    ) {
+      return jsonError(
+        503,
+        "server_misconfigured",
+        "Social queue is unavailable.",
+      );
     }
 
     console.error("SPØR internal social queue delete failed");
 
-    return jsonError(503, "server_misconfigured", "Social queue is unavailable.");
+    return jsonError(
+      503,
+      "server_misconfigured",
+      "Social queue is unavailable.",
+    );
   }
 }
 
@@ -147,7 +175,9 @@ function parsePatchBody(body: Record<string, unknown>) {
   const keys = Object.keys(body);
 
   if (keys.length === 0) {
-    throw new QueueMutationError("Request body must include text and/or scheduledFor.");
+    throw new QueueMutationError(
+      "Request body must include text and/or scheduledFor.",
+    );
   }
 
   for (const key of keys) {
@@ -170,7 +200,9 @@ function parsePatchBody(body: Record<string, unknown>) {
   }
 
   if (!("text" in updates) && !("scheduledFor" in updates)) {
-    throw new QueueMutationError("Request body must include text and/or scheduledFor.");
+    throw new QueueMutationError(
+      "Request body must include text and/or scheduledFor.",
+    );
   }
 
   return updates;
@@ -196,8 +228,12 @@ function parseScheduledFor(value: unknown) {
   return date;
 }
 
-async function unresolvedPendingMutationResponse(objectId: mongoose.Types.ObjectId) {
-  const existing = await SocialPostModel.findById(objectId).select({ _id: 1 }).lean();
+async function unresolvedPendingMutationResponse(
+  objectId: mongoose.Types.ObjectId,
+) {
+  const existing = await SocialPostModel.findById(objectId)
+    .select({ _id: 1 })
+    .lean();
 
   if (!existing) {
     return jsonError(404, "not_found", "Post not found.");
