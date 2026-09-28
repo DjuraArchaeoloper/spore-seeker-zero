@@ -22,6 +22,7 @@ import {
 import { createMemoInstruction } from "@solana/spl-memo";
 
 import type { AuthenticatedSeeker } from "../auth/session";
+import { isVerboseSolanaDiagnosticsEnabled } from "../env";
 import {
   SgtVerificationUnavailableError,
   verifySeekerGenesisToken,
@@ -202,7 +203,7 @@ export async function buildClaimSettlementTransaction(input: {
       });
     }
 
-    console.error("[SPØR SETTLEMENT RECOVERY]", {
+    logSettlementRecovery({
       phase: "cached_blockhash_unusable",
       reservationId: reservation.reservationId,
       attemptId: reservation.settlementAttemptId,
@@ -479,14 +480,14 @@ async function assertSettlementTransactionSimulates(input: {
     expectedCoreAsset: input.expectedCoreAsset,
   });
 
-  console.error("[SPØR SETTLEMENT SIM]", {
+  logSettlementSimulationDiagnostic({
     phase: "account_keys",
     reservationId: input.reservationId,
     attemptId: input.attemptId,
     expectedCoreAsset: input.expectedCoreAsset,
     accountKeyIndex,
   });
-  console.error("[SPØR SETTLEMENT SIM]", {
+  logSettlementSimulationDiagnostic({
     phase: "account_index_2_pre_sim",
     reservationId: input.reservationId,
     attemptId: input.attemptId,
@@ -503,7 +504,7 @@ async function assertSettlementTransactionSimulates(input: {
       commitment: "confirmed",
     });
   } catch (error) {
-    console.error("[SPØR SETTLEMENT SIM]", {
+    logSettlementSimulationFailure({
       phase: "rpc_error",
       reservationId: input.reservationId,
       attemptId: input.attemptId,
@@ -524,7 +525,7 @@ async function assertSettlementTransactionSimulates(input: {
 
   const { err, logs, unitsConsumed } = simulation.value;
 
-  console.error("[SPØR SETTLEMENT SIM]", {
+  logSettlementSimulationResult({
     phase: err ? "failed" : "ok",
     reservationId: input.reservationId,
     attemptId: input.attemptId,
@@ -697,6 +698,62 @@ function toVersionedTransactionForSimulation(
   }
 
   return versioned;
+}
+
+type SettlementLogMetadata = Record<string, unknown> & {
+  phase: string;
+  reservationId?: string;
+  attemptId?: string | null;
+};
+
+function logSettlementRecovery(metadata: SettlementLogMetadata) {
+  if (isVerboseSolanaDiagnosticsEnabled()) {
+    console.error("[SPØR SETTLEMENT RECOVERY]", metadata);
+    return;
+  }
+
+  console.error("[SPØR SETTLEMENT RECOVERY]", {
+    phase: metadata.phase,
+    reservationId: metadata.reservationId,
+    attemptId: metadata.attemptId,
+    slot: metadata.slot,
+  });
+}
+
+function logSettlementSimulationDiagnostic(metadata: SettlementLogMetadata) {
+  if (isVerboseSolanaDiagnosticsEnabled()) {
+    console.error("[SPØR SETTLEMENT SIM]", metadata);
+  }
+}
+
+function logSettlementSimulationFailure(metadata: SettlementLogMetadata) {
+  if (isVerboseSolanaDiagnosticsEnabled()) {
+    console.error("[SPØR SETTLEMENT SIM]", metadata);
+    return;
+  }
+
+  console.error("[SPØR SETTLEMENT SIM]", {
+    phase: metadata.phase,
+    reservationId: metadata.reservationId,
+    attemptId: metadata.attemptId,
+    rpcError: metadata.rpcError,
+  });
+}
+
+function logSettlementSimulationResult(metadata: SettlementLogMetadata) {
+  if (isVerboseSolanaDiagnosticsEnabled()) {
+    console.error("[SPØR SETTLEMENT SIM]", metadata);
+    return;
+  }
+
+  if (metadata.phase === "failed") {
+    console.error("[SPØR SETTLEMENT SIM]", {
+      phase: metadata.phase,
+      reservationId: metadata.reservationId,
+      attemptId: metadata.attemptId,
+      err: "simulation_failed",
+    });
+  }
 }
 
 /**

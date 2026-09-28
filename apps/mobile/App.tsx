@@ -17,8 +17,10 @@ import {
   BottomNavigation,
   SurfaceKey,
 } from "./src/navigation/BottomNavigation";
+import { assertSporeEnvironmentConfigured } from "./src/spore/config";
 
 // Visual preview exists only to render SPØR UI in environments such as Expo Go that do not contain Solana Mobile native modules.
+assertSporeEnvironmentConfigured();
 const VISUAL_PREVIEW = process.env.EXPO_PUBLIC_SPORE_VISUAL_PREVIEW === "true";
 // Camera and wallet flow modules are never evaluated by visual preview.
 const Reproduction = lazy(() => import("./src/spore/Reproduction"));

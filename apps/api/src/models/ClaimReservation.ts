@@ -86,14 +86,12 @@ const claimReservationSchema = new Schema<ClaimReservation>(
     },
     parentOrganismPda: {
       ...publicKeyField,
-      index: true,
     },
     parentSgtMint: {
       ...publicKeyField,
     },
     recipientSgtMint: {
       ...publicKeyField,
-      index: true,
     },
     recipientWalletAddress: {
       ...publicKeyField,
@@ -206,6 +204,7 @@ const claimReservationSchema = new Schema<ClaimReservation>(
 claimReservationSchema.index(
   { parentOrganismPda: 1 },
   {
+    name: "active_parent_claim_reservation_unique",
     unique: true,
     partialFilterExpression: {
       status: { $in: [...ACTIVE_CLAIM_RESERVATION_STATUSES] },
@@ -215,6 +214,7 @@ claimReservationSchema.index(
 claimReservationSchema.index(
   { recipientSgtMint: 1 },
   {
+    name: "active_recipient_claim_reservation_unique",
     unique: true,
     partialFilterExpression: {
       status: { $in: [...ACTIVE_CLAIM_RESERVATION_STATUSES] },
@@ -224,6 +224,7 @@ claimReservationSchema.index(
 claimReservationSchema.index(
   { organismNumber: 1 },
   {
+    name: "claim_reservation_organism_number_unique",
     unique: true,
     partialFilterExpression: {
       organismNumber: { $type: "string" },

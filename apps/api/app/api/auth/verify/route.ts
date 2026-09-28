@@ -1,10 +1,15 @@
 import { connectToDatabase } from "../../../../src/db/mongoose";
-import { authConfig, getSolanaCluster } from "../../../../src/env";
+import {
+  authConfig,
+  getSolanaCluster,
+  isVerboseSolanaDiagnosticsEnabled
+} from "../../../../src/env";
 import { readJsonObject, RequestBodyError } from "../../../../src/http/request";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { createSession } from "../../../../src/auth/session";
 import { createSiwsPayload, getVerifyBody, verifySiwsPayload } from "../../../../src/auth/siws";
 import { SgtVerificationUnavailableError, verifySeekerGenesisToken } from "../../../../src/auth/sgt";
+import { rateLimit } from "../../../../src/http/rateLimit";
 import {
   DevnetTestSgtBootstrapDisabledError,
   DevnetTestSgtBootstrapError,
@@ -20,6 +25,16 @@ const MAX_VERIFY_BODY_BYTES = 8192;
 
 export async function POST(request: Request) {
   try {
+    const limited = rateLimit(request, {
+      keyPrefix: "auth:verify",
+      limit: 10,
+      windowMs: 60_000
+    });
+
+    if (limited) {
+      return limited;
+    }
+
     await connectToDatabase();
 
     const body = await readJsonObject(request, MAX_VERIFY_BODY_BYTES);
@@ -50,11 +65,13 @@ export async function POST(request: Request) {
       return jsonError(401, "authentication_failed", "Authentication failed.");
     }
 
-    console.log("[AUTH DEBUG]", {
-      phase: "siws_verified",
-      walletAddress: siws.walletAddress,
-      cluster: getSolanaCluster()
-    });
+    if (isVerboseSolanaDiagnosticsEnabled()) {
+      console.log("[AUTH DEBUG]", {
+        phase: "siws_verified",
+        walletAddress: siws.walletAddress,
+        cluster: getSolanaCluster()
+      });
+    }
 
     const cluster = getSolanaCluster();
     let sgt = await verifySeekerGenesisToken(siws.walletAddress);
@@ -64,22 +81,26 @@ export async function POST(request: Request) {
     }
 
     if (!sgt && cluster === "devnet") {
-      console.log("[DEVNET TEST SGT AUTH]", {
-        phase: "no_current_valid_sgt",
-        walletAddress: siws.walletAddress
-      });
-      console.log("[DEVNET TEST SGT AUTH]", {
-        phase: "devnet_bootstrap_start",
-        walletAddress: siws.walletAddress
-      });
+      if (isVerboseSolanaDiagnosticsEnabled()) {
+        console.log("[DEVNET TEST SGT AUTH]", {
+          phase: "no_current_valid_sgt",
+          walletAddress: siws.walletAddress
+        });
+        console.log("[DEVNET TEST SGT AUTH]", {
+          phase: "devnet_bootstrap_start",
+          walletAddress: siws.walletAddress
+        });
+      }
 
       try {
         sgt = await ensureDevnetTestSgt(siws.walletAddress);
-        console.log("[DEVNET TEST SGT AUTH]", {
-          phase: "devnet_bootstrap_success",
-          walletAddress: siws.walletAddress,
-          sgtMint: sgt.mintAddress
-        });
+        if (isVerboseSolanaDiagnosticsEnabled()) {
+          console.log("[DEVNET TEST SGT AUTH]", {
+            phase: "devnet_bootstrap_success",
+            walletAddress: siws.walletAddress,
+            sgtMint: sgt.mintAddress
+          });
+        }
       } catch (error) {
         console.warn("[DEVNET TEST SGT AUTH]", {
           phase: "devnet_bootstrap_failure",

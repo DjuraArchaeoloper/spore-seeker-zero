@@ -7,7 +7,12 @@ import {
   unpackMint
 } from "@solana/spl-token";
 
-import { getHeliusRpcUrl, getSgtVerificationConfig, getSolanaCluster } from "../env";
+import {
+  getHeliusRpcUrl,
+  getSgtVerificationConfig,
+  getSolanaCluster,
+  isVerboseSolanaDiagnosticsEnabled
+} from "../env";
 const TOKEN_ACCOUNT_PAGE_LIMIT = 1000;
 const MINT_ACCOUNT_BATCH_SIZE = 100;
 const MAX_TOKEN_ACCOUNT_PAGES = 50;
@@ -68,7 +73,7 @@ export async function verifySeekerGenesisToken(
     ? new PublicKey(options.expectedMintAddress).toBase58()
     : null;
 
-  console.log("[SGT DEBUG]", {
+  logSgtDiagnostic("[SGT DEBUG]", {
     phase: "lookup_start",
     walletAddress: normalizedWalletAddress,
     cluster,
@@ -82,7 +87,7 @@ export async function verifySeekerGenesisToken(
   );
   const candidateMintAddresses = candidateMints.map((mint) => mint.toBase58());
 
-  console.log("[SGT DEBUG]", {
+  logSgtDiagnostic("[SGT DEBUG]", {
     phase: "candidates_found",
     walletAddress: normalizedWalletAddress,
     candidateCount: candidateMintAddresses.length,
@@ -90,12 +95,12 @@ export async function verifySeekerGenesisToken(
   });
 
   if (candidateMints.length === 0) {
-    console.log("[SGT DEBUG]", {
+    logSgtDiagnostic("[SGT DEBUG]", {
       phase: "no_candidates",
       walletAddress: normalizedWalletAddress,
       cluster
     });
-    console.log("[SGT DEBUG]", {
+    logSgtDiagnostic("[SGT DEBUG]", {
       phase: "sgt_lookup_complete",
       walletAddress: normalizedWalletAddress,
       cluster,
@@ -119,7 +124,7 @@ export async function verifySeekerGenesisToken(
       const mintAddress = batch[mintIndex];
 
       if (!accountInfo || !mintAddress) {
-        console.log("[SGT ERROR DEBUG]", {
+        logSgtDiagnostic("[SGT ERROR DEBUG]", {
           phase: "candidate_account_missing",
           candidateMintAddress: mintAddress?.toBase58() ?? null
         });
@@ -130,7 +135,7 @@ export async function verifySeekerGenesisToken(
       checkedCandidateCount += 1;
 
       if (safeIsVerifiedSgtMint(mintAddress, accountInfo)) {
-        console.log("[SGT DEBUG]", {
+        logSgtDiagnostic("[SGT DEBUG]", {
           phase: "sgt_lookup_complete",
           walletAddress: normalizedWalletAddress,
           cluster,
@@ -148,7 +153,7 @@ export async function verifySeekerGenesisToken(
     }
   }
 
-  console.log("[SGT DEBUG]", {
+  logSgtDiagnostic("[SGT DEBUG]", {
     phase: "sgt_lookup_complete",
     walletAddress: normalizedWalletAddress,
     cluster,
@@ -297,7 +302,7 @@ function safeIsVerifiedSgtMint(mintAddress: PublicKey, accountInfo: Parameters<t
   try {
     return isVerifiedSgtMint(mintAddress, accountInfo);
   } catch (error) {
-    console.log("[SGT ERROR DEBUG]", {
+    logSgtDiagnostic("[SGT ERROR DEBUG]", {
       phase: "candidate_verify_error",
       candidateMintAddress: mintAddress.toBase58(),
       errorMessage: getSafeErrorMessage(error)
@@ -341,7 +346,7 @@ function isVerifiedSgtMint(mintAddress: PublicKey, accountInfo: Parameters<typeo
       tokenGroupMemberGroup: actual.tokenGroupMemberGroup === expected.groupAddress
     };
 
-    console.log("[SGT CANDIDATE DEBUG]", {
+    logSgtDiagnostic("[SGT CANDIDATE DEBUG]", {
       phase: "candidate_decoded",
       candidateMintAddress,
       actual,
@@ -359,13 +364,19 @@ function isVerifiedSgtMint(mintAddress: PublicKey, accountInfo: Parameters<typeo
       checks.tokenGroupMemberGroup
     );
   } catch (error) {
-    console.log("[SGT ERROR DEBUG]", {
+    logSgtDiagnostic("[SGT ERROR DEBUG]", {
       phase: "candidate_decode_error",
       candidateMintAddress: mintAddress.toBase58(),
       errorMessage: getSafeErrorMessage(error)
     });
 
     return false;
+  }
+}
+
+function logSgtDiagnostic(message: string, metadata: Record<string, unknown>) {
+  if (isVerboseSolanaDiagnosticsEnabled()) {
+    console.log(message, metadata);
   }
 }
 

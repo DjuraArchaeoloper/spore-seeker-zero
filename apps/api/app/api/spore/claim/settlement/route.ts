@@ -1,4 +1,5 @@
 import { connectToDatabase } from "../../../../../src/db/mongoose";
+import { rateLimit } from "../../../../../src/http/rateLimit";
 import { jsonOk } from "../../../../../src/http/responses";
 import { toPublicOrganism } from "../../../../../src/organisms/responses";
 import {
@@ -21,6 +22,16 @@ export const runtime = "nodejs";
  */
 export async function POST(request: Request) {
   try {
+    const limited = rateLimit(request, {
+      keyPrefix: "spore:claim:settlement",
+      limit: 30,
+      windowMs: 60_000
+    });
+
+    if (limited) {
+      return limited;
+    }
+
     await connectToDatabase();
 
     const seekerOrError = await requireAuthenticatedSeeker(request);

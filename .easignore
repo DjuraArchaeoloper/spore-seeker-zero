@@ -135,9 +135,21 @@ temp/**
 .env.*
 **/.env
 **/.env.*
+*.env
+*.env.*
+**/*.env
+**/*.env.*
 
 !.env.example
 !**/.env.example
+!*env.example
+!**/*env.example
+
+# Generated devnet environments and keypairs are local-only.
+scripts/devnet/.generated
+scripts/devnet/.generated/**
+**/scripts/devnet/.generated
+**/scripts/devnet/.generated/**
 
 # --------------------------------------------------
 # Sensitive key material
@@ -154,6 +166,21 @@ temp/**
 # Common local Solana keypair naming patterns
 *-keypair.json
 *keypair*.json
+**/*-keypair.json
+**/*keypair*.json
+**/id.json
+**/*-authority.json
+**/*authority*.json
+**/*-sponsor.json
+**/*sponsor*.json
+**/program-buffer.json
+**/program-clean-buffer.json
+
+# Other local credential dumps sometimes created by wallets / CLIs
+*.secret
+*.secret.*
+**/*.secret
+**/*.secret.*
 
 # --------------------------------------------------
 # Editor / OS junk

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import { getRequiredEnv } from "../env";
+import { assertServerEnvironmentConfiguration, getMongoUri } from "../env";
 
 type CachedConnection = {
   conn: typeof mongoose | null;
@@ -19,11 +19,13 @@ const cached = globalThis.sporeMongoose ?? {
 globalThis.sporeMongoose = cached;
 
 export async function connectToDatabase() {
+  assertServerEnvironmentConfiguration();
+
   if (cached.conn) {
     return cached.conn;
   }
 
-  cached.promise ??= mongoose.connect(getRequiredEnv("MONGODB_URI"), {
+  cached.promise ??= mongoose.connect(getMongoUri(), {
     bufferCommands: false
   });
 

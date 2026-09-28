@@ -1,4 +1,5 @@
 import { connectToDatabase } from "../../../../src/db/mongoose";
+import { rateLimit } from "../../../../src/http/rateLimit";
 import { jsonOk } from "../../../../src/http/responses";
 import {
   handleSporeRouteError,
@@ -21,6 +22,16 @@ export async function POST(request: Request) {
   let secret: Uint8Array | null = null;
 
   try {
+    const limited = rateLimit(request, {
+      keyPrefix: "spore:release",
+      limit: 20,
+      windowMs: 60_000
+    });
+
+    if (limited) {
+      return limited;
+    }
+
     await connectToDatabase();
 
     const seekerOrError = await requireAuthenticatedSeeker(request);

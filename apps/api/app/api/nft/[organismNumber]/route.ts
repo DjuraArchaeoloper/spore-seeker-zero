@@ -1,4 +1,5 @@
 import { connectToDatabase } from "../../../../src/db/mongoose";
+import { getCanonicalPublicApiUrl } from "../../../../src/env";
 import { jsonError } from "../../../../src/http/responses";
 import { OrganismIndexModel } from "../../../../src/models/OrganismIndex";
 import { publicOrganismFilter } from "../../../../src/organisms/responses";
@@ -17,7 +18,7 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(request: Request, context: RouteContext) {
+export async function GET(_request: Request, context: RouteContext) {
   try {
     const { organismNumber } = await context.params;
     const normalizedNumber = normalizeOrganismNumber(organismNumber);
@@ -37,7 +38,7 @@ export async function GET(request: Request, context: RouteContext) {
       return jsonError(404, "not_found", "Organism not found.");
     }
 
-    const origin = new URL(request.url).origin;
+    const origin = getCanonicalPublicApiUrl();
     const paddedNumber = organism.organismNumber.padStart(6, "0");
     const image = `${origin}/api/nft/${organism.organismNumber}/image`;
 

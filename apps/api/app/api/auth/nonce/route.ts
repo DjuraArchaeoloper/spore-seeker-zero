@@ -2,14 +2,25 @@ import crypto from "crypto";
 
 import { connectToDatabase } from "../../../../src/db/mongoose";
 import { authConfig } from "../../../../src/env";
+import { rateLimit } from "../../../../src/http/rateLimit";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { AuthNonceModel } from "../../../../src/models/AuthNonce";
 import { createSiwsPayload } from "../../../../src/auth/siws";
 
 export const runtime = "nodejs";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const limited = rateLimit(request, {
+      keyPrefix: "auth:nonce",
+      limit: 20,
+      windowMs: 60_000
+    });
+
+    if (limited) {
+      return limited;
+    }
+
     await connectToDatabase();
 
     const now = new Date();

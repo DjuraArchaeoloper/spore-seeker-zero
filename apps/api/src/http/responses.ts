@@ -2,6 +2,7 @@ type ErrorCode =
   | "bad_request"
   | "authentication_failed"
   | "unauthorized"
+  | "rate_limited"
   | "not_seeker"
   | "not_found"
   | "indexing_deferred"

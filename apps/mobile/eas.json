@@ -7,12 +7,15 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "env": {
+        "EXPO_PUBLIC_SPORE_ENV": "devnet",
         "EXPO_PUBLIC_SPORE_API_URL": "https://spore-devnet-api.vercel.app",
         "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
         "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "devnet",
         "EXPO_PUBLIC_SPORE_RPC_URL": "https://api.devnet.solana.com",
         "EXPO_PUBLIC_SPORE_PROGRAM_ID": "9HvZ7ckadQt38R1KxYPhP759yCCx4MRF8NBquV4HUUXZ",
+        "EXPO_PUBLIC_SPORE_REPRODUCTION_MODE": "server",
         "EXPO_PUBLIC_SPORE_DEVNET_GENESIS_ENABLED": "true",
         "EXPO_PUBLIC_SPORE_DEVNET_GENESIS_WALLET": "5aGaP8JaquRsyB3EKCaCJimPvUFnv634j8QfLJPkxemG"
       }
@@ -22,7 +25,9 @@
       "android": {
         "buildType": "apk"
       },
+      "environment": "preview",
       "env": {
+        "EXPO_PUBLIC_SPORE_ENV": "devnet",
         "EXPO_PUBLIC_SPORE_API_URL": "https://spore-seeker-zero-api-git-new-server-rewrite-djuras-projects.vercel.app",
         "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
         "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "devnet",
@@ -37,10 +42,24 @@
       "android": {
         "buildType": "apk"
       },
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_SPORE_ENV": "mainnet",
+        "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
+        "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "mainnet",
+        "EXPO_PUBLIC_SPORE_REPRODUCTION_MODE": "server"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_SPORE_ENV": "mainnet",
+        "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
+        "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "mainnet",
+        "EXPO_PUBLIC_SPORE_REPRODUCTION_MODE": "server"
+      }
     }
   },
   "submit": {

@@ -752,12 +752,20 @@ function renderApiPublicEnv(input) {
   return [
     "# DEVNET-ONLY API environment. Use a fresh devnet Mongo database.",
     `# Fresh devnet Mongo database name: ${input.mongodbDbName}`,
+    "SPORE_ENV=devnet",
     `MONGODB_URI=${input.mongodbUri}`,
     `HELIUS_API_KEY=${input.heliusApiKey}`,
     `SIWS_DOMAIN=${input.siwsDomain}`,
     `SIWS_URI=${input.apiUrl}`,
     `SPORE_PROGRAM_ID=${input.programId}`,
     "SPORE_SOLANA_CLUSTER=devnet",
+    "SPORE_REPRODUCTION_MODE=server",
+    "SPORE_TREASURY=<DEVNET_TREASURY_PUBLIC_KEY>",
+    "SPORE_BIRTH_FEE_LAMPORTS=<DEVNET_BIRTH_FEE_LAMPORTS>",
+    `SPORE_METADATA_BASE_URI=${input.apiUrl}`,
+    "SPORE_SERVER_AUTHORITY_SECRET=<DEVNET_SERVER_AUTHORITY_JSON_SECRET_KEY>",
+    "SPORE_ASSET_DERIVATION_SECRET=<DEVNET_ASSET_DERIVATION_SECRET>",
+    "SPORE_VERBOSE_SOLANA_DIAGNOSTICS=false",
     `HELIUS_WEBHOOK_AUTH=${input.webhookAuth}`,
     "SPORE_DEVNET_TEST_SGT_BOOTSTRAP_ENABLED=true",
     `SPORE_DEVNET_APPROVED_PROGRAM_ID=${input.programId}`,
@@ -788,9 +796,11 @@ function renderApiSecretsEnv(keypairs) {
 function renderMobileEnv(input) {
   return [
     "# DEVNET-ONLY mobile environment.",
+    "EXPO_PUBLIC_SPORE_ENV=devnet",
     `EXPO_PUBLIC_SPORE_API_URL=${input.apiUrl}`,
     "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW=false",
     "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER=devnet",
+    "EXPO_PUBLIC_SPORE_REPRODUCTION_MODE=server",
     `EXPO_PUBLIC_SPORE_RPC_URL=${input.rpcUrl}`,
     `EXPO_PUBLIC_SPORE_PROGRAM_ID=${input.programId}`,
     ""

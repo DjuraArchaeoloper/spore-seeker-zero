@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "build:spore-core-wasm": "npm run build -w @spore/core-wasm",
-    "bootstrap:seeker-zero": "npx --yes tsx scripts/bootstrap-seeker-zero.ts"
+    "bootstrap:seeker-zero": "npx --yes tsx scripts/bootstrap-seeker-zero.ts",
+    "prepare:indexes": "npx --yes tsx scripts/prepare-indexes.ts"
   },
   "dependencies": {
     "@metaplex-foundation/mpl-core": "^1.7.0",

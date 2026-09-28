@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import { Keypair } from "@solana/web3.js";
 
+import { getSporeEnv } from "../env";
 import { SporeDomainError } from "./errors";
 
 function getOptionalEnv(name: string) {
@@ -28,13 +29,31 @@ export function getSporeServerAuthorityKeypair(): Keypair {
 
 /**
  * HMAC key used to derive deterministic Core asset signers per settlement attempt.
- * Defaults to the server authority secret when SPORE_ASSET_DERIVATION_SECRET is unset.
+ * Mainnet requires a dedicated secret distinct from the server authority secret.
+ * Devnet keeps the legacy fallback so existing disposable environments continue to run.
  */
 export function getSporeAssetDerivationSecret(): string {
   const dedicated = getOptionalEnv("SPORE_ASSET_DERIVATION_SECRET");
+  const env = getSporeEnv();
 
   if (dedicated) {
+    const authority = getOptionalEnv("SPORE_SERVER_AUTHORITY_SECRET");
+
+    if (env === "mainnet" && dedicated === authority) {
+      throw new SporeDomainError(
+        "server_misconfigured",
+        "SPORE_ASSET_DERIVATION_SECRET must differ from SPORE_SERVER_AUTHORITY_SECRET."
+      );
+    }
+
     return dedicated;
+  }
+
+  if (env === "mainnet") {
+    throw new SporeDomainError(
+      "server_misconfigured",
+      "SPORE_ASSET_DERIVATION_SECRET is required in mainnet."
+    );
   }
 
   const authority = getOptionalEnv("SPORE_SERVER_AUTHORITY_SECRET");

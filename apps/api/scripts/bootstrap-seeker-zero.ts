@@ -2,6 +2,8 @@
  * One-time Seeker Zero bootstrap (server-era).
  *
  * Usage (from apps/api, with env loaded):
+ *   SPORE_ENV=mainnet \
+ *   SPORE_SOLANA_CLUSTER=mainnet \
  *   SPORE_BOOTSTRAP_SEEKER_ZERO=true \
  *   SPORE_BOOTSTRAP_SEEKER_ZERO_SGT=... \
  *   SPORE_BOOTSTRAP_SEEKER_ZERO_WALLET=... \
@@ -14,6 +16,7 @@
  * Not exposed as a public HTTP route. Impossible to mint arbitrary organisms.
  */
 
+import { assertServerEnvironmentConfiguration } from "../src/env";
 import { bootstrapSeekerZero } from "../src/spore/bootstrapSeekerZero";
 import { SporeDomainError } from "../src/spore/errors";
 
@@ -31,6 +34,8 @@ async function main() {
       "Refusing to run: set SPORE_BOOTSTRAP_SEEKER_ZERO=true explicitly."
     );
   }
+
+  assertServerEnvironmentConfiguration();
 
   const result = await bootstrapSeekerZero({
     seekerZeroSgtMint: requireEnv("SPORE_BOOTSTRAP_SEEKER_ZERO_SGT"),

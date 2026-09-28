@@ -1,5 +1,5 @@
 /**
- * Static Solana env checks only — never call Helius/Solana from boot.
+ * Static SPØR env checks only; never call Helius/Solana from boot.
  * Live cluster/genesis verification runs lazily in getVerifiedSolanaConnection().
  */
 export async function register() {
