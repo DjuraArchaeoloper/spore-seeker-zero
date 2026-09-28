@@ -22,6 +22,7 @@ type ErrorCode =
   | "settlement_not_ready"
   | "settlement_simulation_failed"
   | "finalization_conflict"
+  | "migration_maintenance"
   | "species_not_ready";
 
 export type { ErrorCode };
