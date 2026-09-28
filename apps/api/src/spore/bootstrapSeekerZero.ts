@@ -539,11 +539,11 @@ async function waitForRootUpdateAuthorityNone(
   assetAddress: string,
 ): Promise<AssetV1> {
   for (let attempt = 0; attempt < CORE_ACCOUNT_POLL_ATTEMPTS; attempt += 1) {
-    const asset = await fetchAsset(umi, umiPublicKey(assetAddress), {
+    const asset = await safeFetchAssetV1(umi, umiPublicKey(assetAddress), {
       commitment: "confirmed",
     });
 
-    if (isRootUpdateAuthorityNone(asset)) {
+    if (asset && isRootUpdateAuthorityNone(asset)) {
       return asset;
     }
 
