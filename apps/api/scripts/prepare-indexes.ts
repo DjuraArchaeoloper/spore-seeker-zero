@@ -1,3 +1,4 @@
+import type { Document } from "mongodb";
 import mongoose from "mongoose";
 
 import { connectToDatabase } from "../src/db/mongoose";
@@ -18,7 +19,7 @@ type IndexDescription = {
   unique?: boolean;
   sparse?: boolean;
   expireAfterSeconds?: number;
-  partialFilterExpression?: unknown;
+  partialFilterExpression?: Document;
 };
 
 type CriticalIndex = {
@@ -29,7 +30,7 @@ type CriticalIndex = {
     unique?: boolean;
     sparse?: boolean;
     expireAfterSeconds?: number;
-    partialFilterExpression?: unknown;
+    partialFilterExpression?: Document;
   };
 };
 
