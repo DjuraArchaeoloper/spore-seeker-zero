@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 const fs = require("node:fs");
-const crypto = require("node:crypto");
 const os = require("node:os");
 const path = require("node:path");
 const {
@@ -10,7 +9,6 @@ const {
   PublicKey,
   SystemProgram,
   Transaction,
-  TransactionInstruction,
   sendAndConfirmTransaction
 } = require("@solana/web3.js");
 const {
@@ -37,17 +35,13 @@ const {
   unpackMint
 } = require("@solana/spl-token");
 
+const PERMANENT_PROGRAM_ID = "Bo5SBbmJiGW7xFiHun5rikfqdbUagSXdQQJN4d7PpGPw";
 const DEVNET_GENESIS_HASH = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
 const DEFAULT_RPC_URL = "https://api.devnet.solana.com";
 const DEFAULT_OUT_DIR = "scripts/devnet/.generated/fresh-devnet";
-const DEFAULT_MONGODB_DB_NAME = "spor_devnet_fresh";
+const DEFAULT_MONGODB_DB_NAME = "spor_devnet";
 const DEFAULT_TESTER_FUNDING_TARGET_LAMPORTS = 100_000_000;
 const DEFAULT_TEST_SGT_GROUP_MAX_SIZE = 1_000_000n;
-const CORE_PROGRAM_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
-const SPECIES_ACCOUNT_SIZE = 229;
-const SEEKER_ZERO_ORGANISM_NUMBER = 0n;
-const U64_MAX = (1n << 64n) - 1n;
-const MAX_METADATA_BASE_URI_LENGTH = 96;
 const CONFIRM_OPTIONS = {
   commitment: "confirmed",
   preflightCommitment: "confirmed",
@@ -71,20 +65,11 @@ async function main() {
     case "show-env":
       showEnv(args);
       break;
-    case "apply-program-id":
-      applyProgramId(args);
-      break;
     case "create-test-sgt-group":
       await createTestSgtGroup(args);
       break;
     case "create-test-sgt":
       await createTestSgt(args);
-      break;
-    case "initialize-species":
-      await initializeSpecies(args);
-      break;
-    case "initialize-seeker-zero":
-      await initializeSeekerZero(args);
       break;
     case "help":
     case "--help":
@@ -99,89 +84,103 @@ async function main() {
 
 function generateFreshDevnet(args) {
   const outDir = resolveOutputDir(args.outDir ?? DEFAULT_OUT_DIR);
+  const manifestPath = path.join(outDir, "manifest.json");
+  const existingManifest = tryLoadManifest(manifestPath);
+  const programId = normalizeProgramId(args.programId ?? PERMANENT_PROGRAM_ID, "--program-id");
   const rpcUrl = args.rpcUrl ?? DEFAULT_RPC_URL;
   const apiUrl = args.apiUrl ?? "<DEVNET_API_URL>";
   const mongodbDbName = args.mongodbDbName ?? DEFAULT_MONGODB_DB_NAME;
   const mongodbUri = args.mongodbUri ?? renderMongoPlaceholderUri(mongodbDbName);
   const heliusApiKey = args.heliusApiKey ?? "<DEVNET_HELIUS_API_KEY>";
   const siwsDomain = args.siwsDomain ?? "<DEVNET_SIWS_DOMAIN>";
-  const webhookAuth = args.webhookAuth ?? randomSecretHex();
   const testerFundingTargetLamports = args.testerFundingTargetLamports ?? String(DEFAULT_TESTER_FUNDING_TARGET_LAMPORTS);
+
+  if (existingManifest) {
+    assertExistingManifestMatches(existingManifest, {
+      programId,
+      rpcUrl: args.rpcUrl,
+      mongodbDbName: args.mongodbDbName,
+      mongodbUri: args.mongodbUri,
+      serverAuthorityKeypair: args.serverAuthorityKeypair,
+      sponsorKeypair: args.sponsorKeypair,
+      testSgtMintAuthorityKeypair: args.testSgtMintAuthorityKeypair,
+      testSgtGroupMintKeypair: args.testSgtGroupMintKeypair
+    });
+    printGenerationSummary(existingManifest, slashPath(manifestPath), {
+      reused: true
+    });
+    return;
+  }
+
+  const requiredSecrets = loadRequiredGenerateSecrets();
+  const serverAuthorityKeypair = loadRequiredKeypair(args.serverAuthorityKeypair, "--server-authority-keypair");
 
   ensureFreshOutputDirectory(outDir);
 
-  const keypairs = {
-    program: Keypair.generate(),
-    speciesAuthority: Keypair.generate(),
-    testSgtMintAuthority: Keypair.generate(),
-    sponsor: Keypair.generate(),
-    testSgtGroupMint: Keypair.generate()
-  };
   const keypairDir = path.join(outDir, "keypairs");
-  const files = {
-    program: path.join(keypairDir, "spore-program-keypair.json"),
-    speciesAuthority: path.join(keypairDir, "species-authority.json"),
-    testSgtMintAuthority: path.join(keypairDir, "test-sgt-mint-authority.json"),
-    sponsor: path.join(keypairDir, "devnet-sponsor.json"),
-    testSgtGroupMint: path.join(keypairDir, "test-sgt-group-mint.json")
+  const testSgtMintAuthorityKeypair = loadOrGenerateKeypair(
+    args.testSgtMintAuthorityKeypair,
+    path.join(keypairDir, "test-sgt-mint-authority.json")
+  );
+  const sponsorKeypair = loadOrGenerateKeypair(
+    args.sponsorKeypair,
+    path.join(keypairDir, "devnet-sponsor.json")
+  );
+  const testSgtGroupMintKeypair = loadOrGenerateKeypair(
+    args.testSgtGroupMintKeypair,
+    path.join(keypairDir, "test-sgt-group-mint.json")
+  );
+  const keypairs = {
+    serverAuthority: serverAuthorityKeypair.keypair,
+    testSgtMintAuthority: testSgtMintAuthorityKeypair.keypair,
+    sponsor: sponsorKeypair.keypair,
+    testSgtGroupMint: testSgtGroupMintKeypair.keypair
   };
-
-  fs.mkdirSync(keypairDir, { recursive: true });
-
-  for (const [name, keypair] of Object.entries(keypairs)) {
-    writeKeypair(files[name], keypair);
-  }
-
-  const programId = keypairs.program.publicKey.toBase58();
-  const speciesAuthority = keypairs.speciesAuthority.publicKey.toBase58();
+  const serverAuthority = keypairs.serverAuthority.publicKey.toBase58();
   const testSgtMintAuthority = keypairs.testSgtMintAuthority.publicKey.toBase58();
   const sponsor = keypairs.sponsor.publicKey.toBase58();
   const testSgtGroupMint = keypairs.testSgtGroupMint.publicKey.toBase58();
   const manifest = {
-    version: 1,
+    version: 2,
     cluster: "devnet",
     rpcUrl,
+    apiUrl,
     devnetGenesisHash: DEVNET_GENESIS_HASH,
     generatedAt: new Date().toISOString(),
     program: {
-      publicKey: programId,
-      keypairPath: slashPath(files.program)
+      publicKey: programId
     },
-    speciesAuthority: {
-      publicKey: speciesAuthority,
-      keypairPath: slashPath(files.speciesAuthority)
+    serverAuthority: {
+      publicKey: serverAuthority,
+      keypairPath: slashPath(serverAuthorityKeypair.path)
     },
     testSgt: {
       mintAuthority: testSgtMintAuthority,
-      mintAuthorityKeypairPath: slashPath(files.testSgtMintAuthority),
+      mintAuthorityKeypairPath: slashPath(testSgtMintAuthorityKeypair.path),
       metadataAddress: testSgtGroupMint,
       groupAddress: testSgtGroupMint,
       groupMint: testSgtGroupMint,
-      groupMintKeypairPath: slashPath(files.testSgtGroupMint),
+      groupMintKeypairPath: slashPath(testSgtGroupMintKeypair.path),
       groupMintAuthority: sponsor,
       groupUpdateAuthority: sponsor,
       groupMaxSize: DEFAULT_TEST_SGT_GROUP_MAX_SIZE.toString()
     },
     sponsor: {
       publicKey: sponsor,
-      keypairPath: slashPath(files.sponsor)
+      keypairPath: slashPath(sponsorKeypair.path)
     },
     mongo: {
       uri: mongodbUri,
       databaseName: mongodbDbName
     },
     envFiles: {
-      anchor: slashPath(path.join(outDir, "anchor.devnet.env")),
       apiPublic: slashPath(path.join(outDir, "api.devnet.env")),
       apiSecrets: slashPath(path.join(outDir, "api.devnet.secrets.env")),
       mobile: slashPath(path.join(outDir, "mobile.devnet.env"))
     }
   };
 
-  const manifestPath = path.join(outDir, "manifest.json");
-
   writeFileExclusive(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 0o600);
-  writeFileExclusive(path.join(outDir, "anchor.devnet.env"), renderAnchorEnv(manifest), 0o600);
   writeFileExclusive(
     path.join(outDir, "api.devnet.env"),
     renderApiPublicEnv({
@@ -192,7 +191,6 @@ function generateFreshDevnet(args) {
       mongodbDbName,
       heliusApiKey,
       siwsDomain,
-      webhookAuth,
       testSgtMintAuthority,
       testSgtGroupMint,
       sponsor,
@@ -202,7 +200,7 @@ function generateFreshDevnet(args) {
   );
   writeFileExclusive(
     path.join(outDir, "api.devnet.secrets.env"),
-    renderApiSecretsEnv(keypairs),
+    renderApiSecretsEnv(keypairs, requiredSecrets),
     0o600
   );
   writeFileExclusive(
@@ -224,22 +222,9 @@ function showEnv(args) {
 
   console.log(renderPublicSummary(manifest));
   console.log("");
-  console.log(`Anchor env: ${manifest.envFiles.anchor}`);
   console.log(`API public env: ${manifest.envFiles.apiPublic}`);
   console.log(`API secret env: ${manifest.envFiles.apiSecrets}`);
   console.log(`Mobile env: ${manifest.envFiles.mobile}`);
-}
-
-function applyProgramId(args) {
-  const manifest = loadManifest(args.manifest);
-  const programId = manifest.program.publicKey;
-
-  updateAnchorToml(programId);
-  updateMobileEasDevnetProgramId(programId);
-
-  console.log(`Updated Anchor.toml [programs.devnet] to ${programId}.`);
-  console.log("Updated apps/mobile/eas.json development/preview devnet Program ID only.");
-  console.log("Rust devnet declare_id is supplied at build time by SPORE_DEVNET_PROGRAM_ID when devnet-test-sgt is enabled.");
 }
 
 async function createTestSgtGroup(args) {
@@ -471,283 +456,6 @@ async function createTestSgt(args) {
   );
 }
 
-async function initializeSpecies(args) {
-  const manifest = loadManifest(args.manifest);
-  const treasury = requiredPublicKey(args.treasury, "--treasury");
-  const birthFeeLamports = requiredU64(args.birthFeeLamports, "--birth-fee-lamports");
-  const metadataBaseUri = requiredMetadataBaseUri(args.metadataBaseUri);
-  const rpcUrl = args.rpcUrl ?? manifest.rpcUrl ?? DEFAULT_RPC_URL;
-  const connection = new Connection(rpcUrl, "confirmed");
-  await assertDevnet(connection, "initialize Species");
-
-  const programId = manifestPublicKey(manifest.program?.publicKey, "program.publicKey");
-  const authority = loadKeypair(resolveMaybeRelative(requiredManifestString(
-    manifest.speciesAuthority?.keypairPath,
-    "speciesAuthority.keypairPath"
-  )));
-  const expectedAuthority = manifestPublicKey(
-    manifest.speciesAuthority?.publicKey,
-    "speciesAuthority.publicKey"
-  );
-
-  if (!authority.publicKey.equals(expectedAuthority)) {
-    throw new Error("Species authority keypair does not match manifest.");
-  }
-
-  const [speciesPda] = PublicKey.findProgramAddressSync([Buffer.from("species")], programId);
-  const existingSpecies = await connection.getAccountInfo(speciesPda, "confirmed");
-
-  if (existingSpecies) {
-    throw new Error(`Refusing to initialize Species: Species PDA is already initialized (${speciesPda.toBase58()}).`);
-  }
-
-  const transaction = new Transaction().add(
-    new TransactionInstruction({
-      programId,
-      keys: [
-        {
-          pubkey: speciesPda,
-          isSigner: false,
-          isWritable: true
-        },
-        {
-          pubkey: authority.publicKey,
-          isSigner: true,
-          isWritable: true
-        },
-        {
-          pubkey: SystemProgram.programId,
-          isSigner: false,
-          isWritable: false
-        }
-      ],
-      data: encodeInitializeSpeciesInstruction({
-        treasury,
-        birthFeeLamports,
-        metadataBaseUri
-      })
-    })
-  );
-  const signature = await sendAndConfirmTransaction(
-    connection,
-    transaction,
-    [authority],
-    CONFIRM_OPTIONS
-  );
-
-  console.log(
-    JSON.stringify(
-      {
-        speciesPda: speciesPda.toBase58(),
-        signature
-      },
-      null,
-      2
-    )
-  );
-}
-
-async function initializeSeekerZero(args) {
-  const manifest = loadManifest(args.manifest);
-  const sgtMint = requiredPublicKey(args.sgtMint, "--sgt-mint");
-  const rpcUrl = args.rpcUrl ?? manifest.rpcUrl ?? DEFAULT_RPC_URL;
-  const connection = new Connection(rpcUrl, "confirmed");
-  await assertDevnet(connection, "initialize Seeker Zero");
-
-  const programId = manifestPublicKey(manifest.program?.publicKey, "program.publicKey");
-  const authority = loadKeypair(resolveMaybeRelative(requiredManifestString(
-    manifest.speciesAuthority?.keypairPath,
-    "speciesAuthority.keypairPath"
-  )));
-  const expectedAuthority = manifestPublicKey(
-    manifest.speciesAuthority?.publicKey,
-    "speciesAuthority.publicKey"
-  );
-
-  if (!authority.publicKey.equals(expectedAuthority)) {
-    throw new Error("Species authority keypair does not match manifest.");
-  }
-
-  const testSgtMintAuthority = manifestPublicKey(
-    manifest.testSgt?.mintAuthority,
-    "testSgt.mintAuthority"
-  );
-  const testSgtMetadataAddress = manifestPublicKey(
-    manifest.testSgt?.metadataAddress,
-    "testSgt.metadataAddress"
-  );
-  const testSgtGroupAddress = manifestPublicKey(
-    manifest.testSgt?.groupAddress,
-    "testSgt.groupAddress"
-  );
-  const [speciesPda] = PublicKey.findProgramAddressSync([Buffer.from("species")], programId);
-  const [seekerZeroPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("organism"), sgtMint.toBuffer()],
-    programId
-  );
-  const [coreAssetPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("core_asset"), sgtMint.toBuffer()],
-    programId
-  );
-  const speciesInfo = await connection.getAccountInfo(speciesPda, "confirmed");
-
-  if (!speciesInfo) {
-    throw new Error(`Species PDA is not initialized: ${speciesPda.toBase58()}.`);
-  }
-
-  const species = decodeSpeciesAccount(speciesPda, speciesInfo, programId);
-
-  if (!species.authority.equals(authority.publicKey)) {
-    throw new Error("On-chain Species authority does not match the fresh manifest authority.");
-  }
-  if (
-    species.seekerZeroOrganism ||
-    species.nextOrganismNumber !== SEEKER_ZERO_ORGANISM_NUMBER ||
-    species.totalOrganisms !== 0n
-  ) {
-    throw new Error("Refusing to initialize Seeker Zero: Species already has genesis state.");
-  }
-
-  const existingSeekerZero = await connection.getAccountInfo(seekerZeroPda, "confirmed");
-
-  if (existingSeekerZero) {
-    throw new Error(`Refusing to initialize Seeker Zero: organism PDA already exists (${seekerZeroPda.toBase58()}).`);
-  }
-
-  const existingCoreAsset = await connection.getAccountInfo(coreAssetPda, "confirmed");
-
-  if (existingCoreAsset?.data.length > 0) {
-    throw new Error(`Refusing to initialize Seeker Zero: Core Asset PDA already has data (${coreAssetPda.toBase58()}).`);
-  }
-
-  const sgtTokenAccount = await findAuthorityOwnedToken2022Account(
-    connection,
-    authority.publicKey,
-    sgtMint
-  );
-  await verifyCreatedTestSgt(connection, {
-    mintAddress: sgtMint,
-    owner: authority.publicKey,
-    ownerTokenAccount: sgtTokenAccount,
-    mintAuthority: testSgtMintAuthority,
-    metadataAddress: testSgtMetadataAddress,
-    groupAddress: testSgtGroupAddress
-  });
-
-  const transaction = new Transaction().add(
-    new TransactionInstruction({
-      programId,
-      keys: [
-        {
-          pubkey: authority.publicKey,
-          isSigner: true,
-          isWritable: true
-        },
-        {
-          pubkey: speciesPda,
-          isSigner: false,
-          isWritable: true
-        },
-        {
-          pubkey: sgtMint,
-          isSigner: false,
-          isWritable: false
-        },
-        {
-          pubkey: sgtTokenAccount,
-          isSigner: false,
-          isWritable: false
-        },
-        {
-          pubkey: seekerZeroPda,
-          isSigner: false,
-          isWritable: true
-        },
-        {
-          pubkey: coreAssetPda,
-          isSigner: false,
-          isWritable: true
-        },
-        {
-          pubkey: CORE_PROGRAM_ID,
-          isSigner: false,
-          isWritable: false
-        },
-        {
-          pubkey: SystemProgram.programId,
-          isSigner: false,
-          isWritable: false
-        }
-      ],
-      data: instructionDiscriminator("initialize_seeker_zero")
-    })
-  );
-  const signature = await sendAndConfirmTransaction(
-    connection,
-    transaction,
-    [authority],
-    CONFIRM_OPTIONS
-  );
-
-  console.log(
-    JSON.stringify(
-      {
-        seekerZeroOrganismPda: seekerZeroPda.toBase58(),
-        organismNumber: 0,
-        coreAsset: coreAssetPda.toBase58(),
-        signature
-      },
-      null,
-      2
-    )
-  );
-}
-
-function updateAnchorToml(programId) {
-  const filePath = "Anchor.toml";
-  const content = fs.readFileSync(filePath, "utf8");
-  const next = content.replace(
-    /(\[programs\.devnet\]\s*spore\s*=\s*")[^"]+(")/m,
-    `$1${programId}$2`
-  );
-
-  if (next === content) {
-    throw new Error("Unable to locate [programs.devnet] spore entry in Anchor.toml.");
-  }
-
-  fs.writeFileSync(filePath, next);
-}
-
-function updateMobileEasDevnetProgramId(programId) {
-  const filePath = "apps/mobile/eas.json";
-  const eas = JSON.parse(fs.readFileSync(filePath, "utf8"));
-
-  for (const profileName of ["development", "preview"]) {
-    const profile = eas.build?.[profileName];
-
-    if (!profile?.env || profile.env.EXPO_PUBLIC_SPORE_SOLANA_CLUSTER !== "devnet") {
-      throw new Error(`Unable to locate devnet mobile build profile: ${profileName}`);
-    }
-
-    profile.env.EXPO_PUBLIC_SPORE_PROGRAM_ID = programId;
-  }
-
-  fs.writeFileSync(filePath, `${JSON.stringify(eas, null, 2)}\n`);
-}
-
-function renderAnchorEnv(manifest) {
-  return [
-    "# Source this for a devnet Anchor build with --features devnet-test-sgt.",
-    `SPORE_DEVNET_PROGRAM_ID=${manifest.program.publicKey}`,
-    `SPORE_DEVNET_TEST_SGT_MINT_AUTHORITY=${manifest.testSgt.mintAuthority}`,
-    `SPORE_DEVNET_TEST_SGT_METADATA_ADDRESS=${manifest.testSgt.metadataAddress}`,
-    `SPORE_DEVNET_TEST_SGT_GROUP_ADDRESS=${manifest.testSgt.groupAddress}`,
-    `ANCHOR_PROVIDER_URL=${manifest.rpcUrl}`,
-    `ANCHOR_WALLET=${manifest.speciesAuthority.keypairPath}`,
-    ""
-  ].join("\n");
-}
-
 function renderApiPublicEnv(input) {
   return [
     "# DEVNET-ONLY API environment. Use a fresh devnet Mongo database.",
@@ -763,10 +471,10 @@ function renderApiPublicEnv(input) {
     "SPORE_TREASURY=<DEVNET_TREASURY_PUBLIC_KEY>",
     "SPORE_BIRTH_FEE_LAMPORTS=<DEVNET_BIRTH_FEE_LAMPORTS>",
     `SPORE_METADATA_BASE_URI=${input.apiUrl}`,
-    "SPORE_SERVER_AUTHORITY_SECRET=<DEVNET_SERVER_AUTHORITY_JSON_SECRET_KEY>",
-    "SPORE_ASSET_DERIVATION_SECRET=<DEVNET_ASSET_DERIVATION_SECRET>",
+    "SPORE_SERVER_AUTHORITY_SECRET=<copy from api.devnet.secrets.env>",
+    "SPORE_ASSET_DERIVATION_SECRET=<copy from api.devnet.secrets.env>",
     "SPORE_VERBOSE_SOLANA_DIAGNOSTICS=false",
-    `HELIUS_WEBHOOK_AUTH=${input.webhookAuth}`,
+    "HELIUS_WEBHOOK_AUTH=<copy from api.devnet.secrets.env>",
     "SPORE_DEVNET_TEST_SGT_BOOTSTRAP_ENABLED=true",
     `SPORE_DEVNET_APPROVED_PROGRAM_ID=${input.programId}`,
     `SPORE_DEVNET_TEST_SGT_MINT_AUTHORITY=${input.testSgtMintAuthority}`,
@@ -784,9 +492,12 @@ function renderMongoPlaceholderUri(databaseName) {
   return `mongodb+srv://<DEVNET_MONGODB_USER>:<DEVNET_MONGODB_PASSWORD>@<DEVNET_MONGODB_CLUSTER>/${databaseName}?retryWrites=true&w=majority`;
 }
 
-function renderApiSecretsEnv(keypairs) {
+function renderApiSecretsEnv(keypairs, secrets) {
   return [
     "# DEVNET-ONLY API secrets. Never copy these to mainnet or mobile.",
+    `SPORE_SERVER_AUTHORITY_SECRET=${secretToJson(keypairs.serverAuthority)}`,
+    `SPORE_ASSET_DERIVATION_SECRET=${secrets.assetDerivationSecret}`,
+    `HELIUS_WEBHOOK_AUTH=${secrets.webhookAuth}`,
     `SPORE_DEVNET_TEST_SGT_MINT_AUTHORITY_SECRET=${secretToBase64(keypairs.testSgtMintAuthority)}`,
     `SPORE_DEVNET_SPONSOR_SECRET=${secretToBase64(keypairs.sponsor)}`,
     ""
@@ -812,28 +523,45 @@ function renderGeneratedReadme(manifest, manifestPath) {
     "# Fresh SPORE Devnet Output",
     "",
     "This directory is generated locally and must remain gitignored.",
+    "It is for server-mode devnet Test SGT fixtures only; it does not deploy or initialize the SPORE Anchor program.",
     "",
     renderPublicSummary(manifest),
+    "",
+    "Required environment variables for generate:",
+    "",
+    "- SPORE_ASSET_DERIVATION_SECRET",
+    "- HELIUS_WEBHOOK_AUTH",
+    "",
+    "api.devnet.secrets.env derives SPORE_SERVER_AUTHORITY_SECRET from the configured server authority keypair file.",
+    "It stores the two required secret environment values without printing them to stdout.",
+    "",
+    "Command behavior:",
+    "",
+    "- generate: LOCAL ONLY; writes generated files/keypairs and sends no Solana transactions.",
+    "- show-env: LOCAL ONLY; reads the manifest and prints public file paths.",
+    "- create-test-sgt-group: submits Solana devnet transactions paid by the sponsor wallet.",
+    "- create-test-sgt: submits Solana devnet transactions paid by the sponsor wallet.",
     "",
     "Manual sequence:",
     "",
     "1. Fund the sponsor wallet on Solana devnet.",
     `2. Create the Test SGT group: node scripts/devnet/fresh-devnet-setup.cjs create-test-sgt-group --manifest ${manifestPath}`,
-    `3. Apply local devnet Program ID config: node scripts/devnet/fresh-devnet-setup.cjs apply-program-id --manifest ${manifestPath}`,
-    "4. Build/deploy the Anchor program with the env values in anchor.devnet.env and feature devnet-test-sgt.",
-    "5. Configure the devnet API from api.devnet.env plus api.devnet.secrets.env.",
-    "6. Configure the devnet mobile build from mobile.devnet.env.",
-    "7. Initialize Species and Seeker Zero in a later prompt only.",
+    "3. Configure the devnet API from api.devnet.env plus api.devnet.secrets.env.",
+    "4. Configure the devnet mobile build from mobile.devnet.env.",
+    "5. Use create-test-sgt manually only when a devnet wallet needs a fixture SGT.",
     ""
   ].join("\n");
 }
 
-function printGenerationSummary(manifest, manifestPath) {
+function printGenerationSummary(manifest, manifestPath, options = {}) {
   console.log(renderPublicSummary(manifest));
   console.log("");
-  console.log("Generated local files:");
+  if (options.reused) {
+    console.log("Existing manifest found; no files were overwritten.");
+    console.log("");
+  }
+  console.log("Local files:");
   console.log(`- Manifest: ${manifestPath}`);
-  console.log(`- Anchor env: ${manifest.envFiles.anchor}`);
   console.log(`- API public env: ${manifest.envFiles.apiPublic}`);
   console.log(`- API secret env: ${manifest.envFiles.apiSecrets}`);
   console.log(`- Mobile env: ${manifest.envFiles.mobile}`);
@@ -845,7 +573,7 @@ function renderPublicSummary(manifest) {
   return [
     "Fresh devnet public values:",
     `- Program ID: ${manifest.program.publicKey}`,
-    `- Species authority: ${manifest.speciesAuthority.publicKey}`,
+    `- Server authority: ${manifest.serverAuthority.publicKey}`,
     `- Sponsor wallet: ${manifest.sponsor.publicKey}`,
     `- Test SGT mint authority: ${manifest.testSgt.mintAuthority}`,
     `- Test SGT group/address: ${manifest.testSgt.groupAddress}`,
@@ -864,28 +592,16 @@ function parseArgs(argv) {
         args.outDir = nextOptionValue(argv, index, value);
         index += 1;
         break;
+      case "--program-id":
+        args.programId = nextOptionValue(argv, index, value);
+        index += 1;
+        break;
       case "--manifest":
         args.manifest = nextOptionValue(argv, index, value);
         index += 1;
         break;
       case "--owner":
         args.owner = nextOptionValue(argv, index, value);
-        index += 1;
-        break;
-      case "--sgt-mint":
-        args.sgtMint = nextOptionValue(argv, index, value);
-        index += 1;
-        break;
-      case "--treasury":
-        args.treasury = nextOptionValue(argv, index, value);
-        index += 1;
-        break;
-      case "--birth-fee-lamports":
-        args.birthFeeLamports = nextOptionValue(argv, index, value);
-        index += 1;
-        break;
-      case "--metadata-base-uri":
-        args.metadataBaseUri = nextOptionValue(argv, index, value);
         index += 1;
         break;
       case "--rpc-url":
@@ -912,12 +628,24 @@ function parseArgs(argv) {
         args.siwsDomain = nextOptionValue(argv, index, value);
         index += 1;
         break;
-      case "--webhook-auth":
-        args.webhookAuth = nextOptionValue(argv, index, value);
-        index += 1;
-        break;
       case "--tester-funding-target-lamports":
         args.testerFundingTargetLamports = nextOptionValue(argv, index, value);
+        index += 1;
+        break;
+      case "--server-authority-keypair":
+        args.serverAuthorityKeypair = nextOptionValue(argv, index, value);
+        index += 1;
+        break;
+      case "--sponsor-keypair":
+        args.sponsorKeypair = nextOptionValue(argv, index, value);
+        index += 1;
+        break;
+      case "--test-sgt-mint-authority-keypair":
+        args.testSgtMintAuthorityKeypair = nextOptionValue(argv, index, value);
+        index += 1;
+        break;
+      case "--test-sgt-group-mint-keypair":
+        args.testSgtGroupMintKeypair = nextOptionValue(argv, index, value);
         index += 1;
         break;
       default:
@@ -942,22 +670,23 @@ function printHelp() {
   console.log(`Usage:
   node scripts/devnet/fresh-devnet-setup.cjs generate [options]
   node scripts/devnet/fresh-devnet-setup.cjs show-env --manifest <PATH>
-  node scripts/devnet/fresh-devnet-setup.cjs apply-program-id --manifest <PATH>
   node scripts/devnet/fresh-devnet-setup.cjs create-test-sgt-group --manifest <PATH> [--rpc-url <URL>]
   node scripts/devnet/fresh-devnet-setup.cjs create-test-sgt --manifest <PATH> --owner <WALLET_PUBKEY> [--rpc-url <URL>]
-  node scripts/devnet/fresh-devnet-setup.cjs initialize-species --manifest <PATH> --treasury <PUBKEY> --birth-fee-lamports <N> --metadata-base-uri <URI> [--rpc-url <URL>]
-  node scripts/devnet/fresh-devnet-setup.cjs initialize-seeker-zero --manifest <PATH> --sgt-mint <PUBKEY> [--rpc-url <URL>]
 
 Options for generate:
   --out-dir <PATH>                         Default: ${DEFAULT_OUT_DIR}
+  --program-id <PUBLIC_KEY>                Default: ${PERMANENT_PROGRAM_ID}
   --rpc-url <URL>                          Default: ${DEFAULT_RPC_URL}
   --api-url <URL>                          Placeholder default: <DEVNET_API_URL>
   --mongodb-uri <URI>                      Placeholder default includes /${DEFAULT_MONGODB_DB_NAME}
   --mongodb-db-name <NAME>                 Default: ${DEFAULT_MONGODB_DB_NAME}
   --helius-api-key <KEY>                   Placeholder default: <DEVNET_HELIUS_API_KEY>
   --siws-domain <DOMAIN>                   Placeholder default: <DEVNET_SIWS_DOMAIN>
-  --webhook-auth <SECRET>                  Default: generated local random value
   --tester-funding-target-lamports <N>     Default: ${DEFAULT_TESTER_FUNDING_TARGET_LAMPORTS}
+  --server-authority-keypair <PATH>        Required for fresh generate; existing server authority keypair JSON file
+  --sponsor-keypair <PATH>                 Reuse an existing sponsor keypair JSON file
+  --test-sgt-mint-authority-keypair <PATH> Reuse an existing Test SGT mint authority keypair JSON file
+  --test-sgt-group-mint-keypair <PATH>     Reuse an existing Test SGT group mint keypair JSON file
 
 Options for create-test-sgt:
   --manifest <PATH>                        Fresh devnet manifest path
@@ -966,17 +695,21 @@ Options for create-test-sgt:
 
 Note: create-test-sgt is manual bootstrap tooling and is not deterministic; repeated invocations can create another Test SGT for the same owner.
 
-Options for initialize-species:
-  --manifest <PATH>                        Fresh devnet manifest path
-  --treasury <PUBLIC_KEY>                  Species treasury public key
-  --birth-fee-lamports <N>                 Non-negative u64 lamport amount
-  --metadata-base-uri <URI>                HTTPS API origin, no trailing slash
-  --rpc-url <URL>                          Optional devnet RPC URL override
+Required environment variables for a fresh generate:
+  SPORE_ASSET_DERIVATION_SECRET            Existing devnet asset derivation secret
+  HELIUS_WEBHOOK_AUTH                       Existing devnet webhook auth secret
 
-Options for initialize-seeker-zero:
-  --manifest <PATH>                        Fresh devnet manifest path
-  --sgt-mint <PUBLIC_KEY>                  Existing authority-owned fresh Test SGT mint
-  --rpc-url <URL>                          Optional devnet RPC URL override
+api.devnet.secrets.env derives SPORE_SERVER_AUTHORITY_SECRET from --server-authority-keypair.
+It stores the required secret environment values without printing them to stdout.
+
+Command behavior:
+  generate                                  LOCAL ONLY: writes generated files/keypairs, sends no Solana transactions
+  show-env                                  LOCAL ONLY: reads the manifest and prints public file paths
+  create-test-sgt-group                     SUBMITS SOLANA DEVNET TRANSACTIONS: sponsor wallet pays
+  create-test-sgt                           SUBMITS SOLANA DEVNET TRANSACTIONS: sponsor wallet pays
+
+This tool is server-mode devnet fixture tooling only. It does not deploy or initialize the SPORE Anchor program,
+and it does not modify Anchor.toml or apps/mobile/eas.json.
 `);
 }
 
@@ -994,6 +727,87 @@ function loadManifest(manifestPath) {
   }
 
   return JSON.parse(fs.readFileSync(resolveMaybeRelative(manifestPath), "utf8"));
+}
+
+function tryLoadManifest(manifestPath) {
+  if (!fs.existsSync(manifestPath)) {
+    return null;
+  }
+
+  return JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+}
+
+function assertExistingManifestMatches(
+  manifest,
+  {
+    programId,
+    rpcUrl,
+    mongodbDbName,
+    mongodbUri,
+    serverAuthorityKeypair,
+    sponsorKeypair,
+    testSgtMintAuthorityKeypair,
+    testSgtGroupMintKeypair
+  }
+) {
+  const existingProgramId = requiredManifestString(manifest.program?.publicKey, "program.publicKey");
+  requiredManifestString(manifest.serverAuthority?.publicKey, "serverAuthority.publicKey");
+
+  if (existingProgramId !== programId) {
+    throw new Error(
+      `Refusing to reuse existing fresh devnet output: manifest program ID ${existingProgramId} does not match ${programId}.`
+    );
+  }
+  if (manifest.cluster !== "devnet") {
+    throw new Error("Refusing to reuse existing fresh devnet output: manifest cluster is not devnet.");
+  }
+  if (rpcUrl && manifest.rpcUrl !== rpcUrl) {
+    throw new Error("Refusing to reuse existing fresh devnet output: manifest rpcUrl does not match --rpc-url.");
+  }
+  if (mongodbDbName && manifest.mongo?.databaseName !== mongodbDbName) {
+    throw new Error("Refusing to reuse existing fresh devnet output: manifest Mongo database does not match --mongodb-db-name.");
+  }
+  if (mongodbUri && manifest.mongo?.uri !== mongodbUri) {
+    throw new Error("Refusing to reuse existing fresh devnet output: manifest Mongo URI does not match --mongodb-uri.");
+  }
+
+  assertOptionalKeypairMatchesManifest(
+    serverAuthorityKeypair,
+    manifest.serverAuthority?.publicKey,
+    "serverAuthority.publicKey",
+    "--server-authority-keypair"
+  );
+  assertOptionalKeypairMatchesManifest(
+    sponsorKeypair,
+    manifest.sponsor?.publicKey,
+    "sponsor.publicKey",
+    "--sponsor-keypair"
+  );
+  assertOptionalKeypairMatchesManifest(
+    testSgtMintAuthorityKeypair,
+    manifest.testSgt?.mintAuthority,
+    "testSgt.mintAuthority",
+    "--test-sgt-mint-authority-keypair"
+  );
+  assertOptionalKeypairMatchesManifest(
+    testSgtGroupMintKeypair,
+    manifest.testSgt?.groupMint,
+    "testSgt.groupMint",
+    "--test-sgt-group-mint-keypair"
+  );
+}
+
+function assertOptionalKeypairMatchesManifest(keypairPath, expectedPublicKey, manifestName, flagName) {
+  if (!keypairPath) {
+    return;
+  }
+
+  const keypair = loadKeypair(resolveMaybeRelative(keypairPath));
+  const expected = manifestPublicKey(expectedPublicKey, manifestName);
+
+  if (!keypair.publicKey.equals(expected)) {
+    throw new Error(`Refusing to reuse existing fresh devnet output: ${flagName} does not match ${manifestName}.`);
+  }
 }
 
 function loadFreshTestSgtContext(manifest) {
@@ -1029,6 +843,64 @@ function loadFreshTestSgtContext(manifest) {
     sponsor,
     metadataAddress,
     groupAddress
+  };
+}
+
+function normalizeProgramId(value, name) {
+  try {
+    return new PublicKey(value).toBase58();
+  } catch {
+    throw new Error(`Invalid public key for ${name}.`);
+  }
+}
+
+function loadRequiredGenerateSecrets() {
+  return {
+    assetDerivationSecret: getRequiredProcessEnv("SPORE_ASSET_DERIVATION_SECRET"),
+    webhookAuth: getRequiredProcessEnv("HELIUS_WEBHOOK_AUTH")
+  };
+}
+
+function getRequiredProcessEnv(name) {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    throw new Error(`Missing required environment variable for fresh generate: ${name}.`);
+  }
+
+  return value;
+}
+
+function loadRequiredKeypair(existingPath, flagName) {
+  if (!existingPath) {
+    throw new Error(`Missing required argument ${flagName} <PATH>.`);
+  }
+
+  const resolvedPath = resolveMaybeRelative(existingPath);
+
+  return {
+    keypair: loadKeypair(resolvedPath),
+    path: resolvedPath
+  };
+}
+
+function loadOrGenerateKeypair(existingPath, generatedPath) {
+  if (existingPath) {
+    const resolvedPath = resolveMaybeRelative(existingPath);
+
+    return {
+      keypair: loadKeypair(resolvedPath),
+      path: resolvedPath
+    };
+  }
+
+  const keypair = Keypair.generate();
+
+  writeKeypair(generatedPath, keypair);
+
+  return {
+    keypair,
+    path: generatedPath
   };
 }
 
@@ -1084,128 +956,6 @@ async function verifyCreatedTestSgt(
   }
 }
 
-function decodeSpeciesAccount(address, account, programId) {
-  if (!account.owner.equals(programId)) {
-    throw new Error(`Species PDA is not owned by the fresh program: ${address.toBase58()}.`);
-  }
-
-  const data = Buffer.from(account.data);
-
-  if (data.length !== SPECIES_ACCOUNT_SIZE) {
-    throw new Error(`Species PDA has invalid account size: ${address.toBase58()}.`);
-  }
-  if (!data.subarray(0, 8).equals(accountDiscriminator("Species"))) {
-    throw new Error(`Species PDA has invalid account discriminator: ${address.toBase58()}.`);
-  }
-
-  let offset = 8;
-  const take = (length, label) => {
-    const end = offset + length;
-
-    if (end > data.length) {
-      throw new Error(`Species account is truncated while reading ${label}.`);
-    }
-
-    const value = data.subarray(offset, end);
-    offset = end;
-    return value;
-  };
-  const authority = new PublicKey(take(32, "authority"));
-  const treasury = new PublicKey(take(32, "treasury"));
-  const birthFeeLamports = take(8, "birth_fee_lamports").readBigUInt64LE(0);
-  const metadataBaseUriLength = take(4, "metadata_base_uri length").readUInt32LE(0);
-
-  if (metadataBaseUriLength > MAX_METADATA_BASE_URI_LENGTH) {
-    throw new Error("Species metadata_base_uri length exceeds the program maximum.");
-  }
-
-  const metadataBaseUri = take(metadataBaseUriLength, "metadata_base_uri").toString("utf8");
-  const nextOrganismNumber = take(8, "next_organism_number").readBigUInt64LE(0);
-  const seekerZeroOption = take(1, "seeker_zero_organism option")[0];
-  let seekerZeroOrganism = null;
-
-  if (seekerZeroOption === 1) {
-    seekerZeroOrganism = new PublicKey(take(32, "seeker_zero_organism"));
-  } else if (seekerZeroOption !== 0) {
-    throw new Error("Species seeker_zero_organism option is invalid.");
-  }
-
-  const totalOrganisms = take(8, "total_organisms").readBigUInt64LE(0);
-
-  return {
-    authority,
-    treasury,
-    birthFeeLamports,
-    metadataBaseUri,
-    nextOrganismNumber,
-    seekerZeroOrganism,
-    totalOrganisms
-  };
-}
-
-async function findAuthorityOwnedToken2022Account(connection, owner, mint) {
-  const associatedTokenAccount = getAssociatedTokenAddressSync(
-    mint,
-    owner,
-    false,
-    TOKEN_2022_PROGRAM_ID
-  );
-  const associatedAccount = await tryGetToken2022Account(connection, associatedTokenAccount);
-
-  if (associatedAccount && tokenAccountMatches(associatedAccount, mint, owner)) {
-    return associatedTokenAccount;
-  }
-
-  const accounts = await connection.getTokenAccountsByOwner(
-    owner,
-    {
-      programId: TOKEN_2022_PROGRAM_ID
-    },
-    "confirmed"
-  );
-  const matches = accounts.value
-    .filter(({ account }) => rawTokenAccountMatches(account.data, mint, owner))
-    .map(({ pubkey }) => pubkey);
-
-  if (matches.length === 0) {
-    throw new Error("Species authority does not own a Token-2022 account holding exactly one supplied SGT.");
-  }
-  if (matches.length > 1) {
-    throw new Error("Multiple authority-owned Token-2022 accounts hold the supplied SGT; refuse ambiguous genesis.");
-  }
-
-  return matches[0];
-}
-
-async function tryGetToken2022Account(connection, tokenAccount) {
-  try {
-    return await getAccount(connection, tokenAccount, "confirmed", TOKEN_2022_PROGRAM_ID);
-  } catch {
-    return null;
-  }
-}
-
-function tokenAccountMatches(tokenAccount, mint, owner) {
-  return (
-    tokenAccount.mint.equals(mint) &&
-    tokenAccount.owner.equals(owner) &&
-    tokenAccount.amount === 1n &&
-    tokenAccount.isInitialized
-  );
-}
-
-function rawTokenAccountMatches(data, mint, owner) {
-  const buffer = Buffer.from(data);
-
-  return (
-    buffer.length >= 165 &&
-    new PublicKey(buffer.subarray(0, 32)).equals(mint) &&
-    new PublicKey(buffer.subarray(32, 64)).equals(owner) &&
-    buffer.readBigUInt64LE(64) === 1n &&
-    buffer[108] !== 0
-  );
-}
-
 function requiredManifestString(value, name) {
   if (typeof value !== "string" || !value) {
     throw new Error(`Missing manifest value: ${name}`);
@@ -1232,62 +982,6 @@ function requiredPublicKey(value, name) {
   } catch {
     throw new Error(`Invalid public key for ${name}.`);
   }
-}
-
-function requiredU64(value, name) {
-  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) {
-    throw new Error(`Missing or invalid required argument ${name}.`);
-  }
-
-  const parsed = BigInt(value);
-
-  if (parsed > U64_MAX) {
-    throw new Error(`${name} must fit in u64.`);
-  }
-
-  return parsed;
-}
-
-function requiredMetadataBaseUri(value) {
-  if (typeof value !== "string" || !value) {
-    throw new Error("Missing required argument --metadata-base-uri.");
-  }
-
-  if (!value.startsWith("https://") || value.endsWith("/")) {
-    throw new Error("--metadata-base-uri must start with https:// and must not end with /.");
-  }
-
-  if (Buffer.byteLength(value, "utf8") > MAX_METADATA_BASE_URI_LENGTH) {
-    throw new Error(`--metadata-base-uri must be at most ${MAX_METADATA_BASE_URI_LENGTH} bytes.`);
-  }
-
-  return value;
-}
-
-function encodeInitializeSpeciesInstruction({ treasury, birthFeeLamports, metadataBaseUri }) {
-  const metadataBytes = Buffer.from(metadataBaseUri, "utf8");
-  const data = Buffer.alloc(8 + 32 + 8 + 4 + metadataBytes.length);
-  let offset = 0;
-
-  instructionDiscriminator("initialize_species").copy(data, offset);
-  offset += 8;
-  treasury.toBuffer().copy(data, offset);
-  offset += 32;
-  data.writeBigUInt64LE(birthFeeLamports, offset);
-  offset += 8;
-  data.writeUInt32LE(metadataBytes.length, offset);
-  offset += 4;
-  metadataBytes.copy(data, offset);
-
-  return data;
-}
-
-function instructionDiscriminator(name) {
-  return crypto.createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
-}
-
-function accountDiscriminator(name) {
-  return crypto.createHash("sha256").update(`account:${name}`).digest().subarray(0, 8);
 }
 
 function writeKeypair(filePath, keypair) {
@@ -1359,6 +1053,10 @@ function secretToBase64(keypair) {
   return Buffer.from(keypair.secretKey).toString("base64");
 }
 
+function secretToJson(keypair) {
+  return JSON.stringify(Array.from(keypair.secretKey));
+}
+
 function uniqueSigners(signers) {
   const unique = new Map();
 
@@ -1367,8 +1065,4 @@ function uniqueSigners(signers) {
   }
 
   return Array.from(unique.values());
-}
-
-function randomSecretHex() {
-  return `Bearer ${crypto.randomBytes(32).toString("hex")}`;
 }

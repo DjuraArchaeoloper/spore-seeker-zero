@@ -137,14 +137,47 @@ async function main() {
 
 async function ensureCriticalIndex(index: CriticalIndex) {
   const collection = mongoose.connection.collection(index.collectionName);
-  let actualIndexes = (await collection.indexes()) as IndexDescription[];
+  let actualIndexes = await inspectIndexes(collection);
 
   if (!findEquivalentIndex(actualIndexes, index)) {
     await collection.createIndex(index.key, index.options);
-    actualIndexes = (await collection.indexes()) as IndexDescription[];
+    actualIndexes = await inspectIndexes(collection);
   }
 
   assertIndex(actualIndexes, index);
+}
+
+async function inspectIndexes(
+  collection: mongoose.mongo.Collection,
+): Promise<IndexDescription[]> {
+  try {
+    return (await collection.indexes()) as IndexDescription[];
+  } catch (error) {
+    if (isNamespaceNotFoundError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+function isNamespaceNotFoundError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as {
+    code?: unknown;
+    codeName?: unknown;
+    message?: unknown;
+  };
+
+  return (
+    candidate.code === 26 ||
+    candidate.codeName === "NamespaceNotFound" ||
+    (typeof candidate.message === "string" &&
+      candidate.message.includes("ns does not exist"))
+  );
 }
 
 function assertIndex(
