@@ -38,9 +38,9 @@ export async function GET(_request: Request, context: RouteContext) {
       return jsonError(404, "not_found", "Organism not found.");
     }
 
-    const origin = getCanonicalPublicApiUrl();
+    const metadataBaseUri = getCanonicalPublicApiUrl();
     const paddedNumber = organism.organismNumber.padStart(6, "0");
-    const image = `${origin}/api/nft/${organism.organismNumber}/image`;
+    const image = `${metadataBaseUri}/${organism.organismNumber}/image`;
 
     return Response.json(
       {
