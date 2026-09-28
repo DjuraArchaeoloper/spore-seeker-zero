@@ -360,6 +360,8 @@ export async function buildClaimSettlementTransaction(input: {
     transaction,
     reservationId: reservation.reservationId,
     attemptId,
+    claimantWallet: reservation.recipientWalletAddress,
+    sgtMint: reservation.recipientSgtMint,
     expectedCoreAsset: assetKeypair.publicKey.toBase58(),
     lastValidBlockHeight,
   });
@@ -439,6 +441,8 @@ async function finalizeNeedsSignatureAfterSimulation(input: {
     transaction,
     reservationId: input.reservation.reservationId,
     attemptId: input.attemptId,
+    claimantWallet: input.reservation.recipientWalletAddress,
+    sgtMint: input.reservation.recipientSgtMint,
     expectedCoreAsset: input.expectedCoreAsset,
     lastValidBlockHeight: input.lastValidBlockHeight,
   });
@@ -466,6 +470,8 @@ async function assertSettlementTransactionSimulates(input: {
   transaction: Transaction;
   reservationId: string;
   attemptId: string;
+  claimantWallet: string;
+  sgtMint: string;
   expectedCoreAsset: string;
   lastValidBlockHeight: number;
 }): Promise<void> {
@@ -483,6 +489,12 @@ async function assertSettlementTransactionSimulates(input: {
     transaction: input.transaction,
     message,
     accountIndex: 2,
+    expectedCoreAsset: input.expectedCoreAsset,
+  });
+  const settlementPublicKeys = getSettlementPublicKeyDiagnostics({
+    transaction: input.transaction,
+    claimantWallet: input.claimantWallet,
+    sgtMint: input.sgtMint,
     expectedCoreAsset: input.expectedCoreAsset,
   });
 
@@ -510,16 +522,23 @@ async function assertSettlementTransactionSimulates(input: {
       commitment: "confirmed",
     });
   } catch (error) {
+    const solanaLogs = await getSolanaSimulationLogsFromError(
+      error,
+      input.connection,
+    );
     logSettlementSimulationFailure({
       phase: "rpc_error",
+      failingTransactionPhase: "settlement_transaction_simulation_rpc",
       reservationId: input.reservationId,
       attemptId: input.attemptId,
-      expectedCoreAsset: input.expectedCoreAsset,
+      publicKeys: settlementPublicKeys,
       lastValidBlockHeight: input.lastValidBlockHeight,
       currentBlockHeight,
-      instructionProgramIds,
-      accountKeyIndex,
-      accountIndex2: accountIndex2Diagnostics,
+      solBalancesLamports: await getSettlementSolBalanceDiagnostics(
+        input.connection,
+        settlementPublicKeys,
+      ),
+      ...solanaLogs,
       rpcError:
         error instanceof Error ? error.message : "unknown_simulation_rpc_error",
     });
@@ -531,8 +550,33 @@ async function assertSettlementTransactionSimulates(input: {
 
   const { err, logs, unitsConsumed } = simulation.value;
 
+  if (err) {
+    logSettlementSimulationFailure({
+      phase: "failed",
+      failingTransactionPhase: "settlement_transaction_simulation_result",
+      reservationId: input.reservationId,
+      attemptId: input.attemptId,
+      publicKeys: settlementPublicKeys,
+      lastValidBlockHeight: input.lastValidBlockHeight,
+      currentBlockHeight,
+      solBalancesLamports: await getSettlementSolBalanceDiagnostics(
+        input.connection,
+        settlementPublicKeys,
+      ),
+      solanaSimulationLogs: logs,
+      solanaSimulationLogsSource: "simulateTransaction.value.logs",
+      simulationError: err,
+      unitsConsumed,
+      slot: simulation.context.slot,
+    });
+    throw new SporeDomainError(
+      "settlement_simulation_failed",
+      "Settlement transaction failed simulation.",
+    );
+  }
+
   logSettlementSimulationResult({
-    phase: err ? "failed" : "ok",
+    phase: "ok",
     reservationId: input.reservationId,
     attemptId: input.attemptId,
     expectedCoreAsset: input.expectedCoreAsset,
@@ -546,13 +590,147 @@ async function assertSettlementTransactionSimulates(input: {
     unitsConsumed,
     slot: simulation.context.slot,
   });
+}
 
-  if (err) {
-    throw new SporeDomainError(
-      "settlement_simulation_failed",
-      "Settlement transaction failed simulation.",
-    );
+const SETTLEMENT_PUBLIC_KEY_ROLES = [
+  "payer",
+  "claimantWallet",
+  "sgtMint",
+  "coreAsset",
+] as const;
+
+type SettlementPublicKeyRole = (typeof SETTLEMENT_PUBLIC_KEY_ROLES)[number];
+type SettlementPublicKeyDiagnostics = Record<
+  SettlementPublicKeyRole,
+  string | null
+>;
+type SettlementSolBalanceDiagnostics = Record<
+  SettlementPublicKeyRole,
+  number | null
+>;
+
+function getSettlementPublicKeyDiagnostics(input: {
+  transaction: Transaction;
+  claimantWallet: string;
+  sgtMint: string;
+  expectedCoreAsset: string;
+}): SettlementPublicKeyDiagnostics {
+  return {
+    payer: input.transaction.feePayer?.toBase58() ?? null,
+    claimantWallet: input.claimantWallet,
+    sgtMint: input.sgtMint,
+    coreAsset: input.expectedCoreAsset,
+  };
+}
+
+async function getSettlementSolBalanceDiagnostics(
+  connection: Connection,
+  publicKeys: SettlementPublicKeyDiagnostics,
+): Promise<SettlementSolBalanceDiagnostics> {
+  const balances: SettlementSolBalanceDiagnostics = {
+    payer: null,
+    claimantWallet: null,
+    sgtMint: null,
+    coreAsset: null,
+  };
+  const rolesByPublicKey = new Map<string, SettlementPublicKeyRole[]>();
+
+  for (const role of SETTLEMENT_PUBLIC_KEY_ROLES) {
+    const publicKey = publicKeys[role];
+    if (!publicKey) {
+      continue;
+    }
+
+    const roles = rolesByPublicKey.get(publicKey);
+    if (roles) {
+      roles.push(role);
+    } else {
+      rolesByPublicKey.set(publicKey, [role]);
+    }
   }
+
+  await Promise.all(
+    Array.from(rolesByPublicKey.entries()).map(async ([publicKey, roles]) => {
+      let lamports: number | null = null;
+
+      try {
+        lamports = await connection.getBalance(
+          new PublicKey(publicKey),
+          "confirmed",
+        );
+      } catch {
+        lamports = null;
+      }
+
+      for (const role of roles) {
+        balances[role] = lamports;
+      }
+    }),
+  );
+
+  return balances;
+}
+
+type SolanaSimulationLogDiagnostics = {
+  solanaSimulationLogs?: string[];
+  solanaSimulationLogsSource?: string;
+  solanaSimulationLogsFetchError?: string;
+};
+
+type ErrorWithSolanaLogs = {
+  getLogs?: (connection: Connection) => Promise<string[]>;
+  logs?: string[];
+  transactionError?: {
+    logs?: string[];
+  };
+};
+
+function getSolanaSimulationLogsFromErrorProperties(
+  error: unknown,
+): SolanaSimulationLogDiagnostics {
+  const errorWithLogs = error as ErrorWithSolanaLogs;
+
+  if (Array.isArray(errorWithLogs.logs)) {
+    return {
+      solanaSimulationLogs: errorWithLogs.logs,
+      solanaSimulationLogsSource: "logs",
+    };
+  }
+
+  if (Array.isArray(errorWithLogs.transactionError?.logs)) {
+    return {
+      solanaSimulationLogs: errorWithLogs.transactionError.logs,
+      solanaSimulationLogsSource: "transactionError.logs",
+    };
+  }
+
+  return {};
+}
+
+async function getSolanaSimulationLogsFromError(
+  error: unknown,
+  connection: Connection,
+): Promise<SolanaSimulationLogDiagnostics> {
+  const errorWithLogs = error as ErrorWithSolanaLogs;
+
+  if (typeof errorWithLogs.getLogs === "function") {
+    try {
+      return {
+        solanaSimulationLogs: await errorWithLogs.getLogs(connection),
+        solanaSimulationLogsSource: "getLogs",
+      };
+    } catch (logsError) {
+      return {
+        ...getSolanaSimulationLogsFromErrorProperties(error),
+        solanaSimulationLogsFetchError:
+          logsError instanceof Error
+            ? logsError.message
+            : "unknown_get_logs_error",
+      };
+    }
+  }
+
+  return getSolanaSimulationLogsFromErrorProperties(error);
 }
 
 /**
@@ -740,9 +918,20 @@ function logSettlementSimulationFailure(metadata: SettlementLogMetadata) {
 
   console.error("[SPØR SETTLEMENT SIM]", {
     phase: metadata.phase,
+    failingTransactionPhase: metadata.failingTransactionPhase,
     reservationId: metadata.reservationId,
     attemptId: metadata.attemptId,
+    lastValidBlockHeight: metadata.lastValidBlockHeight,
+    currentBlockHeight: metadata.currentBlockHeight,
+    publicKeys: metadata.publicKeys,
+    solBalancesLamports: metadata.solBalancesLamports,
+    solanaSimulationLogs: metadata.solanaSimulationLogs,
+    solanaSimulationLogsSource: metadata.solanaSimulationLogsSource,
+    solanaSimulationLogsFetchError: metadata.solanaSimulationLogsFetchError,
     rpcError: metadata.rpcError,
+    simulationError: metadata.simulationError,
+    unitsConsumed: metadata.unitsConsumed,
+    slot: metadata.slot,
   });
 }
 
