@@ -23,4 +23,6 @@ apps/mobile/android
 apps/mobile/spor-preview.apk
 apps/mobile/SPOR_WSL_BUILD.md
 
+apps/mobile/spor-mainnet.apk
+
 apps/web/next-env.d.ts
