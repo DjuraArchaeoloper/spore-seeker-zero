@@ -156,6 +156,8 @@ function mapSporeDomainError(error: SporeDomainError): {
       };
     case "finalization_conflict":
       return { status: 409, code: "finalization_conflict", message: error.message };
+    case "migration_maintenance":
+      return { status: 503, code: "migration_maintenance", message: error.message };
     case "species_not_ready":
       return { status: 409, code: "species_not_ready", message: error.message };
     default:

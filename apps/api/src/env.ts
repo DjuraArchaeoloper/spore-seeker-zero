@@ -380,6 +380,15 @@ export function isVerboseSolanaDiagnosticsEnabled() {
   );
 }
 
+/**
+ * Future server-to-Anchor cutover switch.
+ * Pauses new server-era reproduction intake while allowing already-reserved
+ * claims, landed settlements, confirmations, recovery, and finalization to drain.
+ */
+export function isSporeMigrationMaintenanceEnabled() {
+  return getOptionalEnv("SPORE_MIGRATION_MAINTENANCE") === "true";
+}
+
 export function getCronSecret() {
   const value = getOptionalEnv("CRON_SECRET");
 

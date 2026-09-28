@@ -15,19 +15,41 @@ export const ORGANISM_STATUS = {
 export type OrganismStatus =
   (typeof ORGANISM_STATUS)[keyof typeof ORGANISM_STATUS];
 
+export const ORGANISM_BIRTH_ERA = {
+  serverV1: "server_v1",
+  anchorLegacy: "anchor_legacy",
+} as const;
+
+export type OrganismBirthEra =
+  (typeof ORGANISM_BIRTH_ERA)[keyof typeof ORGANISM_BIRTH_ERA];
+
+export const ORGANISM_INDEX_SCHEMA_VERSION = 1;
+export const GENOME_ALGORITHM_VERSION = "spore-core-v1";
+
 export type OrganismIndex = {
   /**
-   * Logical organism identity (historically named organismPda).
-   * Derived from Anchor PDA seeds for cross-era compatibility, but server-era
-   * births do not create or require a custom SPØR Organism account on-chain.
+   * Namespace-derived organism identity (historically named organismPda).
+   * Derived from `["organism", sgtMint]` under identityNamespaceProgramId for
+   * cross-era compatibility. Server-era births do not create or prove a custom
+   * SPØR Organism account on-chain.
    */
   organismPda: string;
-  organismNumber: string;
+  /** Canonical permanent organism identity. */
   sgtMint: string;
+  organismNumber: string;
   parentOrganismPda: string | null;
+  parentSgtMint: string | null;
+  parentOrganismNumber: string | null;
   generation: number;
   genome: string;
   bornAt: Date;
+  /** Unix seconds matching immutable Core metadata and future on-chain import. */
+  bornAtUnix: string;
+  /** Program id namespace used to derive organismPda for this server-era record. */
+  identityNamespaceProgramId: string;
+  birthEra: OrganismBirthEra;
+  schemaVersion: number;
+  genomeAlgorithmVersion: string;
   /** Solana slot used as mutation entropy. Null for legacy indexed births. */
   mutationSlot: string | null;
   nextSporeAt: Date;
@@ -91,6 +113,18 @@ const organismIndexSchema = new Schema<OrganismIndex>(
       maxlength: PUBLIC_KEY_MAX_LENGTH,
       index: true,
     },
+    parentSgtMint: {
+      ...optionalPublicKeyField,
+    },
+    parentOrganismNumber: {
+      type: String,
+      default: null,
+      validate: {
+        validator(value: string | null) {
+          return value === null || DECIMAL_U64_PATTERN.test(value);
+        },
+      },
+    },
     generation: {
       type: Number,
       required: true,
@@ -105,6 +139,36 @@ const organismIndexSchema = new Schema<OrganismIndex>(
     bornAt: {
       type: Date,
       required: true,
+    },
+    bornAtUnix: {
+      type: String,
+      required: true,
+      match: DECIMAL_U64_PATTERN,
+    },
+    identityNamespaceProgramId: {
+      ...publicKeyField,
+    },
+    birthEra: {
+      type: String,
+      required: true,
+      enum: Object.values(ORGANISM_BIRTH_ERA),
+      default: ORGANISM_BIRTH_ERA.serverV1,
+    },
+    schemaVersion: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: ORGANISM_INDEX_SCHEMA_VERSION,
+      validate: {
+        validator(value: number) {
+          return Number.isInteger(value);
+        },
+      },
+    },
+    genomeAlgorithmVersion: {
+      type: String,
+      required: true,
+      default: GENOME_ALGORITHM_VERSION,
     },
     mutationSlot: {
       type: String,
@@ -156,6 +220,13 @@ const organismIndexSchema = new Schema<OrganismIndex>(
       ...optionalPublicKeyField,
       sparse: true,
       unique: true,
+      validate: {
+        validator(value: string | null) {
+          const document = this as { status?: OrganismStatus };
+          return document.status !== ORGANISM_STATUS.finalized || value !== null;
+        },
+        message: "Finalized organisms require a Core asset.",
+      },
     },
     transactionSignature: {
       type: String,

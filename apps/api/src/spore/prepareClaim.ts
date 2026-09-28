@@ -13,6 +13,7 @@ import {
   ClaimReservationModel,
   type ClaimReservation,
 } from "../models/ClaimReservation";
+import { isSporeMigrationMaintenanceEnabled } from "../env";
 import {
   OrganismIndexModel,
   type OrganismIndex,
@@ -113,6 +114,13 @@ export async function prepareClaimSpore(input: {
     // only while the parent offer is still live (validated below).
   }
 
+  if (isSporeMigrationMaintenanceEnabled()) {
+    throw new SporeDomainError(
+      "migration_maintenance",
+      "SPØR is in migration maintenance. New claim reservations are paused.",
+    );
+  }
+
   const parent = await loadFinalizedParent(input.parentOrganismPda);
   const species = await getCanonicalSpecies();
 
@@ -185,6 +193,7 @@ export async function prepareClaimSpore(input: {
         reservationId,
         parentOrganismPda: parent.organismPda,
         parentSgtMint: parent.sgtMint,
+        parentOrganismNumber: null,
         recipientSgtMint: input.seeker.sgtMint,
         recipientWalletAddress: input.seeker.walletAddress,
         sporeCommitment: offerCommitmentHex,
@@ -203,8 +212,13 @@ export async function prepareClaimSpore(input: {
         generation: null,
         genome: null,
         bornAt: null,
+        bornAtUnix: null,
         mutationSlot: null,
         childOrganismPda: null,
+        identityNamespaceProgramId: null,
+        birthEra: null,
+        schemaVersion: null,
+        genomeAlgorithmVersion: null,
         coreFinalizationSignature: null,
       };
 

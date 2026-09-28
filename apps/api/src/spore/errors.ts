@@ -23,6 +23,7 @@ export class SporeDomainError extends Error {
       | "settlement_not_ready"
       | "settlement_simulation_failed"
       | "finalization_conflict"
+      | "migration_maintenance"
       | "server_misconfigured",
     message: string
   ) {

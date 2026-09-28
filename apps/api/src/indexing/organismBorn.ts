@@ -4,6 +4,9 @@ import { PublicKey } from "@solana/web3.js";
 
 import { ensureDescendantCountersForBirth } from "./descendantCounters";
 import {
+  GENOME_ALGORITHM_VERSION,
+  ORGANISM_BIRTH_ERA,
+  ORGANISM_INDEX_SCHEMA_VERSION,
   ORGANISM_STATUS,
   OrganismIndexModel,
   type OrganismIndex
@@ -12,7 +15,7 @@ import {
   ensureOutbreakContributionsForBirth,
   type OutbreakScoringStatus
 } from "../outbreak/scoring";
-import { EMPTY_SPORE_COMMITMENT_HEX } from "../spore/bytes";
+import { EMPTY_SPORE_COMMITMENT_HEX, unixSecondsFromDate } from "../spore/bytes";
 
 const PROGRAM_DATA_PREFIX = "Program data: ";
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -59,6 +62,7 @@ type OrganismBornEvent = {
 type CandidateEvent = {
   event: OrganismBornEvent;
   transactionSignature: string;
+  identityNamespaceProgramId: string;
 };
 
 type IndexOrganismBornResult = {
@@ -169,7 +173,8 @@ function extractOrganismBornEvents(
 
   return extractProgramEventsFromLogs(logMessages, sporeProgramId).map((event) => ({
     event,
-    transactionSignature
+    transactionSignature,
+    identityNamespaceProgramId: sporeProgramId
   }));
 }
 
@@ -276,14 +281,21 @@ function decodeOrganismBornEvent(
 }
 
 async function indexOrganismBorn(candidate: CandidateEvent): Promise<IndexOrganismBornResult> {
-  const ancestorNumbers = await deriveAncestorNumbers(candidate.event);
+  const ancestorContext = await deriveAncestorContext(candidate.event);
   const indexedAt = new Date();
   const document = {
     ...candidate.event,
+    parentSgtMint: ancestorContext.parentSgtMint,
+    parentOrganismNumber: ancestorContext.parentOrganismNumber,
     transactionSignature: candidate.transactionSignature,
-    ancestorNumbers,
+    ancestorNumbers: ancestorContext.ancestorNumbers,
     indexedAt,
     createdAt: indexedAt,
+    bornAtUnix: String(unixSecondsFromDate(candidate.event.bornAt)),
+    identityNamespaceProgramId: candidate.identityNamespaceProgramId,
+    birthEra: ORGANISM_BIRTH_ERA.anchorLegacy,
+    schemaVersion: ORGANISM_INDEX_SCHEMA_VERSION,
+    genomeAlgorithmVersion: GENOME_ALGORITHM_VERSION,
     mutationSlot: null,
     nextSporeAt: candidate.event.bornAt,
     activeSporeCommitment: EMPTY_SPORE_COMMITMENT_HEX,
@@ -357,13 +369,21 @@ async function scoreOutbreakBirth(
   }
 }
 
-async function deriveAncestorNumbers(event: OrganismBornEvent): Promise<string[]> {
+async function deriveAncestorContext(event: OrganismBornEvent): Promise<{
+  ancestorNumbers: string[];
+  parentSgtMint: string | null;
+  parentOrganismNumber: string | null;
+}> {
   if (event.organismNumber === "0") {
     if (event.parentOrganismPda !== null || event.generation !== 0) {
       throw new WebhookPayloadError("Malformed Seeker Zero birth event.");
     }
 
-    return [];
+    return {
+      ancestorNumbers: [],
+      parentSgtMint: null,
+      parentOrganismNumber: null
+    };
   }
 
   if (!event.parentOrganismPda || event.generation === 0) {
@@ -381,7 +401,11 @@ async function deriveAncestorNumbers(event: OrganismBornEvent): Promise<string[]
     throw new WebhookPayloadError("Child generation does not match parent.");
   }
 
-  return [...parent.ancestorNumbers, parent.organismNumber];
+  return {
+    ancestorNumbers: [...parent.ancestorNumbers, parent.organismNumber],
+    parentSgtMint: parent.sgtMint,
+    parentOrganismNumber: parent.organismNumber
+  };
 }
 
 function validateDerivedAddresses(event: OrganismBornEvent, sporeProgramId: string) {
@@ -432,9 +456,22 @@ function assertCanonicalMatch(
     existing.organismNumber === incoming.organismNumber &&
     existing.sgtMint === incoming.sgtMint &&
     existing.parentOrganismPda === incoming.parentOrganismPda &&
+    sameOrMissing(existing.parentSgtMint, incoming.parentSgtMint) &&
+    sameOrMissing(existing.parentOrganismNumber, incoming.parentOrganismNumber) &&
     existing.generation === incoming.generation &&
     existing.genome === incoming.genome &&
     existing.bornAt.getTime() === incoming.bornAt.getTime() &&
+    sameOrMissing(existing.bornAtUnix, incoming.bornAtUnix) &&
+    sameOrMissing(
+      existing.identityNamespaceProgramId,
+      incoming.identityNamespaceProgramId
+    ) &&
+    sameOrMissing(existing.birthEra, incoming.birthEra) &&
+    sameOrMissing(existing.schemaVersion, incoming.schemaVersion) &&
+    sameOrMissing(
+      existing.genomeAlgorithmVersion,
+      incoming.genomeAlgorithmVersion
+    ) &&
     existing.coreAsset === incoming.coreAsset &&
     existing.transactionSignature === incoming.transactionSignature &&
     arraysEqual(existing.ancestorNumbers, incoming.ancestorNumbers);
@@ -496,4 +533,8 @@ function getSafeOutbreakErrorReason(error: unknown) {
 
 function arraysEqual(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameOrMissing<T>(actual: T | null | undefined, expected: T | null) {
+  return actual === undefined || actual === expected;
 }

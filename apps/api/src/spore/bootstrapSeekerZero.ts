@@ -36,12 +36,16 @@ import {
 } from "../auth/sgt";
 import { connectToDatabase } from "../db/mongoose";
 import {
+  GENOME_ALGORITHM_VERSION,
+  ORGANISM_BIRTH_ERA,
+  ORGANISM_INDEX_SCHEMA_VERSION,
   ORGANISM_STATUS,
   OrganismIndexModel,
   type OrganismIndex,
 } from "../models/OrganismIndex";
 import { SpeciesStateModel } from "../models/SpeciesState";
 import { EMPTY_SPORE_COMMITMENT_HEX, dateFromUnixSeconds } from "./bytes";
+import { getSporeProgramId } from "../env";
 import {
   formatOrganismName,
   formatOrganismUri,
@@ -103,6 +107,7 @@ export async function bootstrapSeekerZero(input: {
   });
   const expectedCoreAsset = assetKeypair.publicKey.toBase58();
   const serverAuthority = getSporeServerAuthorityKeypair();
+  const proposedBornAtUnix = Math.floor(Date.now() / 1000);
 
   const existingZero = await OrganismIndexModel.findOne({
     organismNumber: SEEKER_ZERO_NUMBER,
@@ -139,12 +144,13 @@ export async function bootstrapSeekerZero(input: {
     );
   }
 
-  const coreFinalizationSignature = await ensureSeekerZeroCoreCertificate({
+  const coreCertificate = await ensureSeekerZeroCoreCertificate({
     assetKeypair,
     serverAuthority,
     ownerWallet: wallet,
     metadataBaseUri,
     sgtMint,
+    bornAtUnix: proposedBornAtUnix,
   });
 
   let organism =
@@ -153,7 +159,8 @@ export async function bootstrapSeekerZero(input: {
       organismPda,
       sgtMint,
       coreAsset: expectedCoreAsset,
-      transactionSignature: coreFinalizationSignature,
+      transactionSignature: coreCertificate.signature,
+      bornAtUnix: coreCertificate.bornAtUnix,
     }));
 
   if (
@@ -172,7 +179,7 @@ export async function bootstrapSeekerZero(input: {
           coreAsset: expectedCoreAsset,
           ...(existingZero.transactionSignature
             ? {}
-            : { transactionSignature: coreFinalizationSignature }),
+            : { transactionSignature: coreCertificate.signature }),
           status: ORGANISM_STATUS.finalized,
         },
       },
@@ -199,7 +206,7 @@ export async function bootstrapSeekerZero(input: {
     organism,
     speciesKey: "canonical",
     coreAsset: expectedCoreAsset,
-    coreFinalizationSignature,
+    coreFinalizationSignature: coreCertificate.signature,
   };
 }
 
@@ -209,7 +216,8 @@ async function ensureSeekerZeroCoreCertificate(input: {
   ownerWallet: string;
   metadataBaseUri: string;
   sgtMint: string;
-}): Promise<string> {
+  bornAtUnix: number;
+}): Promise<{ signature: string; bornAtUnix: number }> {
   const connection = getSolanaConnection();
   const umi = createUmi(connection.rpcEndpoint).use(mplCore());
   const authoritySigner = createSignerFromKeypair(
@@ -231,7 +239,6 @@ async function ensureSeekerZeroCoreCertificate(input: {
   const name = formatOrganismName(0n);
   const uri = formatOrganismUri(input.metadataBaseUri, 0n);
   const signatures: string[] = [];
-  const bornAtUnix = Math.floor(Date.now() / 1000);
 
   // 1) Core asset exists (create once; never remint on retry).
   let asset = await safeFetchAssetV1(umi, assetAddress, {
@@ -249,7 +256,7 @@ async function ensureSeekerZeroCoreCertificate(input: {
       name,
       uri,
       sgtMint: input.sgtMint,
-      bornAtUnix,
+      bornAtUnix: input.bornAtUnix,
     });
     signatures.push(createSignature);
 
@@ -265,9 +272,13 @@ async function ensureSeekerZeroCoreCertificate(input: {
       sgtMint: input.sgtMint,
       expectedCoreAsset,
     });
-    return signatures.length > 0
-      ? signatures.join(",")
-      : `seeker-zero-already-finalized:${expectedCoreAsset}`;
+    return {
+      signature:
+        signatures.length > 0
+          ? signatures.join(",")
+          : `seeker-zero-already-finalized:${expectedCoreAsset}`,
+      bornAtUnix: getSeekerZeroBornAtUnix(asset),
+    };
   }
 
   assertServerStillUpdateAuthority(asset, serverAuthorityPubkey);
@@ -304,7 +315,7 @@ async function ensureSeekerZeroCoreCertificate(input: {
         type: "Attributes",
         attributeList: buildSeekerZeroAttributes({
           sgtMint: input.sgtMint,
-          bornAtUnix,
+          bornAtUnix: input.bornAtUnix,
         }),
         authority: { type: "None" },
       },
@@ -356,7 +367,10 @@ async function ensureSeekerZeroCoreCertificate(input: {
     expectedCoreAsset,
   });
 
-  return signatures.join(",");
+  return {
+    signature: signatures.join(","),
+    bornAtUnix: getSeekerZeroBornAtUnix(finalAsset),
+  };
 }
 
 async function revokeRootUpdateAuthorityToNone(input: {
@@ -584,16 +598,24 @@ async function insertSeekerZeroOrganism(input: {
   sgtMint: string;
   coreAsset: string;
   transactionSignature: string;
+  bornAtUnix: number;
 }): Promise<OrganismIndex> {
-  const bornAt = new Date();
+  const bornAt = dateFromUnixSeconds(input.bornAtUnix);
   const organismDocument: OrganismIndex = {
     organismPda: input.organismPda,
     organismNumber: SEEKER_ZERO_NUMBER,
     sgtMint: input.sgtMint,
     parentOrganismPda: null,
+    parentSgtMint: null,
+    parentOrganismNumber: null,
     generation: SEEKER_ZERO_GENERATION,
     genome: SEEKER_ZERO_GENOME_HEX,
     bornAt,
+    bornAtUnix: String(input.bornAtUnix),
+    identityNamespaceProgramId: getSporeProgramId(),
+    birthEra: ORGANISM_BIRTH_ERA.serverV1,
+    schemaVersion: ORGANISM_INDEX_SCHEMA_VERSION,
+    genomeAlgorithmVersion: GENOME_ALGORITHM_VERSION,
     mutationSlot: null,
     nextSporeAt: bornAt,
     activeSporeCommitment: EMPTY_SPORE_COMMITMENT_HEX,
@@ -653,6 +675,7 @@ function assertSeekerZeroAttributes(asset: AssetV1, sgtMint: string) {
   const attributeMap = new Map(
     asset.attributes!.attributeList.map((entry) => [entry.key, entry.value]),
   );
+  getSeekerZeroBornAtUnix(asset);
 
   if (
     attributeMap.get("organism_number") !== SEEKER_ZERO_NUMBER ||
@@ -668,6 +691,37 @@ function assertSeekerZeroAttributes(asset: AssetV1, sgtMint: string) {
       "Existing Seeker Zero Core Attributes do not match canonical identity.",
     );
   }
+}
+
+function getSeekerZeroBornAtUnix(asset: AssetV1): number {
+  if (!asset.attributes) {
+    throw new SporeDomainError(
+      "finalization_conflict",
+      "Seeker Zero Core Attributes are missing.",
+    );
+  }
+
+  const attributeMap = new Map(
+    asset.attributes.attributeList.map((entry) => [entry.key, entry.value]),
+  );
+  const value = attributeMap.get("born_at");
+
+  if (!value || !/^(0|[1-9][0-9]*)$/.test(value)) {
+    throw new SporeDomainError(
+      "finalization_conflict",
+      "Seeker Zero Core born_at attribute is invalid.",
+    );
+  }
+
+  const bornAtUnix = Number(value);
+  if (!Number.isSafeInteger(bornAtUnix)) {
+    throw new SporeDomainError(
+      "finalization_conflict",
+      "Seeker Zero Core born_at attribute is outside supported range.",
+    );
+  }
+
+  return bornAtUnix;
 }
 
 function assertFinalizedSeekerZeroCore(

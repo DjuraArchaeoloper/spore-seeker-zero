@@ -22,7 +22,10 @@ import {
 import { createMemoInstruction } from "@solana/spl-memo";
 
 import type { AuthenticatedSeeker } from "../auth/session";
-import { isVerboseSolanaDiagnosticsEnabled } from "../env";
+import {
+  getSporeProgramId,
+  isVerboseSolanaDiagnosticsEnabled,
+} from "../env";
 import {
   SgtVerificationUnavailableError,
   verifySeekerGenesisToken,
@@ -35,6 +38,9 @@ import {
   type ClaimReservation,
 } from "../models/ClaimReservation";
 import {
+  GENOME_ALGORITHM_VERSION,
+  ORGANISM_BIRTH_ERA,
+  ORGANISM_INDEX_SCHEMA_VERSION,
   OrganismIndexModel,
   type OrganismIndex,
 } from "../models/OrganismIndex";
@@ -1221,13 +1227,19 @@ async function allocateSettledOrganismState(input: {
             settlementSlot: input.settlementSlot.toString(),
             settlementBlockTime: bornAtUnix,
             organismNumber: childNumber,
+            parentOrganismNumber: normalizedParent.organismNumber,
             generation,
             genome: bytesToHex(genomeBytes),
             bornAt: dateFromUnixSeconds(bornAtUnix),
+            bornAtUnix: String(bornAtUnix),
             mutationSlot: input.settlementSlot.toString(),
             childOrganismPda: deriveOrganismIdentity(
               input.reservation.recipientSgtMint,
             ),
+            identityNamespaceProgramId: getSporeProgramId(),
+            birthEra: ORGANISM_BIRTH_ERA.serverV1,
+            schemaVersion: ORGANISM_INDEX_SCHEMA_VERSION,
+            genomeAlgorithmVersion: GENOME_ALGORITHM_VERSION,
             updatedAt: new Date(),
           },
         },

@@ -22,6 +22,9 @@ import {
   type ClaimReservation,
 } from "../models/ClaimReservation";
 import {
+  GENOME_ALGORITHM_VERSION,
+  ORGANISM_BIRTH_ERA,
+  ORGANISM_INDEX_SCHEMA_VERSION,
   ORGANISM_STATUS,
   OrganismIndexModel,
   type OrganismIndex,
@@ -49,6 +52,7 @@ import {
 import { getSporeServerAuthorityKeypair } from "./serverAuthority";
 import { getVerifiedSolanaConnection } from "./solanaConnection";
 import { getCanonicalSpecies } from "./species";
+import { getSporeProgramId } from "../env";
 
 /**
  * After verified settlement: finalize Core birth certificate, then Mongo organism.
@@ -366,9 +370,21 @@ async function finalizeMongoOrganism(
         organismNumber: liveReservation.organismNumber!,
         sgtMint: liveReservation.recipientSgtMint,
         parentOrganismPda: liveReservation.parentOrganismPda,
+        parentSgtMint: liveReservation.parentSgtMint,
+        parentOrganismNumber:
+          liveReservation.parentOrganismNumber ?? normalizedParent.organismNumber,
         generation: liveReservation.generation!,
         genome: liveReservation.genome!,
         bornAt,
+        bornAtUnix:
+          liveReservation.bornAtUnix ?? String(unixSecondsFromDate(bornAt)),
+        identityNamespaceProgramId:
+          liveReservation.identityNamespaceProgramId ?? getSporeProgramId(),
+        birthEra: liveReservation.birthEra ?? ORGANISM_BIRTH_ERA.serverV1,
+        schemaVersion:
+          liveReservation.schemaVersion ?? ORGANISM_INDEX_SCHEMA_VERSION,
+        genomeAlgorithmVersion:
+          liveReservation.genomeAlgorithmVersion ?? GENOME_ALGORITHM_VERSION,
         mutationSlot: liveReservation.mutationSlot!,
         nextSporeAt: bornAt,
         activeSporeCommitment: EMPTY_SPORE_COMMITMENT_HEX,

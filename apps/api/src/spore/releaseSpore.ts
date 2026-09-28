@@ -4,6 +4,7 @@ import {
   verifySeekerGenesisToken,
 } from "../auth/sgt";
 import { connectToDatabase } from "../db/mongoose";
+import { isSporeMigrationMaintenanceEnabled } from "../env";
 import {
   ORGANISM_STATUS,
   OrganismIndexModel,
@@ -40,6 +41,13 @@ export async function releaseSpore(input: {
   secret: Uint8Array;
 }): Promise<ReleaseSporeResult> {
   await connectToDatabase();
+
+  if (isSporeMigrationMaintenanceEnabled()) {
+    throw new SporeDomainError(
+      "migration_maintenance",
+      "SPØR is in migration maintenance. New spore releases are paused.",
+    );
+  }
 
   try {
     assertSporeSecret(input.secret);

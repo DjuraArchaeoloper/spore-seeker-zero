@@ -1,5 +1,12 @@
 import mongoose, { Schema, type Model } from "mongoose";
 
+import {
+  GENOME_ALGORITHM_VERSION,
+  ORGANISM_BIRTH_ERA,
+  ORGANISM_INDEX_SCHEMA_VERSION,
+  type OrganismBirthEra,
+} from "./OrganismIndex";
+
 const COMMITMENT_HEX_PATTERN = /^[0-9a-f]{64}$/;
 const PUBLIC_KEY_MIN_LENGTH = 32;
 const PUBLIC_KEY_MAX_LENGTH = 44;
@@ -33,6 +40,7 @@ export type ClaimReservation = {
   reservationId: string;
   parentOrganismPda: string;
   parentSgtMint: string;
+  parentOrganismNumber: string | null;
   recipientSgtMint: string;
   recipientWalletAddress: string;
   sporeCommitment: string;
@@ -56,8 +64,13 @@ export type ClaimReservation = {
   generation: number | null;
   genome: string | null;
   bornAt: Date | null;
+  bornAtUnix: string | null;
   mutationSlot: string | null;
   childOrganismPda: string | null;
+  identityNamespaceProgramId: string | null;
+  birthEra: OrganismBirthEra | null;
+  schemaVersion: number | null;
+  genomeAlgorithmVersion: string | null;
 
   coreFinalizationSignature: string | null;
 };
@@ -89,6 +102,15 @@ const claimReservationSchema = new Schema<ClaimReservation>(
     },
     parentSgtMint: {
       ...publicKeyField,
+    },
+    parentOrganismNumber: {
+      type: String,
+      default: null,
+      validate: {
+        validator(value: string | null) {
+          return value === null || DECIMAL_U64_PATTERN.test(value);
+        },
+      },
     },
     recipientSgtMint: {
       ...publicKeyField,
@@ -178,6 +200,15 @@ const claimReservationSchema = new Schema<ClaimReservation>(
       type: Date,
       default: null,
     },
+    bornAtUnix: {
+      type: String,
+      default: null,
+      validate: {
+        validator(value: string | null) {
+          return value === null || DECIMAL_U64_PATTERN.test(value);
+        },
+      },
+    },
     mutationSlot: {
       type: String,
       default: null,
@@ -189,6 +220,33 @@ const claimReservationSchema = new Schema<ClaimReservation>(
     },
     childOrganismPda: {
       ...optionalPublicKeyField,
+    },
+    identityNamespaceProgramId: {
+      ...optionalPublicKeyField,
+    },
+    birthEra: {
+      type: String,
+      default: null,
+      enum: [...Object.values(ORGANISM_BIRTH_ERA), null],
+    },
+    schemaVersion: {
+      type: Number,
+      default: null,
+      min: ORGANISM_INDEX_SCHEMA_VERSION,
+      validate: {
+        validator(value: number | null) {
+          return value === null || Number.isInteger(value);
+        },
+      },
+    },
+    genomeAlgorithmVersion: {
+      type: String,
+      default: null,
+      validate: {
+        validator(value: string | null) {
+          return value === null || value === GENOME_ALGORITHM_VERSION;
+        },
+      },
     },
     coreFinalizationSignature: {
       type: String,

@@ -1,9 +1,13 @@
 import {
+  GENOME_ALGORITHM_VERSION,
+  ORGANISM_BIRTH_ERA,
+  ORGANISM_INDEX_SCHEMA_VERSION,
   ORGANISM_STATUS,
   OrganismIndexModel,
   type OrganismIndex,
   type OrganismStatus
 } from "../models/OrganismIndex";
+import { getSporeProgramId } from "../env";
 import {
   EMPTY_SPORE_COMMITMENT_HEX,
   dateFromUnixSeconds,
@@ -32,6 +36,16 @@ export function normalizeOrganismReproductionState(
   return {
     ...organism,
     status: organism.status ?? ORGANISM_STATUS.finalized,
+    parentSgtMint: organism.parentSgtMint ?? null,
+    parentOrganismNumber: organism.parentOrganismNumber ?? null,
+    bornAtUnix:
+      organism.bornAtUnix ?? String(unixSecondsFromDate(organism.bornAt)),
+    identityNamespaceProgramId:
+      organism.identityNamespaceProgramId ?? getSporeProgramId(),
+    birthEra: organism.birthEra ?? ORGANISM_BIRTH_ERA.serverV1,
+    schemaVersion: organism.schemaVersion ?? ORGANISM_INDEX_SCHEMA_VERSION,
+    genomeAlgorithmVersion:
+      organism.genomeAlgorithmVersion ?? GENOME_ALGORITHM_VERSION,
     mutationSlot: organism.mutationSlot ?? null,
     nextSporeAt: organism.nextSporeAt ?? organism.bornAt,
     activeSporeCommitment:
