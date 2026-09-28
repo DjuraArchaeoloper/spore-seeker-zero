@@ -851,7 +851,7 @@ function assertBirthFee(value: string) {
   }
 
   const fee = BigInt(value);
-  if (fee > 10_000_000n) {
+  if (fee > 100_000_000n) {
     throw new SporeDomainError(
       "server_misconfigured",
       "SPORE_BIRTH_FEE_LAMPORTS exceeds protocol maximum.",
