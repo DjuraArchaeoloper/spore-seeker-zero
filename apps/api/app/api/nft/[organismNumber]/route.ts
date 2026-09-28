@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 const DECIMAL_DIGITS = /^[0-9]+$/;
 const MAX_U64_DECIMAL = "18446744073709551615";
 const headers = {
-  "Cache-Control": "no-store"
+  "Cache-Control": "no-store",
 };
 
 type RouteContext = {
@@ -31,7 +31,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     const organism = await OrganismIndexModel.findOne({
       organismNumber: normalizedNumber,
-      ...publicOrganismFilter
+      ...publicOrganismFilter,
     }).lean();
 
     if (!organism) {
@@ -40,7 +40,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     const metadataBaseUri = getCanonicalPublicApiUrl();
     const paddedNumber = organism.organismNumber.padStart(6, "0");
-    const image = `${metadataBaseUri}/${organism.organismNumber}/image`;
+    const image = `${metadataBaseUri}/api/nft/${organism.organismNumber}/image`;
 
     return Response.json(
       {
@@ -53,37 +53,41 @@ export async function GET(_request: Request, context: RouteContext) {
         attributes: [
           {
             trait_type: "Generation",
-            value: organism.generation
+            value: organism.generation,
           },
           {
             trait_type: "Organism Number",
-            value: organism.organismNumber
+            value: organism.organismNumber,
           },
           {
             trait_type: "Genome",
-            value: organism.genome
+            value: organism.genome,
           },
           {
             trait_type: "SGT Mint",
-            value: organism.sgtMint
-          }
+            value: organism.sgtMint,
+          },
         ],
         properties: {
           category: "image",
           files: [
             {
               type: "image/png",
-              uri: image
-            }
-          ]
-        }
+              uri: image,
+            },
+          ],
+        },
       },
       {
-        headers
-      }
+        headers,
+      },
     );
   } catch {
-    return jsonError(503, "server_misconfigured", "NFT metadata lookup is unavailable.");
+    return jsonError(
+      503,
+      "server_misconfigured",
+      "NFT metadata lookup is unavailable.",
+    );
   }
 }
 
@@ -96,7 +100,8 @@ function normalizeOrganismNumber(value: string) {
 
   if (
     normalized.length > MAX_U64_DECIMAL.length ||
-    (normalized.length === MAX_U64_DECIMAL.length && normalized > MAX_U64_DECIMAL)
+    (normalized.length === MAX_U64_DECIMAL.length &&
+      normalized > MAX_U64_DECIMAL)
   ) {
     return null;
   }
