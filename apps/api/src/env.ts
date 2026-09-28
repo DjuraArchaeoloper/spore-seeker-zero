@@ -519,7 +519,7 @@ function assertBirthFeeLamports(value: string) {
   }
 
   const lamports = BigInt(value);
-  if (lamports > 10_000_000n) {
+  if (lamports > 100_000_000n) {
     throw new Error("SPORE_BIRTH_FEE_LAMPORTS exceeds the protocol maximum.");
   }
 }
