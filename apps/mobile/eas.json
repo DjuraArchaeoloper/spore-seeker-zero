@@ -42,9 +42,12 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_SPORE_ENV": "mainnet",
-        "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
         "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "mainnet",
-        "EXPO_PUBLIC_SPORE_REPRODUCTION_MODE": "server"
+        "EXPO_PUBLIC_SPORE_REPRODUCTION_MODE": "server",
+        "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
+        "EXPO_PUBLIC_SPORE_API_URL": "https://api.sporseekerzero.fun",
+        "EXPO_PUBLIC_SPORE_RPC_URL": "https://api.mainnet-beta.solana.com",
+        "EXPO_PUBLIC_SPORE_PROGRAM_ID": "Bo5SBbmJiGW7xFiHun5rikfqdbUagSXdQQJN4d7PpGPw"
       }
     },
     "production": {
@@ -52,9 +55,12 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_SPORE_ENV": "mainnet",
-        "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
         "EXPO_PUBLIC_SPORE_SOLANA_CLUSTER": "mainnet",
-        "EXPO_PUBLIC_SPORE_REPRODUCTION_MODE": "server"
+        "EXPO_PUBLIC_SPORE_REPRODUCTION_MODE": "server",
+        "EXPO_PUBLIC_SPORE_VISUAL_PREVIEW": "false",
+        "EXPO_PUBLIC_SPORE_API_URL": "https://api.sporseekerzero.fun",
+        "EXPO_PUBLIC_SPORE_RPC_URL": "https://api.mainnet-beta.solana.com",
+        "EXPO_PUBLIC_SPORE_PROGRAM_ID": "Bo5SBbmJiGW7xFiHun5rikfqdbUagSXdQQJN4d7PpGPw"
       }
     }
   },
