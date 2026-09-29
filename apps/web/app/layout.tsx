@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Michroma } from "next/font/google";
+import { SPORE_PUBLIC_SITE_ORIGIN } from "@spore/shared";
 import "./globals.css";
 
 const description =
@@ -17,10 +18,8 @@ const ogImage = {
   alt: "SPØR · Seeker Zero",
 } as const;
 
-const siteUrl = "https://sporseekerzero.fun"
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SPORE_PUBLIC_SITE_ORIGIN),
   applicationName: "Cognios",
 
   title: "SPØR · Seeker Zero",

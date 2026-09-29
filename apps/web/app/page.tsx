@@ -3,6 +3,7 @@ import {
   SPORE_WEB_BACKGROUNDS,
 } from "@spore/shared/web-assets";
 import { SeekerZeroHero } from "./SeekerZeroHero";
+import { SiteFooter } from "./SiteFooter";
 import { Metadata } from "next";
 
 const sporeSeed = SEEKER_ZERO_CREATURE_WEB_ASSETS.layers.core;
@@ -126,6 +127,8 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }
