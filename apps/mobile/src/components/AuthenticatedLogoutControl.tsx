@@ -1,13 +1,14 @@
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { tokens } from "../design/tokens";
+import { openSporeLegalDocument } from "../legal";
 import { AppText } from "./AppText";
 import { SporeLoader } from "./SporeLoader";
 
 export const AUTH_LOGOUT_TOP_OFFSET = 8;
 export const AUTH_LOGOUT_HIT_SIZE = 48;
-export const AUTH_LOGOUT_RESERVED_WIDTH = 112;
-export const AUTH_LOGOUT_TOP_RESERVE = AUTH_LOGOUT_TOP_OFFSET + AUTH_LOGOUT_HIT_SIZE + 8;
+export const AUTH_LOGOUT_RESERVED_WIDTH = 168;
+export const AUTH_LOGOUT_TOP_RESERVE = AUTH_LOGOUT_TOP_OFFSET + AUTH_LOGOUT_HIT_SIZE + 20;
 
 type AuthenticatedLogoutControlProps = {
   busy?: boolean;
@@ -23,35 +24,96 @@ export function AuthenticatedLogoutControl({
   style,
 }: AuthenticatedLogoutControlProps) {
   return (
+    <View style={[styles.control, style]}>
+      <Pressable
+        accessibilityLabel="Log out of SPØR"
+        accessibilityRole="button"
+        accessibilityState={{ busy, disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.touchTarget,
+          disabled && styles.disabled,
+          pressed && !disabled && styles.pressed,
+        ]}
+      >
+        {({ pressed }) => (
+          <View style={[styles.backing, pressed && !disabled && styles.backingPressed]}>
+            {busy ? (
+              <SporeLoader mode="button" size={14} />
+            ) : (
+              <AppText maxFontSizeMultiplier={1.15} numberOfLines={1} style={styles.label} variant="metadata">
+                LOG OUT
+              </AppText>
+            )}
+          </View>
+        )}
+      </Pressable>
+      <View style={styles.legalRow}>
+        <LegalLink
+          label="TERMS"
+          accessibilityLabel="Open Terms of Service"
+          onPress={() => {
+            void openSporeLegalDocument("terms");
+          }}
+        />
+        <AppText maxFontSizeMultiplier={1.15} style={styles.legalDivider} variant="metadata">
+          ·
+        </AppText>
+        <LegalLink
+          label="PRIVACY"
+          accessibilityLabel="Open Privacy Policy"
+          onPress={() => {
+            void openSporeLegalDocument("privacy");
+          }}
+        />
+        <AppText maxFontSizeMultiplier={1.15} style={styles.legalDivider} variant="metadata">
+          ·
+        </AppText>
+        <LegalLink
+          label="DATA DELETION"
+          accessibilityLabel="Open Data Deletion"
+          onPress={() => {
+            void openSporeLegalDocument("dataDeletion");
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+function LegalLink({
+  accessibilityLabel,
+  label,
+  onPress,
+}: {
+  accessibilityLabel: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
     <Pressable
-      accessibilityLabel="Log out of SPØR"
-      accessibilityRole="button"
-      accessibilityState={{ busy, disabled }}
-      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="link"
       onPress={onPress}
       style={({ pressed }) => [
-        styles.touchTarget,
-        style,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
+        styles.legalTouchTarget,
+        pressed && styles.legalPressed,
       ]}
     >
-      {({ pressed }) => (
-        <View style={[styles.backing, pressed && !disabled && styles.backingPressed]}>
-          {busy ? (
-            <SporeLoader mode="button" size={14} />
-          ) : (
-            <AppText maxFontSizeMultiplier={1.15} numberOfLines={1} style={styles.label} variant="metadata">
-              LOG OUT
-            </AppText>
-          )}
-        </View>
-      )}
+      <AppText maxFontSizeMultiplier={1.15} numberOfLines={1} style={styles.legalLabel} variant="metadata">
+        {label}
+      </AppText>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  control: {
+    alignItems: "center",
+    minWidth: AUTH_LOGOUT_RESERVED_WIDTH,
+    zIndex: 20,
+  },
   touchTarget: {
     alignItems: "center",
     justifyContent: "center",
@@ -89,5 +151,37 @@ const styles = StyleSheet.create({
     paddingLeft: 1.15,
     textAlign: "center",
     textTransform: "uppercase",
+  },
+  legalRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: -3,
+  },
+  legalTouchTarget: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 22,
+    paddingHorizontal: 2,
+  },
+  legalPressed: {
+    opacity: tokens.opacity.muted,
+  },
+  legalLabel: {
+    ...tokens.postAuth.smallText,
+    color: tokens.postAuth.tertiary,
+    fontSize: 8,
+    letterSpacing: 0.8,
+    lineHeight: 12,
+    paddingLeft: 0.8,
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  legalDivider: {
+    ...tokens.postAuth.smallText,
+    color: "rgba(135, 161, 168, 0.42)",
+    fontSize: 8,
+    lineHeight: 12,
+    paddingHorizontal: 1,
   },
 });

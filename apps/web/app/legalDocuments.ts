@@ -14,7 +14,7 @@ export const legalDocuments = {
 
 **Last updated: September 29, 2026**
 
-These Terms of Service (“Terms”) govern your access to and use of SPØR - Seeker Zero (“SPØR,” the “App,” or the “Service”), operated by **Djuradj Djuric** (“we,” “us,” or “our”).
+These Terms of Service (“Terms”) govern your access to and use of SPØR - Seeker Zero (“SPØR,” the “App,” or the “Service”). SPØR is operated by **Djuradj Djuric**, publishing as **archaeoloper** (“we,” “us,” or “our”).
 
 By connecting a wallet to SPØR, accessing the Service, or using the Service, you agree to these Terms. If you do not agree, do not use SPØR.
 
@@ -135,7 +135,7 @@ Security research conducted responsibly and without harming users or infrastruct
 
 ## 11. Intellectual Property
 
-Except for content, software, protocols, or trademarks owned by third parties, SPØR and its associated branding, artwork, interfaces, software, creature designs, visual assets, text, and other original materials are owned by or licensed to **Djuradj Djuric**.
+Except for content, software, protocols, or trademarks owned by third parties, SPØR and its associated branding, artwork, interfaces, software, creature designs, visual assets, text, and other original materials are owned by or licensed to SPØR.
 
 These Terms give you a limited, personal, non-exclusive, non-transferable right to use SPØR for its intended purpose.
 
@@ -185,7 +185,7 @@ Nothing in these Terms excludes warranties or consumer rights that cannot lawful
 
 ## 16. Limitation of Liability
 
-To the fullest extent permitted by applicable law, **Djuradj Djuric** will not be liable for indirect, incidental, special, consequential, or punitive damages arising from your use of SPØR, including loss resulting from blockchain transactions, wallet access, network failures, or third-party services.
+To the fullest extent permitted by applicable law, we will not be liable for indirect, incidental, special, consequential, or punitive damages arising from your use of SPØR, including loss resulting from blockchain transactions, wallet access, network failures, or third-party services.
 
 Nothing in these Terms limits liability where such limitation is prohibited by applicable law.
 
@@ -219,7 +219,7 @@ These Terms are governed by the laws of **Serbia**, without prejudice to any man
 
 Questions about these Terms may be sent to:
 
-**Djuradj Djuric**  
+**Djuradj Djuric / archaeoloper**  
 **djura2707@gmail.com**  
 **https://sporseekerzero.fun**
 `,
@@ -232,7 +232,7 @@ Questions about these Terms may be sent to:
 
 **Last updated: September 29, 2026**
 
-This Privacy Policy explains how **Djuradj Djuric** (“SPØR,” “we,” “us,” or “our”) collects, uses, shares, and protects information when you use SPØR – Seeker Zero (“SPØR” or the “Service”).
+This Privacy Policy explains how SPØR collects, uses, shares, and protects information when you use SPØR - Seeker Zero (“SPØR” or the “Service”). SPØR is operated by **Djuradj Djuric**, publishing as **archaeoloper** (“we,” “us,” or “our”).
 
 SPØR is a wallet-based application built on the Solana blockchain.
 
@@ -295,6 +295,16 @@ SPØR uses camera access for this feature only.
 
 QR scanning is processed locally by the app. Camera image frames are not uploaded to or stored by SPØR.
 
+### Optional birth location
+
+After a successful organism birth, SPØR may ask whether you want to share approximate location information associated with that birth and organism experience.
+
+If you allow location access, SPØR may process approximate or coarse location information, such as coarse latitude and longitude, country, region, or city-level labels. This information may be sent to the SPØR API and stored off-chain as birth-location data.
+
+Sharing birth location is optional. Refusing location access does not prevent the core SPØR experience.
+
+SPØR does not require or collect precise GPS location, and SPØR does not collect background location.
+
 ### Technical information
 
 When your device communicates with our servers, our hosting or infrastructure providers may automatically process limited technical information such as:
@@ -308,8 +318,6 @@ When your device communicates with our servers, our hosting or infrastructure pr
 
 This information may be used to operate, secure, troubleshoot, and protect the Service.
 
-SPØR does not require precise GPS location for its core functionality.
-
 ## 2. Information We Do Not Request
 
 SPØR is designed to minimize personal-data collection.
@@ -322,6 +330,7 @@ SPØR does not require you to provide:
 - password;
 - contacts;
 - precise GPS location;
+- background location;
 - seed phrase;
 - wallet private key; or
 - traditional account-registration information.
@@ -338,6 +347,7 @@ We use information described above to:
 - identify the organism associated with an SGT;
 - create and verify organism births;
 - display organism and bloodline information;
+- record optional approximate birth-location information if you choose to share it;
 - index public Solana data for faster application performance;
 - maintain sessions;
 - prevent fraud, abuse, replay attacks, and unauthorized access;
@@ -368,7 +378,7 @@ SPØR may maintain an off-chain index of public organism information so that the
 
 This database is a derived representation of blockchain state. The Solana blockchain remains the authoritative source for canonical organism information.
 
-The indexed information may include organism identifiers, SGT mint addresses, ancestry, genome information, transaction signatures, asset addresses, and timestamps.
+The indexed information may include organism identifiers, SGT mint addresses, ancestry, genome information, transaction signatures, asset addresses, timestamps, and optional approximate birth-location information if you choose to share it.
 
 ## 6. How We Share Information
 
@@ -393,6 +403,10 @@ Our API and web infrastructure may be hosted using providers such as **Vercel**.
 ### Database providers
 
 We may use infrastructure such as **MongoDB Atlas** to store off-chain application data and indexes.
+
+### Location and geocoding service providers
+
+If you choose to share approximate birth location, platform location or geocoding service providers may process approximate location information to provide coarse place labels.
 
 ### Wallet providers
 
@@ -487,11 +501,11 @@ If you believe a child has provided personal information to us, contact **djura2
 
 ## 15. Third-Party Services
 
-SPØR interacts with services and protocols that we do not control, including Solana, wallet applications, blockchain infrastructure providers, and Solana Mobile.
+SPØR interacts with services and protocols that we do not control, including Solana, wallet applications, blockchain infrastructure providers, location or geocoding service providers, and Solana Mobile.
 
 Their handling of information is governed by their own policies.
 
-This Privacy Policy covers information processed by **Djuradj Djuric** through SPØR and does not replace the privacy policies of those third parties.
+This Privacy Policy covers information processed by SPØR and does not replace the privacy policies of those third parties.
 
 ## 16. Changes to This Privacy Policy
 
@@ -505,7 +519,7 @@ Where required by law, we will provide additional notice of material changes.
 
 For questions, requests, or complaints regarding privacy:
 
-**Djuradj Djuric**  
+**Djuradj Djuric / archaeoloper**  
 **djura2707@gmail.com**  
 **https://sporseekerzero.fun**
 
@@ -520,6 +534,8 @@ If applicable law requires us to provide additional company, representative, or 
     markdown: `# SPØR - Data Deletion
 
 **Last updated: September 29, 2026**
+
+SPØR is operated by **Djuradj Djuric**, publishing as **archaeoloper**.
 
 You may request deletion of off-chain personal information controlled by SPØR.
 
@@ -536,6 +552,12 @@ Solana is a public blockchain. Public Solana blockchain records cannot be delete
 This means SPØR cannot erase on-chain organisms, transactions, Seeker Genesis Token records, NFTs, or other confirmed Solana data.
 
 Third parties may independently view, copy, index, store, or retain copies of public blockchain data.
+
+## Contact
+
+**Djuradj Djuric / archaeoloper**  
+**djura2707@gmail.com**  
+**https://sporseekerzero.fun**
 `,
   },
 } as const satisfies Record<

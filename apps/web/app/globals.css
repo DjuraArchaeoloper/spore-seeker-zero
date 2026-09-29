@@ -168,6 +168,10 @@ main {
 .origin,
 .sectionMark,
 .mutation,
+.skrDisplay,
+.skrHeadline,
+.skrBody p,
+.skrDisclaimer,
 .lawStatement,
 .heroText,
 .originStatement p {
@@ -307,6 +311,7 @@ h1 {
 }
 
 .spread,
+.seekerEcosystem,
 .originPanel {
   position: relative;
   padding: 50px var(--gutter);
@@ -320,6 +325,7 @@ h1 {
 }
 
 .spread::before,
+.seekerEcosystem::before,
 .originPanel::before {
   position: absolute;
   inset: 0;
@@ -344,6 +350,7 @@ h1 {
 } */
 
 .spread > *,
+.seekerEcosystem > *,
 .originPanel > * {
   position: relative;
   z-index: 1;
@@ -435,6 +442,76 @@ h1 {
   font-size: 0.9rem;
   line-height: 1.72;
   text-align: right;
+}
+
+.seekerEcosystem {
+  display: grid;
+  align-content: center;
+  min-height: 72svh;
+  padding-top: 104px;
+  padding-bottom: 112px;
+}
+
+.seekerEcosystem .sectionMark {
+  width: min(100%, 1240px);
+  margin: 0 auto 58px;
+}
+
+.skrComposition {
+  display: grid;
+  grid-template-columns: minmax(0, 0.58fr) minmax(320px, 0.42fr);
+  gap: 74px;
+  align-items: end;
+  width: min(100%, 1240px);
+  margin: 0 auto;
+}
+
+.skrDisplay {
+  color: var(--ink);
+  font-size: 8.6rem;
+  font-weight: 400;
+  line-height: 0.82;
+}
+
+.skrCopy {
+  position: relative;
+  display: grid;
+  gap: 24px;
+  max-width: 500px;
+  padding-bottom: 10px;
+}
+
+.skrCopy::before {
+  display: block;
+  width: 72px;
+  height: 1px;
+  margin-bottom: 3px;
+  background: rgba(181, 238, 226, 0.36);
+  content: "";
+}
+
+.skrHeadline {
+  color: rgba(247, 251, 251, 0.92);
+  font-size: 1rem;
+  line-height: 1.74;
+}
+
+.skrHeadline span {
+  display: block;
+}
+
+.skrBody {
+  display: grid;
+  gap: 13px;
+  color: rgba(196, 215, 217, 0.8);
+  font-size: 0.9rem;
+  line-height: 1.84;
+}
+
+.skrDisclaimer {
+  color: rgba(181, 238, 226, 0.68);
+  font-size: 0.68rem;
+  line-height: 1.5;
 }
 
 .originPanel {
@@ -635,6 +712,10 @@ h1 {
     font-size: 3.35rem;
   }
 
+  .skrDisplay {
+    font-size: 9.4rem;
+  }
+
   .originStatement h2 {
     font-size: 4.8rem;
   }
@@ -655,6 +736,10 @@ h1 {
 
   .lifeSequence li {
     font-size: 2.62rem;
+  }
+
+  .skrDisplay {
+    font-size: 7.4rem;
   }
 
   .originStatement h2 {
@@ -770,6 +855,7 @@ h1 {
   }
 
   .spread,
+  .seekerEcosystem,
   .originPanel {
     min-height: auto;
     padding-top: 86px;
@@ -823,6 +909,47 @@ h1 {
     gap: 8px;
     font-size: 0.78rem;
     text-align: left;
+  }
+
+  .seekerEcosystem {
+    align-content: start;
+  }
+
+  .seekerEcosystem .sectionMark {
+    width: min(100%, 430px);
+    margin-bottom: 44px;
+  }
+
+  .skrComposition {
+    grid-template-columns: 1fr;
+    gap: 46px;
+    align-items: start;
+    width: min(100%, 430px);
+  }
+
+  .skrDisplay {
+    font-size: 4.8rem;
+  }
+
+  .skrCopy {
+    gap: 20px;
+    max-width: 360px;
+    padding-bottom: 0;
+  }
+
+  .skrHeadline {
+    font-size: 0.86rem;
+    line-height: 1.72;
+  }
+
+  .skrBody {
+    gap: 12px;
+    font-size: 0.78rem;
+    line-height: 1.86;
+  }
+
+  .skrDisclaimer {
+    font-size: 0.62rem;
   }
 
   .originPanel {
@@ -881,6 +1008,10 @@ h1 {
 
   .lifeSequence li {
     font-size: 2rem;
+  }
+
+  .skrDisplay {
+    font-size: 4.1rem;
   }
 
   .originStatement h2 {

@@ -111,6 +111,26 @@ export default function Home() {
           </p>
         </section>
 
+        <section className="seekerEcosystem" aria-labelledby="skr-title">
+          <p className="sectionMark">SEEKER ECOSYSTEM</p>
+          <div className="skrComposition">
+            <h2 className="skrDisplay" id="skr-title">
+              SKR.
+            </h2>
+            <div className="skrCopy">
+              <p className="skrHeadline">
+                <span>BUILT FOR SEEKER.</span>
+                <span>CONNECTED TO ITS ECONOMY.</span>
+              </p>
+              <div className="skrBody">
+                <p>SPØR is built inside the Solana Seeker ecosystem.</p>
+                <p>Future community rewards, drops, or species events may use SKR.</p>
+              </div>
+              <p className="skrDisclaimer">NO REWARDS ARE GUARANTEED.</p>
+            </div>
+          </div>
+        </section>
+
         <section className="originPanel" aria-labelledby="lineage-title">
           <div className="originStatement">
             <p className="sectionMark">ORIGIN</p>

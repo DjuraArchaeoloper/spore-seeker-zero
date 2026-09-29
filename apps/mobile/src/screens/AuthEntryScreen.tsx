@@ -32,6 +32,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "../components/AppText";
 import { SporeLoader } from "../components/SporeLoader";
+import { tokens } from "../design/tokens";
+import { openSporeLegalDocument } from "../legal";
 
 type AuthEntryScreenProps = {
   status: "restoring" | "unauthenticated" | "authenticating";
@@ -257,10 +259,19 @@ export function AuthEntryScreen({
   // The reference membrane measures approximately 594 x 110, with 38px corners.
   const buttonScale = buttonWidth / 594;
   const buttonHeight = Math.max(52, 110 * buttonScale);
+  const legalLineGap = Math.max(12, 22 * scale);
+  const legalLineReserve = Math.max(44, 78 * scale);
+  const legalFontSize = Math.max(9, 14 * scale);
+  const legalLineHeight = Math.max(15, 22 * scale);
   const titleTop = Math.max(insets.top + 16, height * (686 / 1584));
   const actionTop = Math.min(
     Math.max(height * (973 / 1584), titleTop + 210 * scale + 32),
-    height - insets.bottom - buttonHeight - 24,
+    height -
+      insets.bottom -
+      buttonHeight -
+      legalLineGap -
+      legalLineReserve -
+      18,
   );
 
   return (
@@ -452,6 +463,58 @@ export function AuthEntryScreen({
                 </AppText>
               )}
             </Pressable>
+            <AppText
+              maxFontSizeMultiplier={1.15}
+              style={[
+                styles.text,
+                styles.legalCopy,
+                {
+                  fontSize: legalFontSize,
+                  lineHeight: legalLineHeight,
+                  marginTop: legalLineGap,
+                },
+              ]}
+            >
+              By connecting your wallet, you agree to the{" "}
+              <AppText
+                accessibilityRole="link"
+                maxFontSizeMultiplier={1.15}
+                onPress={() => {
+                  void openSporeLegalDocument("terms");
+                }}
+                style={[
+                  styles.legalCopy,
+                  styles.legalLink,
+                  {
+                    fontSize: legalFontSize,
+                    lineHeight: legalLineHeight,
+                  },
+                ]}
+                suppressHighlighting
+              >
+                Terms of Service
+              </AppText>{" "}
+              and acknowledge the{" "}
+              <AppText
+                accessibilityRole="link"
+                maxFontSizeMultiplier={1.15}
+                onPress={() => {
+                  void openSporeLegalDocument("privacy");
+                }}
+                style={[
+                  styles.legalCopy,
+                  styles.legalLink,
+                  {
+                    fontSize: legalFontSize,
+                    lineHeight: legalLineHeight,
+                  },
+                ]}
+                suppressHighlighting
+              >
+                Privacy Policy
+              </AppText>
+              .
+            </AppText>
           </View>
         </>
       )}
@@ -727,6 +790,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: "#f4f8f8" },
+  legalCopy: {
+    ...tokens.postAuth.smallText,
+    color: "rgba(135, 161, 168, 0.78)",
+    textAlign: "center",
+  },
+  legalLink: {
+    color: "rgba(184, 206, 211, 0.94)",
+    textDecorationColor: "rgba(184, 206, 211, 0.42)",
+    textDecorationLine: "underline",
+  },
   error: {
     position: "absolute",
     left: -16,
