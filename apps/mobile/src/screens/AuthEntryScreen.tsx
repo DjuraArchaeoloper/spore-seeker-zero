@@ -475,7 +475,7 @@ export function AuthEntryScreen({
                 },
               ]}
             >
-              By connecting your wallet, you agree to the{" "}
+              By connecting your wallet, you agree to{" "}
               <AppText
                 accessibilityRole="link"
                 maxFontSizeMultiplier={1.15}
@@ -492,9 +492,9 @@ export function AuthEntryScreen({
                 ]}
                 suppressHighlighting
               >
-                Terms of Service
+                TERMS
               </AppText>{" "}
-              and acknowledge the{" "}
+              and acknowledge{" "}
               <AppText
                 accessibilityRole="link"
                 maxFontSizeMultiplier={1.15}
@@ -511,7 +511,26 @@ export function AuthEntryScreen({
                 ]}
                 suppressHighlighting
               >
-                Privacy Policy
+                PRIVACY
+              </AppText>
+              {" "}and understand{" "}
+              <AppText
+                accessibilityRole="link"
+                maxFontSizeMultiplier={1.15}
+                onPress={() => {
+                  void openSporeLegalDocument("dataDeletion");
+                }}
+                style={[
+                  styles.legalCopy,
+                  styles.legalLink,
+                  {
+                    fontSize: legalFontSize,
+                    lineHeight: legalLineHeight,
+                  },
+                ]}
+                suppressHighlighting
+              >
+                DATA DELETION
               </AppText>
               .
             </AppText>
