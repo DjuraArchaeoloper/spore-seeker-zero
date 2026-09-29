@@ -124,16 +124,16 @@ export default function Home() {
               </p>
               <div className="skrBody">
                 <p>SPØR is built inside the Solana Seeker ecosystem.</p>
-                <p>Future community rewards, drops, or species events may use SKR.</p>
+                <p>Future community rewards, drops, or species events will use SKR.</p>
               </div>
-              <p className="skrDisclaimer">NO REWARDS ARE GUARANTEED.</p>
+              {/* <p className="skrDisclaimer">NO REWARDS ARE GUARANTEED.</p> */}
             </div>
           </div>
         </section>
 
         <section className="originPanel" aria-labelledby="lineage-title">
           <div className="originStatement">
-            <p className="sectionMark">ORIGIN</p>
+            {/* <p className="sectionMark">ORIGIN</p> */}
             <h2 id="lineage-title">
               <span>EVERY ORGANISM</span>
               <span>DESCENDS FROM</span>
