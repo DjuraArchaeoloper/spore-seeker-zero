@@ -259,6 +259,8 @@ export function AuthEntryScreen({
   // The reference membrane measures approximately 594 x 110, with 38px corners.
   const buttonScale = buttonWidth / 594;
   const buttonHeight = Math.max(52, 110 * buttonScale);
+  const errorLineGap = Math.max(6, 10 * scale);
+  const errorLineReserve = error ? errorLineGap + 20 : 0;
   const legalLineGap = Math.max(12, 22 * scale);
   const legalLineReserve = Math.max(44, 78 * scale);
   const legalFontSize = Math.max(9, 14 * scale);
@@ -269,6 +271,7 @@ export function AuthEntryScreen({
     height -
       insets.bottom -
       buttonHeight -
+      errorLineReserve -
       legalLineGap -
       legalLineReserve -
       18,
@@ -351,19 +354,6 @@ export function AuthEntryScreen({
             </AppText>
           </View>
           <View style={[styles.action, { top: actionTop, width: buttonWidth }]}>
-            {error ? (
-              <AppText
-                accessibilityLiveRegion="polite"
-                maxFontSizeMultiplier={1.2}
-                style={[
-                  styles.text,
-                  styles.error,
-                  { bottom: buttonHeight + 16 },
-                ]}
-              >
-                SEEKER VERIFICATION FAILED.
-              </AppText>
-            ) : null}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="ENTER SPØR"
@@ -463,6 +453,19 @@ export function AuthEntryScreen({
                 </AppText>
               )}
             </Pressable>
+            {error ? (
+              <AppText
+                accessibilityLiveRegion="polite"
+                maxFontSizeMultiplier={1.2}
+                style={[
+                  styles.text,
+                  styles.error,
+                  { marginTop: errorLineGap },
+                ]}
+              >
+                SEEKER VERIFICATION FAILED.
+              </AppText>
+            ) : null}
             <AppText
               maxFontSizeMultiplier={1.15}
               style={[
@@ -820,10 +823,9 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   error: {
-    position: "absolute",
-    left: -16,
-    right: -16,
+    alignSelf: "stretch",
     color: "#819ea8",
+    flexShrink: 1,
     fontSize: 9,
     lineHeight: 16,
     letterSpacing: 1,
