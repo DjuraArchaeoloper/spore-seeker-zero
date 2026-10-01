@@ -6,7 +6,9 @@
     "orientation": "portrait",
     "icon": "./assets/spor-android-icon-1024-v5.png",
     "platforms": [
-      "android"
+      "android",
+      "ios",
+      "web"
     ],
     "scheme": "spore",
     "plugins": [

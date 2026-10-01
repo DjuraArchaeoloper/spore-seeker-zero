@@ -1152,6 +1152,13 @@ export default function Reproduction({
             { paddingBottom: Math.max(insets.bottom + tokens.spacing.lg, tokens.spacing.xxl) },
           ]}
         >
+          <AppText
+            style={[styles.feeDisclosure, tokens.postAuth.smallText]}
+            tone="secondary"
+            variant="metadata"
+          >
+            Claiming an organism requires SOL for birth + network fees.
+          </AppText>
           {error ? <AppText style={styles.scanLiveMessage}>{error}</AppText> : null}
           {busy ? (
             <View style={styles.scanLivePendingRow}>
@@ -1228,6 +1235,9 @@ export default function Reproduction({
           </View>
 
           <View style={styles.acceptLifeActions}>
+            <AppText style={styles.feeDisclosure} tone="secondary" variant="metadata">
+              Birth cost · 0.02 SOL + network fees
+            </AppText>
             <PrimaryButton
               disabled={busy}
               appearance="specimen"
@@ -1624,6 +1634,9 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.sm,
     maxWidth: 360,
     width: "100%",
+  },
+  feeDisclosure: {
+    textAlign: "center",
   },
   offerScreen: {
     flex: 1,
