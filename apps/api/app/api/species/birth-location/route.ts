@@ -1,15 +1,25 @@
+import { base58 } from "@metaplex-foundation/umi/serializers";
+import { PublicKey, type Connection } from "@solana/web3.js";
+
 import { getAuthenticatedSeeker } from "../../../../src/auth/session";
 import { connectToDatabase } from "../../../../src/db/mongoose";
+import { getSporeEnv } from "../../../../src/env";
 import { readJsonObject, RequestBodyError, type JsonObject } from "../../../../src/http/request";
 import { jsonError, jsonOk } from "../../../../src/http/responses";
 import { BirthLocationModel } from "../../../../src/models/BirthLocation";
-import { OrganismIndexModel } from "../../../../src/models/OrganismIndex";
+import {
+  ORGANISM_BIRTH_ERA,
+  ORGANISM_STATUS,
+  OrganismIndexModel
+} from "../../../../src/models/OrganismIndex";
+import { SpeciesStateModel } from "../../../../src/models/SpeciesState";
 import {
   getBirthReference,
   normalizeOrganismNumber,
   normalizeTransactionSignature
 } from "../../../../src/organisms/identifiers";
 import { publicOrganismFilter } from "../../../../src/organisms/responses";
+import { getVerifiedSolanaConnection } from "../../../../src/spore/solanaConnection";
 
 export const runtime = "nodejs";
 
@@ -18,6 +28,12 @@ const LOCATION_GRID_DEGREES = 0.5;
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
 const LOCATION_LABEL_MAX_LENGTH = 80;
 const LOCATION_LABEL_PATTERN = /^[\p{L}\p{M} .,'()-]{1,80}$/u;
+const MAINNET_SEEKER_ZERO_SGT = "GJPtXDXZnPVB2qqA45YGSx5FVPdHeJxJHHMyxAXiH1bx";
+const MAINNET_SEEKER_ZERO_PDA = "9kcwN8aMPsFgWg8gexEKuVTYePtckjCaZDhrUk3waJ2o";
+const MPL_CORE_PROGRAM_ID = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
+const CORE_CREATE_V1_DISCRIMINATOR = 0;
+const CORE_CREATE_V2_DISCRIMINATOR = 20;
+const MAX_GENESIS_ASSET_SIGNATURES = 1000;
 const ALLOWED_FIELDS = new Set([
   "organismNumber",
   "transactionSignature",
@@ -30,8 +46,8 @@ const ALLOWED_FIELDS = new Set([
 ]);
 
 type BirthLocationSubmission = {
-  organismNumber: string;
-  transactionSignature: string;
+  organismNumber: string | null;
+  transactionSignature: string | null;
   latitude: number;
   longitude: number;
   countryCode: string | null;
@@ -41,6 +57,27 @@ type BirthLocationSubmission = {
 };
 
 class BirthLocationInputError extends Error {}
+class GenesisReferenceError extends Error {}
+
+export async function GET(request: Request) {
+  try {
+    await connectToDatabase();
+    const seeker = await getAuthenticatedSeeker(request);
+    if (!seeker) {
+      return jsonError(401, "unauthorized", "Unauthorized.");
+    }
+
+    const organism = await findMainnetSeekerZero(seeker.sgtMint);
+    if (!organism) {
+      return jsonError(404, "not_found", "Organism birth not found.");
+    }
+
+    const recorded = await BirthLocationModel.exists({ organismNumber: organism.organismNumber });
+    return jsonOk({ eligible: !recorded, recorded: Boolean(recorded) });
+  } catch {
+    return jsonError(503, "server_misconfigured", "Birth location is unavailable.");
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -54,30 +91,37 @@ export async function POST(request: Request) {
 
     const body = await readJsonObject(request, MAX_LOCATION_BODY_BYTES);
     const input = parseBirthLocationSubmission(body);
-    const organism = await OrganismIndexModel.findOne({
-      organismNumber: input.organismNumber,
-      transactionSignature: input.transactionSignature,
-      sgtMint: seeker.sgtMint,
-      ...publicOrganismFilter
-    })
-      .select({
-        organismNumber: 1,
-        transactionSignature: 1
-      })
-      .lean();
+    const genesisBackfill = input.organismNumber === null;
+    const organism = genesisBackfill
+      ? await findMainnetSeekerZero(seeker.sgtMint)
+      : await OrganismIndexModel.findOne({
+          organismNumber: input.organismNumber,
+          transactionSignature: input.transactionSignature,
+          sgtMint: seeker.sgtMint,
+          ...publicOrganismFilter
+        })
+          .select({ organismNumber: 1, transactionSignature: 1 })
+          .lean();
 
     if (!organism) {
       return jsonError(404, "not_found", "Organism birth not found.");
     }
 
-    const transactionSignature = input.transactionSignature;
+    const existing = await BirthLocationModel.findOne({
+      organismNumber: organism.organismNumber
+    }).lean();
+
+    if (genesisBackfill && existing) {
+      return jsonOk({ recorded: true, created: false });
+    }
+
+    const transactionSignature = genesisBackfill
+      ? await resolveGenesisCreateSignature(organism.transactionSignature, organism.coreAsset)
+      : input.transactionSignature!;
     const birthReference = getBirthReference(
       organism.organismNumber,
       transactionSignature
     );
-    const existing = await BirthLocationModel.findOne({
-      organismNumber: organism.organismNumber
-    }).lean();
 
     if (existing) {
       if (existing.birthReference !== birthReference) {
@@ -145,6 +189,10 @@ export async function POST(request: Request) {
       return jsonError(400, "bad_request", "Invalid birth location request.");
     }
 
+    if (error instanceof GenesisReferenceError) {
+      return jsonError(409, "integrity_conflict", "Seeker Zero birth reference is invalid.");
+    }
+
     return jsonError(503, "server_misconfigured", "Birth location is unavailable.");
   }
 }
@@ -156,10 +204,16 @@ function parseBirthLocationSubmission(body: JsonObject): BirthLocationSubmission
     }
   }
 
-  const organismNumber = normalizeOrganismNumber(body.organismNumber);
-  const transactionSignature = normalizeTransactionSignature(body.transactionSignature);
-
-  if (!organismNumber || !transactionSignature) {
+  const hasOrganismNumber = Object.hasOwn(body, "organismNumber");
+  const hasTransactionSignature = Object.hasOwn(body, "transactionSignature");
+  if (hasOrganismNumber !== hasTransactionSignature) {
+    throw new BirthLocationInputError("Invalid birth reference.");
+  }
+  const organismNumber = hasOrganismNumber ? normalizeOrganismNumber(body.organismNumber) : null;
+  const transactionSignature = hasTransactionSignature
+    ? normalizeTransactionSignature(body.transactionSignature)
+    : null;
+  if (hasOrganismNumber && (!organismNumber || !transactionSignature)) {
     throw new BirthLocationInputError("Invalid birth reference.");
   }
 
@@ -173,6 +227,115 @@ function parseBirthLocationSubmission(body: JsonObject): BirthLocationSubmission
     regionLabel: normalizeLocationLabel(body.regionLabel),
     cityLabel: normalizeLocationLabel(body.cityLabel)
   };
+}
+
+async function findMainnetSeekerZero(sgtMint: string) {
+  if (getSporeEnv() !== "mainnet" || sgtMint !== MAINNET_SEEKER_ZERO_SGT) {
+    return null;
+  }
+
+  const [organism, species] = await Promise.all([
+    OrganismIndexModel.findOne({
+      organismNumber: "0",
+      organismPda: MAINNET_SEEKER_ZERO_PDA,
+      sgtMint,
+      birthEra: ORGANISM_BIRTH_ERA.serverV1,
+      status: ORGANISM_STATUS.finalized,
+      generation: 0,
+      parentOrganismPda: null,
+    }).select({ organismNumber: 1, organismPda: 1, transactionSignature: 1, coreAsset: 1 }).lean(),
+    SpeciesStateModel.findOne({ key: "canonical" })
+      .select({ seekerZeroOrganismPda: 1 })
+      .lean()
+  ]);
+
+  return organism?.coreAsset &&
+    species?.seekerZeroOrganismPda === organism.organismPda
+    ? organism
+    : null;
+}
+
+async function resolveGenesisCreateSignature(
+  storedSignatures: string | null,
+  coreAsset: string | null
+) {
+  const signatures = storedSignatures?.split(",") ?? [];
+  if (
+    signatures.length !== 2 ||
+    !coreAsset ||
+    signatures.some((signature) => normalizeTransactionSignature(signature) !== signature)
+  ) {
+    throw new GenesisReferenceError();
+  }
+
+  const connection = await getVerifiedSolanaConnection();
+  let transactionUnavailable = false;
+
+  // A resumed bootstrap may store update + revoke, with creation absent from this field.
+  for (const signature of signatures) {
+    const createsAsset = await isCoreAssetCreation(connection, signature, coreAsset);
+    if (createsAsset === true) return signature;
+    if (createsAsset === null) transactionUnavailable = true;
+  }
+
+  const assetSignatures = await connection.getSignaturesForAddress(
+    new PublicKey(coreAsset),
+    { limit: MAX_GENESIS_ASSET_SIGNATURES },
+    "confirmed"
+  );
+  for (const entry of assetSignatures) {
+    if (entry.err || signatures.includes(entry.signature)) continue;
+    const createsAsset = await isCoreAssetCreation(connection, entry.signature, coreAsset);
+    if (createsAsset === true) return entry.signature;
+    if (createsAsset === null) transactionUnavailable = true;
+  }
+
+  if (transactionUnavailable) {
+    throw new Error("Seeker Zero Core creation transaction is unavailable.");
+  }
+  throw new GenesisReferenceError();
+}
+
+async function isCoreAssetCreation(
+  connection: Connection,
+  signature: string,
+  coreAsset: string
+): Promise<boolean | null> {
+  const transaction = await connection.getTransaction(signature, {
+    commitment: "confirmed",
+    maxSupportedTransactionVersion: 0
+  });
+  if (!transaction?.meta) {
+    return null;
+  }
+
+  const message = transaction.transaction.message;
+  if (
+    transaction.meta.err ||
+    transaction.transaction.signatures[0] !== signature ||
+    !("accountKeys" in message)
+  ) {
+    return false;
+  }
+
+  const assetIndex = message.accountKeys.findIndex((key) => key.toBase58() === coreAsset);
+  const coreProgramIndex = message.accountKeys.findIndex(
+    (key) => key.toBase58() === MPL_CORE_PROGRAM_ID
+  );
+  return assetIndex >= 0 &&
+    assetIndex < message.header.numRequiredSignatures &&
+    coreProgramIndex >= 0 &&
+    message.instructions.some((instruction) => {
+      if (
+        instruction.programIdIndex !== coreProgramIndex ||
+        instruction.accounts[0] !== assetIndex
+      ) {
+        return false;
+      }
+      const discriminator = base58.serialize(instruction.data)[0];
+      return discriminator === CORE_CREATE_V1_DISCRIMINATOR ||
+        discriminator === CORE_CREATE_V2_DISCRIMINATOR;
+    });
 }
 
 function readCoordinate(value: unknown, label: string, min: number, max: number) {

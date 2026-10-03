@@ -1,4 +1,8 @@
-import { submitBirthLocation } from "../auth/api";
+import {
+  submitBirthLocation,
+  submitSeekerZeroBirthLocation,
+  type BirthLocationCoordinates,
+} from "../auth/api";
 import { getStoredSessionToken } from "../auth/session";
 import type { Organism } from "./chain";
 
@@ -38,30 +42,15 @@ export async function submitOptionalBirthLocation({
       return;
     }
 
-    const Location = await import("expo-location");
-    const permission = await Location.requestForegroundPermissionsAsync();
-
-    if (!permission.granted) {
+    const location = await acquireOptionalBirthLocation();
+    if (!location) {
       return;
     }
-
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Lowest,
-    });
-    const { latitude, longitude } = position.coords;
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      return;
-    }
-
-    const locality = await reverseGeocodeBirthLocality(Location, latitude, longitude);
 
     await submitBirthLocation(token, {
       organismNumber: newborn.organismNumber,
       transactionSignature,
-      latitude,
-      longitude,
-      ...locality,
+      ...location,
     });
   } catch (error) {
     if (__DEV__) {
@@ -71,6 +60,42 @@ export async function submitOptionalBirthLocation({
       );
     }
   }
+}
+
+export async function submitOptionalSeekerZeroBirthLocation() {
+  const token = await getStoredSessionToken();
+  if (!token) {
+    throw new Error("Sign in again to continue.");
+  }
+
+  const location = await acquireOptionalBirthLocation();
+  if (!location) {
+    return false;
+  }
+
+  await submitSeekerZeroBirthLocation(token, location);
+  return true;
+}
+
+async function acquireOptionalBirthLocation(): Promise<BirthLocationCoordinates | null> {
+  const Location = await import("expo-location");
+  const permission = await Location.requestForegroundPermissionsAsync();
+
+  if (!permission.granted) {
+    return null;
+  }
+
+  const position = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.Lowest,
+  });
+  const { latitude, longitude } = position.coords;
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  const locality = await reverseGeocodeBirthLocality(Location, latitude, longitude);
+  return { latitude, longitude, ...locality };
 }
 
 async function reverseGeocodeBirthLocality(

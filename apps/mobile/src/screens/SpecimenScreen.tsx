@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Host, Icon } from "@expo/ui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SEEKER_ZERO_GENOME_HEX, type GenomeInput } from "@spore/shared";
 
@@ -15,6 +16,11 @@ import {
 } from "../components/share/OrganismShareCard";
 import { tokens } from "../design/tokens";
 import { shareOrganismCard } from "../spore/shareOrganism";
+
+const ORIGIN_LOCATION_ICON = Icon.select({
+  ios: "location.viewfinder",
+  android: import("@expo/material-symbols/my_location.xml"),
+});
 
 // Art direction in logical pixels; the flexible stage absorbs height changes.
 const SPECIMEN_LAYOUT = {
@@ -87,6 +93,8 @@ export type SpecimenScreenProps = {
   previewOrigin?: boolean;
   onRelease?: () => void;
   onViewSpore?: () => void;
+  onRecordBirthLocation?: () => void;
+  birthLocationBusy?: boolean;
   busy?: boolean;
   canRelease?: boolean;
   canViewSpore?: boolean;
@@ -103,6 +111,8 @@ export function SpecimenScreen({
   previewOrigin = false,
   onRelease,
   onViewSpore,
+  onRecordBirthLocation,
+  birthLocationBusy = false,
   busy = false,
   canRelease = false,
   canViewSpore = false,
@@ -261,6 +271,27 @@ export function SpecimenScreen({
           <AppText maxFontSizeMultiplier={1.2} numberOfLines={1} style={styles.subtitle} variant="metadata">
             {designation.subtitle}
           </AppText>
+          {onRecordBirthLocation ? (
+            <Pressable
+              accessibilityLabel="Add origin location"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy || birthLocationBusy }}
+              disabled={busy || birthLocationBusy}
+              onPress={onRecordBirthLocation}
+              style={({ pressed }) => [
+                styles.originAction,
+                (busy || birthLocationBusy) && styles.originActionDisabled,
+                pressed && styles.originActionPressed,
+              ]}
+            >
+              <Host matchContents pointerEvents="none" style={styles.originIcon}>
+                <Icon name={ORIGIN_LOCATION_ICON} color={tokens.postAuth.tertiary} size={14} />
+              </Host>
+              <AppText maxFontSizeMultiplier={1.2} style={styles.originLabel} variant="metadata">
+                {birthLocationBusy ? "RECORDING LOCATION" : "ADD ORIGIN LOCATION"}
+              </AppText>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.readyRow}>
@@ -387,6 +418,35 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: "center",
     textTransform: "uppercase",
+  },
+  originAction: {
+    alignItems: "center",
+    alignSelf: "center",
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    marginBottom: -8,
+    marginTop: -4,
+    minHeight: 44,
+    paddingHorizontal: tokens.spacing.lg,
+  },
+  originActionDisabled: {
+    opacity: tokens.opacity.disabled,
+  },
+  originActionPressed: {
+    opacity: tokens.opacity.muted,
+  },
+  originIcon: {
+    height: 14,
+    width: 14,
+  },
+  originLabel: {
+    ...tokens.postAuth.smallText,
+    color: tokens.postAuth.tertiary,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    lineHeight: 15,
+    textAlign: "center",
   },
   readyRow: {
     alignItems: "center",

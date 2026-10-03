@@ -104,6 +104,11 @@ const criticalIndexes: CriticalIndex[] = [
     options: { name: "sgtMint_1", unique: true },
   },
   {
+    collectionName: "outbreakseasons",
+    key: { seasonId: 1 },
+    options: { name: "seasonId_1", unique: true },
+  },
+  {
     collectionName: "sessions",
     key: { tokenHash: 1 },
     options: { name: "tokenHash_1", unique: true },
@@ -122,6 +127,46 @@ const criticalIndexes: CriticalIndex[] = [
     collectionName: "auth_nonces",
     key: { expiresAt: 1 },
     options: { name: "expiresAt_1", expireAfterSeconds: 0 },
+  },
+  {
+    collectionName: "admin_sessions",
+    key: { tokenHash: 1 },
+    options: { name: "tokenHash_1", unique: true },
+  },
+  {
+    collectionName: "admin_sessions",
+    key: { expiresAt: 1 },
+    options: { name: "expiresAt_1", expireAfterSeconds: 0 },
+  },
+  {
+    collectionName: "admin_otps",
+    key: { purgeAt: 1 },
+    options: { name: "purgeAt_1", expireAfterSeconds: 0 },
+  },
+  {
+    collectionName: "payout_runs",
+    key: { campaignId: 1, kind: 1 },
+    options: { name: "payout_main_per_campaign", unique: true, partialFilterExpression: { kind: "main" } },
+  },
+  {
+    collectionName: "skr_rewards",
+    key: { campaignId: 1, payoutStatus: 1 },
+    options: { name: "campaignId_1_payoutStatus_1" },
+  },
+  {
+    collectionName: "payout_transactions",
+    key: { campaignId: 1, status: 1, createdAt: 1 },
+    options: { name: "campaignId_1_status_1_createdAt_1" },
+  },
+  {
+    collectionName: "payout_transactions",
+    key: { runId: 1 },
+    options: { name: "runId_1" },
+  },
+  {
+    collectionName: "payout_transactions",
+    key: { signature: 1 },
+    options: { name: "payout_signature_unique", unique: true, partialFilterExpression: { signature: { $type: "string" } } },
   },
 ];
 

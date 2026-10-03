@@ -8,6 +8,7 @@
     "start": "next start",
     "build:spore-core-wasm": "npm run build -w @spore/core-wasm",
     "bootstrap:seeker-zero": "npx --yes tsx scripts/bootstrap-seeker-zero.ts",
+    "reconcile:campaign-births": "npx --yes tsx scripts/reconcile-campaign-births.ts",
     "prepare:indexes": "npx --yes tsx scripts/prepare-indexes.ts"
   },
   "dependencies": {

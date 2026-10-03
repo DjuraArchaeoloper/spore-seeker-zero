@@ -20,6 +20,7 @@ import {
   getSpecies,
   getSpeciesLeaderboard,
   getSpeciesMap,
+  getSeekerZeroBirthLocationStatus,
   type BloodlineResponse,
   type OutbreakResponse,
   type SpeciesLeaderboardResponse,
@@ -71,7 +72,11 @@ import {
   BirthRevealStage,
   type BirthRevealPayload,
 } from "./BirthRevealStage";
-import { submitOptionalBirthLocation } from "./birthLocation";
+import {
+  submitOptionalBirthLocation,
+  submitOptionalSeekerZeroBirthLocation,
+} from "./birthLocation";
+import { sporeEnv } from "./config";
 import {
   consumePropagationMoment,
   type PropagationMoment,
@@ -173,6 +178,9 @@ export default function Reproduction({
     data?: SpeciesMapResponse | null;
     error?: string | null;
   }>({});
+  const [seekerZeroLocation, setSeekerZeroLocation] = useState<
+    "unchecked" | "checking" | "available" | "submitting" | "recorded" | "unavailable"
+  >("unchecked");
   const [speciesLeaderboard, setSpeciesLeaderboard] = useState<{
     data?: SpeciesLeaderboardResponse | null;
     error?: string | null;
@@ -593,6 +601,68 @@ export default function Reproduction({
       }
     }, 0);
   }, [refreshOutbreak, setSurface]);
+  useEffect(() => {
+    if (
+      surface !== "specimen" ||
+      organism?.organismNumber !== "0" ||
+      sporeEnv() !== "mainnet"
+    ) {
+      return;
+    }
+
+    let live = true;
+    setSeekerZeroLocation("checking");
+    void (async () => {
+      const token = await getStoredSessionToken();
+      if (!token) {
+        throw new Error("Session unavailable.");
+      }
+      const status = await getSeekerZeroBirthLocationStatus(token);
+      if (live) {
+        setSeekerZeroLocation(status.recorded ? "recorded" : status.eligible ? "available" : "unavailable");
+      }
+    })().catch(() => {
+      if (live) setSeekerZeroLocation("unavailable");
+    });
+
+    return () => {
+      live = false;
+    };
+  }, [identity.sgtMint, organism?.organismNumber, surface]);
+
+  const recordSeekerZeroLocation = useCallback(async () => {
+    if (seekerZeroLocation !== "available") return;
+    setSeekerZeroLocation("submitting");
+    try {
+      const recorded = await submitOptionalSeekerZeroBirthLocation();
+      if (recorded) {
+        setSeekerZeroLocation("recorded");
+        try {
+          const token = await getStoredSessionToken();
+          if (token) {
+            const status = await getSeekerZeroBirthLocationStatus(token);
+            setSeekerZeroLocation(status.recorded ? "recorded" : status.eligible ? "available" : "unavailable");
+          }
+        } catch {
+          // A successful submission remains recorded if the status refresh is unavailable.
+        }
+      } else {
+        setSeekerZeroLocation("available");
+      }
+    } catch {
+      setSeekerZeroLocation("available");
+    }
+  }, [seekerZeroLocation]);
+  const confirmSeekerZeroLocation = useCallback(() => {
+    Alert.alert(
+      "ADD ORIGIN LOCATION",
+      "This records Seeker Zero's coarse origin location. Are you currently at or near where it originated?",
+      [
+        { text: "CANCEL", style: "cancel" },
+        { text: "CONTINUE", onPress: () => { void recordSeekerZeroLocation(); } },
+      ],
+    );
+  }, [recordSeekerZeroLocation]);
   useEffect(() => {
     if (birthReveal.status !== "newbornResolved") {
       return;
@@ -1403,6 +1473,12 @@ export default function Reproduction({
     surface === "specimen" ? (
       <SpecimenScreen
         organism={organism}
+        onRecordBirthLocation={
+          seekerZeroLocation === "available" || seekerZeroLocation === "submitting"
+            ? confirmSeekerZeroLocation
+            : undefined
+        }
+        birthLocationBusy={seekerZeroLocation === "submitting"}
         onRelease={() => {
           void release();
         }}

@@ -16,6 +16,7 @@ import { base58 } from "@metaplex-foundation/umi/serializers";
 import { fromWeb3JsKeypair } from "@metaplex-foundation/umi-web3js-adapters";
 
 import { connectToDatabase } from "../db/mongoose";
+import { processVerifiedBirth, toVerifiedBirth } from "../outbreak/verifiedBirth";
 import {
   CLAIM_RESERVATION_STATUS,
   ClaimReservationModel,
@@ -59,6 +60,28 @@ import { getSporeProgramId } from "../env";
  * Idempotent against the same reservation / asset / organism number.
  */
 export async function finalizeClaimBirth(input: {
+  reservationId: string;
+}): Promise<OrganismIndex> {
+  const organism = await finalizeClaimBirthOrganism(input);
+
+  // Core/Mongo finalization (including retries) has completed and committed.
+  // Campaign processing must never roll back or change a successful birth.
+  try {
+    const birth = await toVerifiedBirth(organism);
+    if (birth) {
+      await processVerifiedBirth(birth);
+    }
+  } catch (error) {
+    console.error("SPØR post-birth campaign processing deferred.", {
+      organismPda: organism.organismPda,
+      reason: error instanceof Error ? error.name : "Unknown",
+    });
+  }
+
+  return organism;
+}
+
+async function finalizeClaimBirthOrganism(input: {
   reservationId: string;
 }): Promise<OrganismIndex> {
   await connectToDatabase();

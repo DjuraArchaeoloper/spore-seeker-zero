@@ -94,6 +94,16 @@ export type BirthLocationSubmission = {
   cityLabel?: string | null;
 };
 
+export type BirthLocationCoordinates = Omit<
+  BirthLocationSubmission,
+  "organismNumber" | "transactionSignature"
+>;
+
+export type SeekerZeroBirthLocationStatus = {
+  eligible: boolean;
+  recorded: boolean;
+};
+
 export type OutbreakSkrPool = {
   tokenMint?: string;
   totalAmount?: string;
@@ -201,6 +211,33 @@ export async function getSpeciesLeaderboard(limit = 10) {
 }
 
 export async function submitBirthLocation(token: string, location: BirthLocationSubmission) {
+  await sporeFetch(
+    "/api/species/birth-location",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(location),
+    },
+    "Birth location is unavailable.",
+  );
+}
+
+export async function getSeekerZeroBirthLocationStatus(token: string) {
+  const response = await sporeFetch(
+    "/api/species/birth-location",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Birth location is unavailable.",
+  );
+  return (await response.json()) as SeekerZeroBirthLocationStatus;
+}
+
+export async function submitSeekerZeroBirthLocation(
+  token: string,
+  location: BirthLocationCoordinates,
+) {
   await sporeFetch(
     "/api/species/birth-location",
     {
