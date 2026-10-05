@@ -621,14 +621,14 @@ h1 {
 }
 
 .heroEntryPoint {
-  grid-template-columns: 132px minmax(0, 190px);
+  grid-template-columns: 192px minmax(0, 190px);
   gap: 20px;
   align-items: center;
   margin-top: 38px;
 }
 
 .heroEntryPoint .entryQrFrame {
-  width: 132px;
+  width: 192px;
   padding: 6px;
 }
 
