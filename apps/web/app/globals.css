@@ -620,6 +620,27 @@ h1 {
   line-height: 1.7;
 }
 
+.heroEntryPoint {
+  grid-template-columns: 132px minmax(0, 190px);
+  gap: 20px;
+  align-items: center;
+  margin-top: 38px;
+}
+
+.heroEntryPoint .entryQrFrame {
+  width: 132px;
+  padding: 6px;
+}
+
+.heroEntryPoint .entryCopy h2 {
+  font-size: 0.72rem;
+}
+
+.heroEntryPoint .entryCopy p {
+  margin-top: 10px;
+  font-size: 0.64rem;
+}
+
 .siteFooter {
   position: relative;
   z-index: 2;
@@ -1040,6 +1061,17 @@ h1 {
   .entryCopy p {
     margin-top: 10px;
     font-size: 0.64rem;
+  }
+
+  .heroEntryPoint {
+    grid-template-columns: 120px minmax(0, 180px);
+    gap: 18px;
+    margin-top: 30px;
+  }
+
+  .heroEntryPoint .entryQrFrame {
+    width: 120px;
+    padding: 6px;
   }
 
   .siteFooter {

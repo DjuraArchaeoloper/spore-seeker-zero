@@ -80,6 +80,25 @@ export default function Home() {
             <p className="heroText">
               An onchain species spreading through Seekers.
             </p>
+            <section
+              className="entryPoint heroEntryPoint"
+              aria-labelledby="hero-entry-title"
+            >
+              <div className="entryQrFrame">
+                <img
+                  className="entryQr"
+                  src="/qr-code.png"
+                  alt="Scan to open SPØR on your Seeker"
+                  decoding="async"
+                  height={1147}
+                  width={1147}
+                />
+              </div>
+              <div className="entryCopy">
+                <h2 id="hero-entry-title">ENTER SPØR</h2>
+                <p>Scan with your Seeker to open SPØR.</p>
+              </div>
+            </section>
           </div>
 
           <SeekerZeroHero />
