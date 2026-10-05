@@ -141,9 +141,27 @@ export default function Home() {
             </h2>
             <p>Each birth adds another branch to a permanent bloodline.</p>
           </div>
-          <div className="lawStatement" aria-label="SPØR technology">
-            <p>THE LAWS OF THE SPECIES LIVE ON SOLANA.</p>
-            <span>BUILT FOR SOLANA SEEKER.</span>
+          <div className="closingDetails">
+            <div className="lawStatement" aria-label="SPØR technology">
+              <p>THE LAWS OF THE SPECIES LIVE ON SOLANA.</p>
+              <span>BUILT FOR SOLANA SEEKER.</span>
+            </div>
+            <section className="entryPoint" aria-labelledby="entry-title">
+              <div className="entryQrFrame">
+                <img
+                  className="entryQr"
+                  src="/qr-code.png"
+                  alt="Scan to open SPØR on your Seeker"
+                  decoding="async"
+                  height={1147}
+                  width={1147}
+                />
+              </div>
+              <div className="entryCopy">
+                <h2 id="entry-title">ENTER SPØR</h2>
+                <p>Scan with your Seeker to open SPØR.</p>
+              </div>
+            </section>
           </div>
         </section>
       </main>

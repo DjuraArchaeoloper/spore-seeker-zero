@@ -554,12 +554,17 @@ h1 {
   line-height: 1.8;
 }
 
+.closingDetails {
+  display: grid;
+  gap: clamp(46px, 6svh, 70px);
+  align-self: end;
+  padding-bottom: 4svh;
+}
+
 .lawStatement {
   position: relative;
   display: grid;
   gap: 24px;
-  align-self: end;
-  padding-bottom: 4svh;
   color: rgba(247, 251, 251, 0.9);
   font-size: 0.85rem;
   line-height: 1.75;
@@ -576,6 +581,43 @@ h1 {
 
 .lawStatement span {
   color: rgba(196, 215, 217, 0.72);
+}
+
+.entryPoint {
+  display: grid;
+  grid-template-columns: minmax(0, 184px) minmax(94px, 1fr);
+  gap: 22px;
+  align-items: end;
+}
+
+.entryQrFrame {
+  width: 184px;
+  padding: 8px;
+  background: #fff;
+}
+
+.entryQr {
+  width: 100%;
+  height: auto;
+}
+
+.entryCopy h2,
+.entryCopy p {
+  margin: 0;
+}
+
+.entryCopy h2 {
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.entryCopy p {
+  margin-top: 12px;
+  color: rgba(196, 215, 217, 0.72);
+  font-size: 0.68rem;
+  line-height: 1.7;
 }
 
 .siteFooter {
@@ -972,7 +1014,32 @@ h1 {
 
   .lawStatement {
     gap: 20px;
+  }
+
+  .closingDetails {
+    gap: 44px;
+    width: min(100%, 430px);
     padding-bottom: 0;
+  }
+
+  .entryPoint {
+    grid-template-columns: minmax(0, min(42vw, 168px)) minmax(0, 1fr);
+    gap: 20px;
+    align-items: center;
+  }
+
+  .entryQrFrame {
+    width: min(42vw, 168px);
+    padding: 7px;
+  }
+
+  .entryCopy h2 {
+    font-size: 0.72rem;
+  }
+
+  .entryCopy p {
+    margin-top: 10px;
+    font-size: 0.64rem;
   }
 
   .siteFooter {
