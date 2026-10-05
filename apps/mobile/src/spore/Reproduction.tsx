@@ -123,6 +123,21 @@ function delay(ms: number) {
   });
 }
 
+function confirmWorldMapContribution(
+  onAddToMap: () => void,
+  message = "Share an approximate location for this birth on the global outbreak map.",
+) {
+  Alert.alert(
+    "ADD TO WORLD MAP",
+    message,
+    [
+      { text: "SKIP", style: "cancel" },
+      { text: "ADD TO MAP", onPress: onAddToMap },
+    ],
+    { cancelable: true },
+  );
+}
+
 export default function Reproduction({
   identity,
   onSignOut,
@@ -584,10 +599,6 @@ export default function Reproduction({
     setStage("home");
     setError(null);
     void refreshOutbreak();
-    void submitOptionalBirthLocation({
-      newborn: payload.newborn,
-      transactionSignature: payload.birthTransactionSignature,
-    });
     pendingClaimSignature.current = null;
 
     setTimeout(() => {
@@ -598,6 +609,15 @@ export default function Reproduction({
             ? { status: "idle" }
             : current,
         );
+        if (payload.birthTransactionSignature) {
+          confirmWorldMapContribution(() => {
+            if (!mounted.current) return;
+            void submitOptionalBirthLocation({
+              newborn: payload.newborn,
+              transactionSignature: payload.birthTransactionSignature,
+            });
+          });
+        }
       }
     }, 0);
   }, [refreshOutbreak, setSurface]);
@@ -654,13 +674,9 @@ export default function Reproduction({
     }
   }, [seekerZeroLocation]);
   const confirmSeekerZeroLocation = useCallback(() => {
-    Alert.alert(
-      "ADD ORIGIN LOCATION",
-      "This records Seeker Zero's coarse origin location. Are you currently at or near where it originated?",
-      [
-        { text: "CANCEL", style: "cancel" },
-        { text: "CONTINUE", onPress: () => { void recordSeekerZeroLocation(); } },
-      ],
+    confirmWorldMapContribution(
+      () => { void recordSeekerZeroLocation(); },
+      "Share Seeker Zero's approximate origin location on the global outbreak map. Are you currently at or near where it originated?",
     );
   }, [recordSeekerZeroLocation]);
   useEffect(() => {

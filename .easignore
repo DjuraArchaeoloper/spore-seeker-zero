@@ -36,6 +36,10 @@ node_modules/**
 **/.expo
 **/.expo/**
 
+# Generated Android project: EAS must regenerate it from the Expo config.
+/apps/mobile/android
+/apps/mobile/android/**
+
 # --------------------------------------------------
 # Design / reference material
 # Not required by the Android application
